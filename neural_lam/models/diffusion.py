@@ -3,7 +3,6 @@ import torch
 from neural_lam.models.ar_model import ARModel
 from neural_lam import constants
 from neural_lam.models.EDM_networks import EDMPrecond
-from torchsummary import summary
 
 class Diffusion(ARModel):
     """
@@ -18,7 +17,7 @@ class Diffusion(ARModel):
         self.output_dim = constants.grid_state_dim
 
         # TODO: Define modules as members here that will be used in predict_step
-        self.model = EDMPrecond(img_resolution=268, in_channels=self.output_dim, out_channels=self.output_dim, \
+        self.model = EDMPrecond(img_resolution=64, in_channels=self.output_dim, out_channels=self.output_dim, \
                                 embedding_type='fourier', encoder_type='standard', decoder_type='standard', \
                                 channel_mult_noise=2, resample_filter=[1,3,3,1], model_channels=32, channel_mult=[2,4,8], \
                                 attn_resolutions=[32,], sigma_data=1, sigma_min=0.02, sigma_max=88, label_dropout=0,
@@ -58,6 +57,7 @@ class Diffusion(ARModel):
         pred_std: None or (B, N_grid, d_state), predicted standard-deviations
                     (pred_std can be ignored by just returning None)
         """
+        print("predict_step!!!")
         return prev_state, None
 
     def predict_step_train(self, prev_state, prev_prev_state, forcing, true_states=None):
@@ -109,6 +109,10 @@ class Diffusion(ARModel):
         print(f"n: {n.shape}")
         print(f"sigma: {sigma.shape}")
         print(f"class_labels: {class_labels.shape}")
+
+        # TODO Run y, x_0, x_(t-1) through encoder to 64x64 dimension
+        
+
         # TODO: Feed input_grid through some model to predict output_grid
         output_grid = self.model(y+n, sigma) # Shape (B, d_state, N_x, N_y) TODO: Add class labels to condition on
         print(f"output_grid: {output_grid.shape}")

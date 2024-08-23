@@ -1,5 +1,6 @@
 dataset:
-  name: meps_example
+  name: example_subset
+  data_path: /proj/berzelius-2022-164/weather/meps
   var_names:
     - pres_0g
     - pres_0s

@@ -32,12 +32,13 @@ class WeatherDataset(torch.utils.data.Dataset):
         standardize=True,
         subset=False,
         control_only=False,
+        data_path="data"
     ):
         super().__init__()
 
         assert split in ("train", "val", "test"), "Unknown dataset split"
         self.sample_dir_path = os.path.join(
-            "data", dataset_name, "samples", split
+            data_path, dataset_name, "samples", split
         )
 
         member_file_regexp = (
@@ -64,7 +65,7 @@ class WeatherDataset(torch.utils.data.Dataset):
         # Set up for standardization
         self.standardize = standardize
         if standardize:
-            ds_stats = utils.load_dataset_stats(dataset_name, "cpu")
+            ds_stats = utils.load_dataset_stats(dataset_name, data_path=data_path, device="cpu")
             self.data_mean, self.data_std, self.flux_mean, self.flux_std = (
                 ds_stats["data_mean"],
                 ds_stats["data_std"],
