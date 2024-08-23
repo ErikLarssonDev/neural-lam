@@ -254,7 +254,7 @@ def fractional_plot_bundle(fraction):
     # If latex is not available, some visualizations might not render correctly,
     # but will at least not raise an error.
     # Alternatively, use unicode raised numbers.
-    usetex = True if shutil.which("latex") else False
+    usetex = False # Removed this line to remove latex errors # True if shutil.which("latex") else False
     bundle = bundles.neurips2023(usetex=usetex, family="serif")
     bundle.update(figsizes.neurips2023())
     original_figsize = bundle["figure.figsize"]

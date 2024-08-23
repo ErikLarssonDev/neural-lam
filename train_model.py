@@ -15,11 +15,19 @@ from neural_lam.models.graph_lam import GraphLAM
 from neural_lam.models.hi_lam import HiLAM
 from neural_lam.models.hi_lam_parallel import HiLAMParallel
 from neural_lam.weather_dataset import WeatherDataset
+from neural_lam.models.WNO import WNO2d
+from neural_lam.models.UNet2D import UNet2D
+from neural_lam.models.FNO import FNO2d
+from neural_lam.models.diffusion import Diffusion
 
 MODELS = {
     "graph_lam": GraphLAM,
     "hi_lam": HiLAM,
     "hi_lam_parallel": HiLAMParallel,
+    "WNO2d": WNO2d,
+    "UNet2d": UNet2D,
+    "FNO2d": FNO2d,
+    "diffusion": Diffusion
 }
 
 
@@ -248,7 +256,7 @@ def main(input_args=None):
         WeatherDataset(
             config_loader.dataset.name,
             pred_length=max_pred_length,
-            split="val",
+            split="train", # TODO: Change to val
             subsample_step=args.step_length,
             subset=bool(args.subset_ds),
             control_only=args.control_only,
@@ -261,11 +269,12 @@ def main(input_args=None):
     # Instantiate model + trainer
     if torch.cuda.is_available():
         device_name = "cuda"
-        torch.set_float32_matmul_precision(
-            "high"
-        )  # Allows using Tensor Cores on A100s
+        torch.set_float32_matmul_precision("high")  # Allows using Tensor Cores on A100s
+    # elif torch.backends.mps.is_available():
+    #     device_name = "gpu"
     else:
         device_name = "cpu"
+
 
     # Load model parameters Use new args for model
     model_class = MODELS[args.model]
@@ -291,7 +300,7 @@ def main(input_args=None):
     trainer = pl.Trainer(
         max_epochs=args.epochs,
         deterministic=True,
-        strategy="ddp",
+        strategy='ddp', # "ddp_find_unused_parameters_true", # "ddp", # TODO: Try to change to ddp
         accelerator=device_name,
         logger=logger,
         log_every_n_steps=1,
@@ -326,6 +335,11 @@ def main(input_args=None):
         print(f"Running evaluation on {args.eval}")
         trainer.test(model=model, dataloaders=eval_loader, ckpt_path=args.load)
     else:
+        print("Starting training")
+        # for n, p in model.named_parameters():
+        #     if p.grad is None:
+        #         print(f'{n} has no grad')
+
         # Train model
         trainer.fit(
             model=model,
