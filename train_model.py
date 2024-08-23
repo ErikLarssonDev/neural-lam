@@ -257,7 +257,7 @@ def main(input_args=None):
         WeatherDataset(
             config_loader.dataset.name,
             pred_length=max_pred_length,
-            split="train", # TODO: Change to val
+            split="val", # TODO: Change to val
             subsample_step=args.step_length,
             subset=bool(args.subset_ds),
             control_only=args.control_only,

@@ -1,5 +1,5 @@
 dataset:
-  name: example_subset
+  name: full_npy
   data_path: /proj/berzelius-2022-164/weather/meps
   var_names:
     - pres_0g
