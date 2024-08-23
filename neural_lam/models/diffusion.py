@@ -38,9 +38,8 @@ class Diffusion(ARModel):
         #                         sigma_max=88,
         #                         label_dropout=0)
 
-        print("Model summary:")
-        summary(self.model, [(4, 17, 256, 128), (4, 1, 1, 1)])
-        
+   
+    # Autoencoder --> 256x128 --> EDM --> Autoencoder --> 268x238     
         
 
     # TODO add predict_step for val/test, generate_ensamble_from_batch
