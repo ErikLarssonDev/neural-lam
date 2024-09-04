@@ -247,6 +247,12 @@ def main():
         help="If border condition should be used in diffusion model ",
     )
 
+    parser.add_argument(
+        "--pred_residual",
+        action="store_true",
+        help="If the model should predict residuals instead of absolute values",
+    )
+
     # Evaluation options
     parser.add_argument(
         "--eval",
