@@ -37,7 +37,7 @@ class WeatherDataset(torch.utils.data.Dataset):
 
         assert split in ("train", "val", "test"), "Unknown dataset split"
         self.sample_dir_path = os.path.join(
-            "data", dataset_name, "samples", split
+            constants.DATA_PATH, dataset_name, "samples", split
         )
 
         member_file_regexp = (
