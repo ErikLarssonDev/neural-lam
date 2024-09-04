@@ -24,7 +24,9 @@ class Diffusion(ARModel):
         self.border_condition = args.border_condition
         self.input_dim = 3*constants.GRID_STATE_DIM + constants.GRID_FORCING_DIM + constants.BATCH_STATIC_FEATURE_DIM
         self.output_dim = constants.GRID_STATE_DIM
-        
+
+        self.ensemble_size = args.ensemble_size
+        self.crps_weight = args.crps_weight
         self.sigma_min = 0.02
         self.sigma_max = 88
         self.sigma_data = 1
@@ -607,45 +609,45 @@ class Diffusion(ARModel):
 
             # Sample latent variable and plot
             # embed all features
-            grid_prev_emb, graph_emb = self.embedd_all(
-                init_states[:, 1],
-                init_states[:, 0],
-                forcing_features[:, 0],
-            )  # (B, num_grid_nodes, d_h)
-            # embed also including current grid state, for encoder
-            grid_current_emb = self.embedd_current(
-                init_states[:, 1],
-                init_states[:, 0],
-                forcing_features[:, 0],
-                target_states[:, 0],
-            )  # (B, num_grid_nodes, d_h)
+            # grid_prev_emb, graph_emb = self.embedd_all(
+            #     init_states[:, 1],
+            #     init_states[:, 0],
+            #     forcing_features[:, 0],
+            # )  # (B, num_grid_nodes, d_h)
+            # # embed also including current grid state, for encoder
+            # grid_current_emb = self.embedd_current(
+            #     init_states[:, 1],
+            #     init_states[:, 0],
+            #     forcing_features[:, 0],
+            #     target_states[:, 0],
+            # )  # (B, num_grid_nodes, d_h)
 
-            # Create latent variable samples
-            prior_dist = self.prior_model(
-                grid_prev_emb, graph_emb=graph_emb
-            )  # Gaussian, (B, num_mesh_nodes, d_latent)
-            prior_samples = prior_dist.rsample(
-                (constants.LATENT_SAMPLES_PLOT,)
-            ).transpose(
-                0, 1
-            )  # (B, samples, num_mesh_nodes, d_latent)
+            # # Create latent variable samples
+            # prior_dist = self.prior_model(
+            #     grid_prev_emb, graph_emb=graph_emb
+            # )  # Gaussian, (B, num_mesh_nodes, d_latent)
+            # prior_samples = prior_dist.rsample(
+            #     (constants.LATENT_SAMPLES_PLOT,)
+            # ).transpose(
+            #     0, 1
+            # )  # (B, samples, num_mesh_nodes, d_latent)
 
-            vi_dist = self.encoder(
-                grid_current_emb, graph_emb=graph_emb
-            )  # Gaussian, (B, num_mesh_nodes, d_latent)
-            vi_samples = vi_dist.rsample(
-                (constants.LATENT_SAMPLES_PLOT,)
-            ).transpose(
-                0, 1
-            )  # (B, samples, num_mesh_nodes, d_latent)
+            # vi_dist = self.encoder(
+            #     grid_current_emb, graph_emb=graph_emb
+            # )  # Gaussian, (B, num_mesh_nodes, d_latent)
+            # vi_samples = vi_dist.rsample(
+            #     (constants.LATENT_SAMPLES_PLOT,)
+            # ).transpose(
+            #     0, 1
+            # )  # (B, samples, num_mesh_nodes, d_latent)
 
-            # Make plot for each example
-            for example_i, (prior_ex_samples, vi_ex_samples) in enumerate(
-                zip(prior_samples, vi_samples), start=1
-            ):
-                log_plot_dict[f"latent_samples_ex{example_i}"] = (
-                    vis.plot_latent_samples(prior_ex_samples, vi_ex_samples)
-                )
+            # # Make plot for each example
+            # for example_i, (prior_ex_samples, vi_ex_samples) in enumerate(
+            #     zip(prior_samples, vi_samples), start=1
+            # ):
+            #     log_plot_dict[f"latent_samples_ex{example_i}"] = (
+            #         vis.plot_latent_samples(prior_ex_samples, vi_ex_samples)
+            #     )
 
             if not self.trainer.sanity_checking:
                 # Log all plots to wandb
@@ -747,8 +749,6 @@ class Diffusion(ARModel):
         """
         super().on_test_epoch_end()
         self.log_spsk_ratio(self.test_metrics, "test")
-    
-
     
 # Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
