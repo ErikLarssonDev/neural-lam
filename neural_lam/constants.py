@@ -2,7 +2,8 @@
 import cartopy
 import numpy as np
 
-WANDB_PROJECT = "neural-lam"
+WANDB_PROJECT = "neural-lam_prob"
+DATA_PATH = "/proj/berzelius-2022-164/weather/neural_lam_datasets" # Normally "data"
 
 SECONDS_IN_YEAR = (
     365 * 24 * 60 * 60
@@ -133,5 +134,6 @@ LAMBERT_PROJ = cartopy.crs.LambertConformal(
 )
 
 # Data dimensions
+BATCH_STATIC_FEATURE_DIM = 1 # Only open water
 GRID_FORCING_DIM = 5 * 3 + 1  # 5 feat. for 3 time-step window + 1 batch-static
 GRID_STATE_DIM = 17

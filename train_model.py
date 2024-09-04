@@ -13,12 +13,14 @@ from neural_lam import constants, utils
 from neural_lam.models.graph_efm import GraphEFM
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
+from neural_lam.models.diffusion import Diffusion
 from neural_lam.weather_dataset import WeatherDataset
 
 MODELS = {
     "graphcast": GraphCast,
     "graph_fm": GraphFM,
     "graph_efm": GraphEFM,
+    "diffusion": Diffusion,
 }
 
 
@@ -95,6 +97,13 @@ def main():
         default="multiscale",
         help="Graph to load and use in graph-based model "
         "(default: multiscale)",
+    )
+    parser.add_argument(
+        "--diffusion_model",
+        type=str,
+        default="graphcast",
+        help="Model to use in the diffusion model"
+        "(default: graphcast)",
     )
     parser.add_argument(
         "--hidden_dim",
@@ -231,6 +240,11 @@ def main():
         help="If observation noise should be sampled during rollouts (both "
         "training and eval), or just mean prediction used "
         "(default: 0 (no))",
+    )
+    parser.add_argument(
+        "--border_condition",
+        action="store_true",
+        help="If border condition should be used in diffusion model ",
     )
 
     # Evaluation options

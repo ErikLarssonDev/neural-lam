@@ -17,7 +17,7 @@ def load_dataset_stats(dataset_name, device="cpu"):
     """
     Load arrays with stored dataset statistics from pre-processing
     """
-    static_dir_path = os.path.join("data", dataset_name, "static")
+    static_dir_path = os.path.join(constants.DATA_PATH, dataset_name, "static")
 
     def loads_file(fn):
         return torch.load(
@@ -42,7 +42,7 @@ def load_static_data(dataset_name, device="cpu"):
     """
     Load static files related to dataset
     """
-    static_dir_path = os.path.join("data", dataset_name, "static")
+    static_dir_path = os.path.join(constants.DATA_PATH, dataset_name, "static")
 
     def loads_file(fn):
         return torch.load(
