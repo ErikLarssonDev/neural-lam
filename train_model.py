@@ -17,8 +17,9 @@ from neural_lam.models.hi_lam_parallel import HiLAMParallel
 from neural_lam.weather_dataset import WeatherDataset
 from neural_lam.models.WNO import WNO2d
 from neural_lam.models.UNet2D import UNet2D
-from neural_lam.models.FNO import FNO2d
+from neural_lam.models.Neural_Operator import Neural_Operator
 from neural_lam.models.diffusion import Diffusion
+from neural_lam.models.GenCast import GenCast
 
 MODELS = {
     "graph_lam": GraphLAM,
@@ -26,8 +27,9 @@ MODELS = {
     "hi_lam_parallel": HiLAMParallel,
     "WNO2d": WNO2d,
     "UNet2d": UNet2D,
-    "FNO2d": FNO2d,
-    "diffusion": Diffusion
+    "N_O": Neural_Operator,
+    "diffusion": Diffusion,
+    "GenCast": GenCast,
 }
 
 
@@ -135,6 +137,28 @@ def main(input_args=None):
         "output dimensions "
         "(default: 0 (no))",
     )
+    parser.add_argument(
+        "--neural_operator",
+        type=str,
+        default="FNO",
+        help="The neural operator to use in the model (default: 'FNO')",
+    )
+    parser.add_argument(
+        "--diffusion_model",
+        type=str,
+        default="graph_lam",
+        help="The model to use in the diffusion process (default: 'graph_lam')",
+    )
+    parser.add_argument(
+        "--pred_residual",
+        action="store_true",
+        help="If models should predict residuals instead of absolute values (needs to be handled in the model) ",
+    )
+    parser.add_argument(
+        "--border_condition",
+        action="store_true",
+        help="If models should predict residuals instead of absolute values (needs to be handled in the model) ",
+    )
 
     # Training options
     parser.add_argument(
@@ -196,6 +220,12 @@ def main(input_args=None):
         type=str,
         default="neural_lam",
         help="Wandb project name (default: neural_lam)",
+    )
+    parser.add_argument(
+        "--wandb_run_name",
+        type=str,
+        default="",
+        help="Wandb run name (default: '')",
     )
     parser.add_argument(
         "--val_steps_to_log",
@@ -278,6 +308,7 @@ def main(input_args=None):
         device_name = "cpu"
 
 
+
     # Load model parameters Use new args for model
     model_class = MODELS[args.model]
     model = model_class(args)
@@ -285,6 +316,9 @@ def main(input_args=None):
     prefix = "subset-" if args.subset_ds else ""
     if args.eval:
         prefix = prefix + f"eval-{args.eval}-"
+    
+    prefix = f"{args.wandb_run_name}-{prefix}" if args.wandb_run_name else prefix
+
     run_name = (
         f"{prefix}{args.model}-{args.processor_layers}x{args.hidden_dim}-"
         f"{time.strftime('%m_%d_%H')}-{random_run_id:04d}"

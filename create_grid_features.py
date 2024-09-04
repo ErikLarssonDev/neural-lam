@@ -24,7 +24,7 @@ def main():
     args = parser.parse_args()
     config_loader = config.Config.from_file(args.data_config)
 
-    static_dir_path = os.path.join("data", config_loader.dataset.name, "static")
+    static_dir_path = os.path.join(config_loader.dataset.data_path, config_loader.dataset.name, "static")
 
     # -- Static grid node features --
     grid_xy = torch.tensor(

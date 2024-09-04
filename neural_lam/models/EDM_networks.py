@@ -350,9 +350,9 @@ class SongUNet(torch.nn.Module):
                 aux = tmp if aux is None else tmp + aux
             else:
                 if x.shape[1] != block.in_channels:
-                    print(f"x.shape: {x.shape}")
-                    print(f"block.in_channels: {block.in_channels}")
-                    print(f"skip.shape: {skips[-1].shape}")
+                    # print(f"x.shape: {x.shape}")
+                    # print(f"block.in_channels: {block.in_channels}")
+                    # print(f"skip.shape: {skips[-1].shape}")
                     x = torch.cat([x, skips.pop()], dim=1)
                 x = block(x, emb)
         return aux
@@ -656,7 +656,7 @@ class EDMPrecond(torch.nn.Module):
 
         F_x = self.model((c_in * x).to(dtype), c_noise.flatten(), class_labels=class_labels, **model_kwargs)
         assert F_x.dtype == dtype
-        D_x = c_skip * x + c_out * F_x.to(torch.float32)
+        D_x = c_skip * x[:, :17, :, :] + c_out * F_x.to(torch.float32)
         return D_x
 
     def round_sigma(self, sigma):

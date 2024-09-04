@@ -178,7 +178,7 @@ def main():
 
     if rank == 0:
         static_dir_path = os.path.join(
-            "data", config_loader.dataset.name, "static"
+            config_loader.dataset.data_path, config_loader.dataset.name, "static"
         )
         # Create parameter weights based on height
         # based on fig A.1 in graph cast paper

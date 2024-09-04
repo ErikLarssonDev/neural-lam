@@ -1,6 +1,6 @@
 dataset:
-  name: full_npy
-  data_path: /proj/berzelius-2022-164/weather/meps
+  name: meps
+  data_path: /proj/berzelius-2022-164/weather/neural_lam_datasets
   var_names:
     - pres_0g
     - pres_0s

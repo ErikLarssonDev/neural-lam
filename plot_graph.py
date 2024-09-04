@@ -59,7 +59,7 @@ def main():
     )
     mesh_static_features = graph_ldict["mesh_static_features"]
 
-    grid_static_features = utils.load_static_data(config_loader.dataset.name)[
+    grid_static_features = utils.load_static_data(config_loader.dataset.name, data_path=config_loader.dataset.data_path)[
         "grid_static_features"
     ]
 

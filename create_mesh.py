@@ -190,7 +190,7 @@ def main(input_args=None):
 
     # Load grid positions
     config_loader = config.Config.from_file(args.data_config)
-    static_dir_path = os.path.join("data", config_loader.dataset.name, "static")
+    static_dir_path = os.path.join(config_loader.dataset.data_path, config_loader.dataset.name, "static")
     graph_dir_path = os.path.join("graphs", args.graph)
     os.makedirs(graph_dir_path, exist_ok=True)
 
