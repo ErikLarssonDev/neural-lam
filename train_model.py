@@ -36,7 +36,7 @@ def main():
     parser.add_argument(
         "--dataset",
         type=str,
-        default="meps_example",
+        default="meps",
         help="Dataset, corresponding to name in data directory "
         "(default: meps_example)",
     )
@@ -88,6 +88,12 @@ def main():
         type=str,
         default=32,
         help="Numerical precision to use for model (32/16/bf16) (default: 32)",
+    )
+    parser.add_argument(
+        "--wandb_run_name",
+        type=str,
+        default="",
+        help="Wandb run name (default: '')",
     )
 
     # Model architecture
@@ -342,6 +348,8 @@ def main():
     prefix = "subset-" if args.subset_ds else ""
     if args.eval:
         prefix = prefix + f"eval-{args.eval}-"
+    
+    prefix = f"{args.wandb_run_name}-{prefix}" if args.wandb_run_name else prefix
     run_name = (
         f"{prefix}{args.model}-{args.processor_layers}x{args.hidden_dim}-"
         f"{time.strftime('%m_%d_%H')}-{random_run_id:04d}"
