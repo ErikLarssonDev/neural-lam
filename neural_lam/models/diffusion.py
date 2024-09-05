@@ -510,15 +510,44 @@ class Diffusion(ARModel):
         """
         Run validation on single batch
         """
-        super().validation_step(batch, *args)
-        batch_idx = args[0]
+        prediction, target, pred_std = self.common_step_train(batch)
 
-        # Run ensemble forecast
-        prior_trajectories, _, _, spread_squared_batch, ens_mse_batch = (
-            self.ensemble_common_step(batch)
+        time_step_loss = torch.mean(
+            self.loss(
+                prediction, target, pred_std, mask=self.interior_mask_bool
+            ),
+            dim=0,
+        )  # (time_steps-1)
+        mean_loss = torch.mean(time_step_loss)
+
+        # Log loss per time step forward and mean
+        val_log_dict = {
+            f"val_loss_unroll{step}": time_step_loss[step - 1]
+            for step in constants.VAL_STEP_LOG_ERRORS
+        }
+        val_log_dict["val_mean_loss"] = mean_loss
+        self.log_dict(
+            val_log_dict, on_step=False, on_epoch=True, sync_dist=True
         )
-        self.val_metrics["spread_squared"].append(spread_squared_batch)
-        self.val_metrics["ens_mse"].append(ens_mse_batch)
+
+        # Store MSEs
+        entry_mses = metrics.mse(
+            prediction,
+            target,
+            pred_std,
+            mask=self.interior_mask_bool,
+            sum_vars=False,
+        )  # (B, pred_steps, d_f)
+        self.val_metrics["mse"].append(entry_mses)
+
+        # batch_idx = args[0]
+
+        # # Run ensemble forecast
+        # prior_trajectories, _, _, spread_squared_batch, ens_mse_batch = (
+        #     self.ensemble_common_step(batch)
+        # )
+        # self.val_metrics["spread_squared"].append(spread_squared_batch)
+        # self.val_metrics["ens_mse"].append(ens_mse_batch)
 
         # # Plot some example predictions using prior and encoder
         # if (
