@@ -1,4 +1,6 @@
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch.nn.functional import silu
 import matplotlib.pyplot as plt
 import numpy as np
@@ -6,10 +8,7 @@ import wandb
 
 from neural_lam.models.ar_model import ARModel
 from neural_lam import constants, metrics, utils, vis
-# from neural_lam.models.EDM_networks import EDMPrecond, GroupNorm, PositionalEmbedding, FourierEmbedding, Linear
-# from neural_lam.models.hi_lam import HiLAM
-# from neural_lam.models.graph_lam import GraphLAM
-from neural_lam.models.graph_efm import GraphEFM
+
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
 
@@ -32,14 +31,7 @@ class Diffusion(ARModel):
         self.sigma_data = 1
         self.use_fp16 = False
 
-        if args.diffusion_model == 'EDM':
-            raise ValueError(f"Diffusion model {args.diffusion_model} is not implemented")
-            # self.model = EDMPrecond(img_resolution=268, in_channels=self.input_dim, out_channels=self.output_dim, \
-            #                         embedding_type='fourier', encoder_type='standard', decoder_type='standard', \
-            #                         channel_mult_noise=2, resample_filter=[1,3,3,1], model_channels=32, channel_mult=[2,4,8], \
-            #                         attn_resolutions=[32,], sigma_data=1, sigma_min=0.02, sigma_max=88, label_dropout=0,
-            #                         model_type='SongUNet', use_fp16=True) # TODO: Check out time_emb = 1 in Martins repo
-        elif args.diffusion_model == 'graphcast':
+        if args.diffusion_model == 'graphcast':
             self.model = GraphCast(args)
         
         elif args.diffusion_model == 'graph_fm':
@@ -528,84 +520,84 @@ class Diffusion(ARModel):
         self.val_metrics["spread_squared"].append(spread_squared_batch)
         self.val_metrics["ens_mse"].append(ens_mse_batch)
 
-        # Plot some example predictions using prior and encoder
-        if (
-            self.trainer.is_global_zero
-            and batch_idx == 0
-            and self.n_example_pred > 0
-        ):
-            # Roll out trajectories using variational distribution (encoder)
-            (
-                init_states,
-                target_states,
-                forcing_features,
-            ) = batch
-            # Only create ens. forecast for as many examples as needed
-            init_states = init_states[: self.n_example_pred]
-            target_states = target_states[: self.n_example_pred]
-            forcing_features = forcing_features[: self.n_example_pred]
+        # # Plot some example predictions using prior and encoder
+        # if (
+        #     self.trainer.is_global_zero
+        #     and batch_idx == 0
+        #     and self.n_example_pred > 0
+        # ):
+        #     # Roll out trajectories using variational distribution (encoder)
+        #     (
+        #         init_states,
+        #         target_states,
+        #         forcing_features,
+        #     ) = batch
+        #     # Only create ens. forecast for as many examples as needed
+        #     init_states = init_states[: self.n_example_pred]
+        #     target_states = target_states[: self.n_example_pred]
+        #     forcing_features = forcing_features[: self.n_example_pred]
 
-            # Sample trajectories using variational dist. for latent var.
-            enc_trajectories, _ = self.sample_trajectories(
-                init_states,
-                forcing_features,
-                target_states,
-                self.ensemble_size,
-                use_encoder=False, # Changed from True
-            )
+            # # Sample trajectories using variational dist. for latent var.
+            # enc_trajectories, _ = self.sample_trajectories(
+            #     init_states,
+            #     forcing_features,
+            #     target_states,
+            #     self.ensemble_size,
+            #     use_encoder=False, # Changed from True
+            # )
 
             # Only need n_example_pred prior trajectories
-            prior_trajectories = prior_trajectories[: self.n_example_pred]
+            # prior_trajectories = prior_trajectories[: self.n_example_pred]
 
-            # Plot samples
-            log_plot_dict = {}
-            for example_i, (prior_traj, enc_traj, target_traj) in enumerate(
-                zip(prior_trajectories, enc_trajectories, target_states),
-                start=1,
-            ):
-                # prior_traj and enc traj are
-                # (S, pred_steps, num_grid_nodes, d_f)
+            # # Plot samples
+            # log_plot_dict = {}
+            # for example_i, (prior_traj, enc_traj, target_traj) in enumerate(
+            #     zip(prior_trajectories, enc_trajectories, target_states),
+            #     start=1,
+            # ):
+            #     # prior_traj and enc traj are
+            #     # (S, pred_steps, num_grid_nodes, d_f)
 
-                for var_i, timesteps in constants.VAL_PLOT_VARS.items():
-                    var_name = constants.PARAM_NAMES_SHORT[var_i]
-                    var_unit = constants.PARAM_UNITS[var_i]
-                    for step in timesteps:
-                        prior_states = prior_traj[
-                            :, step - 1, :, var_i
-                        ]  # (S, num_grid_nodes)
-                        enc_states = enc_traj[
-                            :, step - 1, :, var_i
-                        ]  # (S, num_grid_nodes)
-                        target_state = target_traj[
-                            step - 1, :, var_i
-                        ]  # (num_grid_nodes,)
+            #     for var_i, timesteps in constants.VAL_PLOT_VARS.items():
+            #         var_name = constants.PARAM_NAMES_SHORT[var_i]
+            #         var_unit = constants.PARAM_UNITS[var_i]
+            #         for step in timesteps:
+            #             prior_states = prior_traj[
+            #                 :, step - 1, :, var_i
+            #             ]  # (S, num_grid_nodes)
+            #             enc_states = enc_traj[
+            #                 :, step - 1, :, var_i
+            #             ]  # (S, num_grid_nodes)
+            #             target_state = target_traj[
+            #                 step - 1, :, var_i
+            #             ]  # (num_grid_nodes,)
 
-                        plot_title = (
-                            f"{var_name} ({var_unit}), t={step} "
-                            f"({self.step_length*step} h)"
-                        )
+            #             plot_title = (
+            #                 f"{var_name} ({var_unit}), t={step} "
+            #                 f"({self.step_length*step} h)"
+            #             )
 
-                        # Make plots
-                        log_plot_dict[
-                            f"prior_{var_name}_step_{step}_ex{example_i}"
-                        ] = vis.plot_ensemble_prediction(
-                            prior_states,
-                            target_state,
-                            prior_states.mean(dim=0),
-                            prior_states.std(dim=0),
-                            self.interior_mask[:, 0],
-                            title=f"{plot_title} (prior)",
-                        )
-                        log_plot_dict[
-                            f"vi_{var_name}_step_{step}_ex{example_i}"
-                        ] = vis.plot_ensemble_prediction(
-                            enc_states,
-                            target_state,
-                            enc_states.mean(dim=0),
-                            enc_states.std(dim=0),
-                            self.interior_mask[:, 0],
-                            title=f"{plot_title} (vi)",
-                        )
+            #             # Make plots
+            #             log_plot_dict[
+            #                 f"prior_{var_name}_step_{step}_ex{example_i}"
+            #             ] = vis.plot_ensemble_prediction(
+            #                 prior_states,
+            #                 target_state,
+            #                 prior_states.mean(dim=0),
+            #                 prior_states.std(dim=0),
+            #                 self.interior_mask[:, 0],
+            #                 title=f"{plot_title} (prior)",
+            #             )
+            #             log_plot_dict[
+            #                 f"vi_{var_name}_step_{step}_ex{example_i}"
+            #             ] = vis.plot_ensemble_prediction(
+            #                 enc_states,
+            #                 target_state,
+            #                 enc_states.mean(dim=0),
+            #                 enc_states.std(dim=0),
+            #                 self.interior_mask[:, 0],
+            #                 title=f"{plot_title} (vi)",
+            #             )
 
             # Sample latent variable and plot
             # embed all features
@@ -649,11 +641,11 @@ class Diffusion(ARModel):
             #         vis.plot_latent_samples(prior_ex_samples, vi_ex_samples)
             #     )
 
-            if not self.trainer.sanity_checking:
-                # Log all plots to wandb
-                wandb.log(log_plot_dict)
+            # if not self.trainer.sanity_checking:
+            #     # Log all plots to wandb
+            #     wandb.log(log_plot_dict)
 
-            plt.close("all")
+            # plt.close("all")
 
     def log_spsk_ratio(self, metric_vals, prefix):
         """
@@ -891,4 +883,91 @@ class Diffusion(ARModel):
     
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
+
+class FourierFeatureTransform(nn.Module):
+    def __init__(self, num_frequencies=32, base_period=16):
+        super(FourierFeatureTransform, self).__init__()
+        self.num_frequencies = num_frequencies
+        self.base_period = base_period
+        self.frequencies = 2 * torch.pi * torch.exp(
+            torch.linspace(0, num_frequencies - 1, num_frequencies) / base_period
+        )
+
+    def forward(self, log_noise_levels):
+        # Expand log_noise_levels for each frequency
+        log_noise_levels = log_noise_levels.unsqueeze(-1)  # Shape: (batch_size, 1)
+        angles = log_noise_levels * self.frequencies  # Shape: (batch_size, num_frequencies)
+        
+        # Fourier features (sine and cosine components)
+        sine_features = torch.sin(angles)
+        cosine_features = torch.cos(angles)
+        
+        return torch.cat([sine_features, cosine_features], dim=-1)  # Shape: (batch_size, 2 * num_frequencies)
+
+class NoiseLevelMLP(nn.Module):
+    def __init__(self, input_dim, hidden_dim=128, output_dim=16):
+        super(NoiseLevelMLP, self).__init__()
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, output_dim)
+
+    def forward(self, fourier_features):
+        x = F.relu(self.fc1(fourier_features))
+        x = self.fc2(x)
+        return x  # Output noise-level encoding (batch_size, output_dim)
+
+class ConditionalLayerNorm(nn.Module):
+    def __init__(self, normalized_shape, noise_level_dim=16):
+        super(ConditionalLayerNorm, self).__init__()
+        self.layer_norm = nn.LayerNorm(normalized_shape, elementwise_affine=False)
+        self.scale_layer = nn.Linear(noise_level_dim, normalized_shape)
+        self.offset_layer = nn.Linear(noise_level_dim, normalized_shape)
+
+    def forward(self, x, noise_level_encoding):
+        scale = self.scale_layer(noise_level_encoding)  # (batch_size, normalized_shape)
+        offset = self.offset_layer(noise_level_encoding)  # (batch_size, normalized_shape)
+        return self.layer_norm(x) * scale + offset
+
+# Example: Combine everything together
+class NoiseConditionalModel(nn.Module):
+    def __init__(self, num_frequencies=32, base_period=16, normalized_shape=64):
+        super(NoiseConditionalModel, self).__init__()
+        self.fourier_transform = FourierFeatureTransform(num_frequencies=num_frequencies, base_period=base_period)
+        self.mlp = NoiseLevelMLP(input_dim=2 * num_frequencies)
+        self.conditional_layer_norm = ConditionalLayerNorm(normalized_shape=normalized_shape)
+
+    def forward(self, x, log_noise_levels):
+        fourier_features = self.fourier_transform(log_noise_levels)
+        noise_level_encoding = self.mlp(fourier_features)
+        return self.conditional_layer_norm(x, noise_level_encoding)
+    
+#----------------------------------------------------------------------------
+# Timestep embedding used in the DDPM++ and ADM architectures.
+
+class PositionalEmbedding(torch.nn.Module):
+    def __init__(self, num_channels, max_positions=10000, endpoint=False):
+        super().__init__()
+        self.num_channels = num_channels
+        self.max_positions = max_positions
+        self.endpoint = endpoint
+
+    def forward(self, x):
+        freqs = torch.arange(start=0, end=self.num_channels//2, dtype=torch.float32, device=x.device)
+        freqs = freqs / (self.num_channels // 2 - (1 if self.endpoint else 0))
+        freqs = (1 / self.max_positions) ** freqs
+        x = x.ger(freqs.to(x.dtype))
+        x = torch.cat([x.cos(), x.sin()], dim=1)
+        return x
+
+#----------------------------------------------------------------------------
+# Timestep embedding used in the NCSN++ architecture.
+
+class FourierEmbedding(torch.nn.Module):
+    def __init__(self, num_channels, scale=16):
+        super().__init__()
+        self.register_buffer('freqs', torch.randn(num_channels // 2) * scale)
+
+    def forward(self, x):
+        x = x.ger((2 * np.pi * self.freqs).to(x.dtype))
+        x = torch.cat([x.cos(), x.sin()], dim=1)
+        return x
     
