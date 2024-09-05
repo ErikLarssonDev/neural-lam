@@ -9,6 +9,7 @@ import pytorch_lightning as pl
 import torch
 from lightning_fabric.utilities import seed
 
+<<<<<<< HEAD:train_model.py
 # First-party
 from neural_lam import config, utils
 from neural_lam.models.graph_lam import GraphLAM
@@ -20,6 +21,11 @@ from neural_lam.models.UNet2D import UNet2D
 from neural_lam.models.Neural_Operator import Neural_Operator
 from neural_lam.models.diffusion import Diffusion
 from neural_lam.models.GenCast import GenCast
+=======
+# Local
+from . import WeatherDataset, config, utils
+from .models import GraphLAM, HiLAM, HiLAMParallel
+>>>>>>> 4969f92ad974f136089d15e7e2e2e9d73a43590d:neural_lam/train_model.py
 
 MODELS = {
     "graph_lam": GraphLAM,
