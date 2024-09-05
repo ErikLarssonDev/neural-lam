@@ -76,12 +76,13 @@ class Diffusion(ARModel):
         """
 
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1) # (B, N_grid, d_input)
-
+        
         latents = torch.randn_like(input_grid[:, :, :17]).to(self.available_device)
-
+        print(f"input_grid: {input_grid.shape}")
+        print(f"latents: {latents.shape}")
         # Add border condition
         if self.border_condition:
-            input_grid = torch.cat((input_grid, border_state * self.border_mask), dim=1)
+            input_grid = torch.cat((input_grid, border_state * self.border_mask), dim=-1)
 
         # Run through sampler
         next_state = self.heun_sampler(self, latents, input_grid)
@@ -120,13 +121,12 @@ class Diffusion(ARModel):
         sigma_max_rho = sigma_max ** rho_inv
         sigma_min_rho = sigma_min ** rho_inv
         sigma = (sigma_max_rho + rnd_uniform * (sigma_min_rho - sigma_max_rho)) ** rho
-        y = true_states # (B, 1, N_grid, d_input)
-        y = y.flatten(1,2) # (B, N_grid, d_input)
-  
+        y = true_states[:, 0, :, :] # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
+
         n = torch.randn_like(y) * sigma
         # Add border condition
         if self.border_condition:
-            input_grid = torch.cat((input_grid, y * self.border_mask), dim=1)
+            input_grid = torch.cat((input_grid, y * self.border_mask), dim=-1)
     
         noisy_input = y+n
 
@@ -743,6 +743,8 @@ class Diffusion(ARModel):
         c_out = sigma * self.sigma_data / (sigma ** 2 + self.sigma_data ** 2).sqrt()
         c_in = 1 / (self.sigma_data ** 2 + sigma ** 2).sqrt()
         c_noise = sigma.log() / 4
+        print(f"x shape: {x.shape}")
+        print(f"c_in shape: {c_in.shape}")
         model_input = x * self.border_mask + (c_in * x) * self.interior_mask # Only add noise inside the border
         F_x = self.model_forward((model_input).to(dtype), c_noise.flatten(), class_labels=class_labels, **model_kwargs)
         assert F_x.dtype == dtype
@@ -752,19 +754,7 @@ class Diffusion(ARModel):
     def model_forward(self, x, noise_labels, class_labels, augment_labels=None):
         # Mapping.
         emb = self.map_noise(noise_labels)
-        # emb = emb.reshape(emb.shape[0], 2, -1).flip(1).reshape(*emb.shape) # swap sin/cos
-        # emb = silu(self.map_layer0(emb))
-        # emb = silu(self.map_layer1(emb))
 
-        # # In each UNET Block UNET(x, emb)
-        # params = self.affine(emb).unsqueeze(2).unsqueeze(3).to(x.dtype)
-        # if self.adaptive_scale:
-        #     scale, shift = params.chunk(chunks=2, dim=1)
-        #     x = silu(torch.addcmul(shift, self.norm1(x), scale + 1))
-        # else:
-        #     x = silu(self.norm1(x.add_(params)))
-        #__________________________________________
-        # model_input = torch.cat((x, class_labels), dim=1)
         print(f"noise_labels shape: {noise_labels.shape}")
         print(f"emb shape: {emb.shape}")
         output, _ = self.model.predict_step(x, class_labels[:, :, :34], class_labels[:, :, 34:])
@@ -833,11 +823,11 @@ class NoiseConditionalModel(nn.Module):
     
 class NoiseEmbedding(nn.Module):
     def __init__(self, num_frequencies=32, base_period=16):
-        super(NoiseConditionalModel, self).__init__()
-        self.fourier_embedding = FourierFeatureTransform(num_frequencies=num_frequencies, base_period=base_period)
+        super(NoiseEmbedding, self).__init__()
+        self.fourier_transform = FourierEmbedding(num_frequencies=num_frequencies, base_period=base_period)
         self.mlp = NoiseLevelMLP(input_dim=2 * num_frequencies)
 
-    def forward(self, x, log_noise_levels):
+    def forward(self, log_noise_levels):
         fourier_features = self.fourier_transform(log_noise_levels)
         noise_level_encoding = self.mlp(fourier_features)
         return noise_level_encoding
