@@ -44,12 +44,12 @@ class Diffusion(ARModel):
         self.pred_residual = args.pred_residual # Whether to predict the residual instead of the next state
 
         # Add lists for val and test errors of ensemble prediction
-        self.val_metrics.update(
-            {
-                "spread_squared": [],
-                "ens_mse": [],
-            }
-        )
+        # self.val_metrics.update(
+        #     {
+        #         "spread_squared": [],
+        #         "ens_mse": [],
+        #     }
+        # )
         self.test_metrics.update(
             {
                 "ens_mae": [],
@@ -76,10 +76,8 @@ class Diffusion(ARModel):
         """
 
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1) # (B, N_grid, d_input)
-        
         latents = torch.randn_like(input_grid[:, :, :17]).to(self.available_device)
-        print(f"input_grid: {input_grid.shape}")
-        print(f"latents: {latents.shape}")
+
         # Add border condition
         if self.border_condition:
             input_grid = torch.cat((input_grid, border_state * self.border_mask), dim=-1)
@@ -511,6 +509,7 @@ class Diffusion(ARModel):
         """
         Run validation on single batch
         """
+        # super().validation_step(batch, *args)
         prediction, target, pred_std = self.common_step_train(batch)
 
         time_step_loss = torch.mean(
@@ -578,13 +577,13 @@ class Diffusion(ARModel):
             )  # log mean
             wandb.log(log_dict)
 
-    def on_validation_epoch_end(self):
-        """
-        Compute val metrics at the end of val epoch
-        """
-        # Must log before super call, as metric lists are cleared at end of step
-        self.log_spsk_ratio(self.val_metrics, "val")
-        super().on_validation_epoch_end()
+    # def on_validation_epoch_end(self):
+    #     """
+    #     Compute val metrics at the end of val epoch
+    #     """
+    #     # Must log before super call, as metric lists are cleared at end of step
+    #     # self.log_spsk_ratio(self.val_metrics, "val")
+    #     super().on_validation_epoch_end()
 
     def test_step(self, batch, batch_idx):
         """
@@ -743,8 +742,6 @@ class Diffusion(ARModel):
         c_out = sigma * self.sigma_data / (sigma ** 2 + self.sigma_data ** 2).sqrt()
         c_in = 1 / (self.sigma_data ** 2 + sigma ** 2).sqrt()
         c_noise = sigma.log() / 4
-        print(f"x shape: {x.shape}")
-        print(f"c_in shape: {c_in.shape}")
         model_input = x * self.border_mask + (c_in * x) * self.interior_mask # Only add noise inside the border
         F_x = self.model_forward((model_input).to(dtype), c_noise.flatten(), class_labels=class_labels, **model_kwargs)
         assert F_x.dtype == dtype
@@ -754,9 +751,8 @@ class Diffusion(ARModel):
     def model_forward(self, x, noise_labels, class_labels, augment_labels=None):
         # Mapping.
         emb = self.map_noise(noise_labels)
-
-        print(f"noise_labels shape: {noise_labels.shape}")
-        print(f"emb shape: {emb.shape}")
+        emb_expanded = emb.unsqueeze(1).expand(class_labels.shape[0], class_labels.shape[1], -1) # Expand emb to shape [4, 63784, 16]
+        class_labels = torch.cat([class_labels, emb_expanded], dim=-1)
         output, _ = self.model.predict_step(x, class_labels[:, :, :34], class_labels[:, :, 34:])
         return output
     
@@ -787,12 +783,12 @@ class NoiseLevelMLP(nn.Module):
     def __init__(self, input_dim, hidden_dim=128, output_dim=16):
         super(NoiseLevelMLP, self).__init__()
         self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim*2)
-        self.fc3 = nn.Linear(hidden_dim*2, output_dim)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc3 = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, fourier_features):
         x = silu(self.fc1(fourier_features))
-        x = self.fc2(x)
+        x = silu(self.fc2(x))
         x = self.fc3(x)
         return x  # Output noise-level encoding (batch_size, output_dim)
 
@@ -824,8 +820,8 @@ class NoiseConditionalModel(nn.Module):
 class NoiseEmbedding(nn.Module):
     def __init__(self, num_frequencies=32, base_period=16):
         super(NoiseEmbedding, self).__init__()
-        self.fourier_transform = FourierEmbedding(num_frequencies=num_frequencies, base_period=base_period)
-        self.mlp = NoiseLevelMLP(input_dim=2 * num_frequencies)
+        self.fourier_transform = FourierEmbedding(num_channels=num_frequencies, scale=base_period)
+        self.mlp = NoiseLevelMLP(input_dim=num_frequencies)
 
     def forward(self, log_noise_levels):
         fourier_features = self.fourier_transform(log_noise_levels)
