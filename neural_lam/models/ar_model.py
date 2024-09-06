@@ -59,11 +59,13 @@ class ARModel(pl.LightningModule):
             grid_static_dim,
         ) = self.grid_static_features.shape  # 63784 = 268x238
         num_states = 3 if args.model == "diffusion" else 2
+        emb_dim = 16 if args.model == "diffusion" else 0
         num_states = num_states + 1 if args.border_condition else num_states
         self.grid_dim = (
             num_states * constants.GRID_STATE_DIM
             + grid_static_dim
             + constants.GRID_FORCING_DIM
+            + emb_dim
         )
 
         # Instantiate loss function
