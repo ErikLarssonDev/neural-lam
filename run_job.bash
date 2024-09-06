@@ -11,6 +11,7 @@ mamba activate BZ31
 wandb online
 
 cd /proj/berzelius-2022-164/users/x_erila/neural-lam
+git switch prob_model_lam
 
 # Path to your Python script
 PYTHON_SCRIPT_PATH="neural_lam.train_model"
