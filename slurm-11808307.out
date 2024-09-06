@@ -1,0 +1,1448 @@
+W&B online. Running your script from this directory will now sync to the cloud.
+[rank: 0] Global seed set to 42
+/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/utils.py:20: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  return torch.load(
+/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/utils.py:45: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  return torch.load(
+/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/utils.py:120: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  return torch.load(os.path.join(graph_dir_path, fn), map_location=device)
+wandb: Currently logged in as: erik-larsson (erik-larsson-link-ping-university). Use `wandb login --relogin` to force relogin
+wandb: wandb version 0.17.9 is available!  To upgrade, please run:
+wandb:  $ pip install wandb --upgrade
+wandb: Tracking run with wandb version 0.17.7
+wandb: Run data is saved locally in ./wandb/run-20240906_135323-q1zci68s
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run graph_lam-4x64-09_06_13-3928
+wandb: ⭐️ View project at https://wandb.ai/erik-larsson-link-ping-university/neural_lam_wavelet
+wandb: 🚀 View run at https://wandb.ai/erik-larsson-link-ping-university/neural_lam_wavelet/runs/q1zci68s
+/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/lightning_fabric/plugins/environments/slurm.py:168: PossibleUserWarning: The `srun` command is available on your system but is not used. HINT: If your intention is to run Lightning on SLURM, prepend your python command with `srun` like so: srun python /proj/berzelius-2022-164/users/x_erila/neural-lam/ne ...
+  rank_zero_warn(
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+IPU available: False, using: 0 IPUs
+HPU available: False, using: 0 HPUs
+[rank: 0] Global seed set to 42
+Initializing distributed: GLOBAL_RANK: 0, MEMBER: 1/1
+----------------------------------------------------------------------------------------------------
+distributed_backend=nccl
+All distributed processes registered. Starting with 1 processes
+----------------------------------------------------------------------------------------------------
+
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name              | Type              | Params
+--------------------------------------------------------
+0 | grid_embedder     | Sequential        | 7.8 K 
+1 | g2m_embedder      | Sequential        | 4.5 K 
+2 | m2g_embedder      | Sequential        | 4.5 K 
+3 | g2m_gnn           | InteractionNet    | 29.2 K
+4 | encoding_grid_mlp | Sequential        | 8.4 K 
+5 | m2g_gnn           | InteractionNet    | 29.2 K
+6 | output_map        | Sequential        | 5.3 K 
+7 | mesh_embedder     | Sequential        | 4.5 K 
+8 | m2m_embedder      | Sequential        | 4.5 K 
+9 | processor         | Sequential_9dd20d | 116 K 
+--------------------------------------------------------
+214 K     Trainable params
+0         Non-trainable params
+214 K     Total params
+0.859     Total estimated model params size (MB)
+Loaded graph with 70345 nodes (63784 grid, 6561 mesh)
+Edges in subgraphs: m2m=57616, g2m=100656, m2g=255136
+Sanity Checking: 0it [00:00, ?it/s]Sanity Checking:   0%|          | 0/2 [00:00<?, ?it/s]Sanity Checking DataLoader 0:   0%|          | 0/2 [00:00<?, ?it/s]fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Sanity Checking DataLoader 0:  50%|█████     | 1/2 [00:11<00:11, 11.91s/it]fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+fld_a.shape input: torch.Size([4, 63784, 17])
+fld_b.shape input: torch.Size([4, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Sanity Checking DataLoader 0: 100%|██████████| 2/2 [00:19<00:00,  9.73s/it]                                                                           Training: 0it [00:00, ?it/s]Training:   0%|          | 0/678 [00:00<?, ?it/s]Epoch 0:   0%|          | 0/678 [00:00<?, ?it/s] fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   0%|          | 1/678 [00:06<1:11:22,  6.33s/it]Epoch 0:   0%|          | 1/678 [00:06<1:11:24,  6.33s/it, v_num=i68s, train_loss_step=44.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   0%|          | 2/678 [00:06<37:26,  3.32s/it, v_num=i68s, train_loss_step=44.20]  Epoch 0:   0%|          | 2/678 [00:06<37:29,  3.33s/it, v_num=i68s, train_loss_step=45.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   0%|          | 3/678 [00:07<26:40,  2.37s/it, v_num=i68s, train_loss_step=45.40]Epoch 0:   0%|          | 3/678 [00:07<26:40,  2.37s/it, v_num=i68s, train_loss_step=29.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   1%|          | 4/678 [00:07<20:55,  1.86s/it, v_num=i68s, train_loss_step=29.60]Epoch 0:   1%|          | 4/678 [00:07<20:56,  1.86s/it, v_num=i68s, train_loss_step=17.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   1%|          | 5/678 [00:07<17:23,  1.55s/it, v_num=i68s, train_loss_step=17.80]Epoch 0:   1%|          | 5/678 [00:07<17:25,  1.55s/it, v_num=i68s, train_loss_step=25.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   1%|          | 6/678 [00:08<15:03,  1.34s/it, v_num=i68s, train_loss_step=25.00]Epoch 0:   1%|          | 6/678 [00:08<15:04,  1.35s/it, v_num=i68s, train_loss_step=21.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   1%|          | 7/678 [00:08<13:24,  1.20s/it, v_num=i68s, train_loss_step=21.30]Epoch 0:   1%|          | 7/678 [00:08<13:26,  1.20s/it, v_num=i68s, train_loss_step=31.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   1%|          | 8/678 [00:08<12:12,  1.09s/it, v_num=i68s, train_loss_step=31.40]Epoch 0:   1%|          | 8/678 [00:08<12:12,  1.09s/it, v_num=i68s, train_loss_step=39.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   1%|▏         | 9/678 [00:09<11:14,  1.01s/it, v_num=i68s, train_loss_step=39.40]Epoch 0:   1%|▏         | 9/678 [00:09<11:15,  1.01s/it, v_num=i68s, train_loss_step=31.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   1%|▏         | 10/678 [00:09<10:26,  1.07it/s, v_num=i68s, train_loss_step=31.40]Epoch 0:   1%|▏         | 10/678 [00:09<10:27,  1.06it/s, v_num=i68s, train_loss_step=22.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   2%|▏         | 11/678 [00:09<09:48,  1.13it/s, v_num=i68s, train_loss_step=22.80]Epoch 0:   2%|▏         | 11/678 [00:09<09:48,  1.13it/s, v_num=i68s, train_loss_step=19.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   2%|▏         | 12/678 [00:10<09:15,  1.20it/s, v_num=i68s, train_loss_step=19.30]Epoch 0:   2%|▏         | 12/678 [00:10<09:16,  1.20it/s, v_num=i68s, train_loss_step=22.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   2%|▏         | 13/678 [00:10<08:50,  1.25it/s, v_num=i68s, train_loss_step=22.70]Epoch 0:   2%|▏         | 13/678 [00:10<08:50,  1.25it/s, v_num=i68s, train_loss_step=24.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   2%|▏         | 14/678 [00:10<08:29,  1.30it/s, v_num=i68s, train_loss_step=24.90]Epoch 0:   2%|▏         | 14/678 [00:10<08:29,  1.30it/s, v_num=i68s, train_loss_step=17.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   2%|▏         | 15/678 [00:11<08:06,  1.36it/s, v_num=i68s, train_loss_step=17.60]Epoch 0:   2%|▏         | 15/678 [00:11<08:07,  1.36it/s, v_num=i68s, train_loss_step=28.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   2%|▏         | 16/678 [00:11<07:48,  1.41it/s, v_num=i68s, train_loss_step=28.60]Epoch 0:   2%|▏         | 16/678 [00:11<07:48,  1.41it/s, v_num=i68s, train_loss_step=26.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   3%|▎         | 17/678 [00:12<07:56,  1.39it/s, v_num=i68s, train_loss_step=26.90]Epoch 0:   3%|▎         | 17/678 [00:12<07:57,  1.39it/s, v_num=i68s, train_loss_step=23.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   3%|▎         | 18/678 [00:12<07:41,  1.43it/s, v_num=i68s, train_loss_step=23.60]Epoch 0:   3%|▎         | 18/678 [00:12<07:41,  1.43it/s, v_num=i68s, train_loss_step=15.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   3%|▎         | 19/678 [00:13<07:33,  1.45it/s, v_num=i68s, train_loss_step=15.80]Epoch 0:   3%|▎         | 19/678 [00:13<07:33,  1.45it/s, v_num=i68s, train_loss_step=33.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   3%|▎         | 20/678 [00:13<07:23,  1.48it/s, v_num=i68s, train_loss_step=33.80]Epoch 0:   3%|▎         | 20/678 [00:13<07:23,  1.48it/s, v_num=i68s, train_loss_step=23.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   3%|▎         | 21/678 [00:13<07:13,  1.51it/s, v_num=i68s, train_loss_step=23.10]Epoch 0:   3%|▎         | 21/678 [00:13<07:13,  1.51it/s, v_num=i68s, train_loss_step=17.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   3%|▎         | 22/678 [00:14<07:09,  1.53it/s, v_num=i68s, train_loss_step=17.70]Epoch 0:   3%|▎         | 22/678 [00:14<07:09,  1.53it/s, v_num=i68s, train_loss_step=37.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   3%|▎         | 23/678 [00:14<07:04,  1.54it/s, v_num=i68s, train_loss_step=37.60]Epoch 0:   3%|▎         | 23/678 [00:14<07:04,  1.54it/s, v_num=i68s, train_loss_step=29.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   4%|▎         | 24/678 [00:15<06:54,  1.58it/s, v_num=i68s, train_loss_step=29.30]Epoch 0:   4%|▎         | 24/678 [00:15<06:55,  1.57it/s, v_num=i68s, train_loss_step=28.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   4%|▎         | 25/678 [00:15<06:50,  1.59it/s, v_num=i68s, train_loss_step=28.40]Epoch 0:   4%|▎         | 25/678 [00:15<06:51,  1.59it/s, v_num=i68s, train_loss_step=46.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   4%|▍         | 26/678 [00:16<06:48,  1.60it/s, v_num=i68s, train_loss_step=46.20]Epoch 0:   4%|▍         | 26/678 [00:16<06:48,  1.60it/s, v_num=i68s, train_loss_step=18.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   4%|▍         | 27/678 [00:16<06:40,  1.63it/s, v_num=i68s, train_loss_step=18.30]Epoch 0:   4%|▍         | 27/678 [00:16<06:40,  1.62it/s, v_num=i68s, train_loss_step=29.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   4%|▍         | 28/678 [00:17<06:35,  1.65it/s, v_num=i68s, train_loss_step=29.00]Epoch 0:   4%|▍         | 28/678 [00:17<06:35,  1.64it/s, v_num=i68s, train_loss_step=16.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   4%|▍         | 29/678 [00:17<06:29,  1.67it/s, v_num=i68s, train_loss_step=16.20]Epoch 0:   4%|▍         | 29/678 [00:17<06:29,  1.67it/s, v_num=i68s, train_loss_step=12.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   4%|▍         | 30/678 [00:17<06:22,  1.69it/s, v_num=i68s, train_loss_step=12.70]Epoch 0:   4%|▍         | 30/678 [00:17<06:23,  1.69it/s, v_num=i68s, train_loss_step=15.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   5%|▍         | 31/678 [00:18<06:17,  1.71it/s, v_num=i68s, train_loss_step=15.10]Epoch 0:   5%|▍         | 31/678 [00:18<06:17,  1.71it/s, v_num=i68s, train_loss_step=24.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   5%|▍         | 32/678 [00:18<06:13,  1.73it/s, v_num=i68s, train_loss_step=24.60]Epoch 0:   5%|▍         | 32/678 [00:18<06:13,  1.73it/s, v_num=i68s, train_loss_step=23.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   5%|▍         | 33/678 [00:18<06:09,  1.75it/s, v_num=i68s, train_loss_step=23.40]Epoch 0:   5%|▍         | 33/678 [00:18<06:09,  1.75it/s, v_num=i68s, train_loss_step=13.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   5%|▌         | 34/678 [00:19<06:04,  1.77it/s, v_num=i68s, train_loss_step=13.10]Epoch 0:   5%|▌         | 34/678 [00:19<06:04,  1.77it/s, v_num=i68s, train_loss_step=20.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   5%|▌         | 35/678 [00:19<05:58,  1.79it/s, v_num=i68s, train_loss_step=20.00]Epoch 0:   5%|▌         | 35/678 [00:19<05:59,  1.79it/s, v_num=i68s, train_loss_step=16.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   5%|▌         | 36/678 [00:19<05:55,  1.80it/s, v_num=i68s, train_loss_step=16.50]Epoch 0:   5%|▌         | 36/678 [00:19<05:55,  1.80it/s, v_num=i68s, train_loss_step=21.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   5%|▌         | 37/678 [00:20<05:50,  1.83it/s, v_num=i68s, train_loss_step=21.40]Epoch 0:   5%|▌         | 37/678 [00:20<05:51,  1.83it/s, v_num=i68s, train_loss_step=19.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   6%|▌         | 38/678 [00:20<05:47,  1.84it/s, v_num=i68s, train_loss_step=19.00]Epoch 0:   6%|▌         | 38/678 [00:20<05:47,  1.84it/s, v_num=i68s, train_loss_step=26.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   6%|▌         | 39/678 [00:21<05:45,  1.85it/s, v_num=i68s, train_loss_step=26.00]Epoch 0:   6%|▌         | 39/678 [00:21<05:45,  1.85it/s, v_num=i68s, train_loss_step=22.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   6%|▌         | 40/678 [00:21<05:42,  1.86it/s, v_num=i68s, train_loss_step=22.90]Epoch 0:   6%|▌         | 40/678 [00:21<05:42,  1.86it/s, v_num=i68s, train_loss_step=19.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   6%|▌         | 41/678 [00:21<05:39,  1.87it/s, v_num=i68s, train_loss_step=19.40]Epoch 0:   6%|▌         | 41/678 [00:21<05:39,  1.87it/s, v_num=i68s, train_loss_step=16.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   6%|▌         | 42/678 [00:22<05:35,  1.90it/s, v_num=i68s, train_loss_step=16.30]Epoch 0:   6%|▌         | 42/678 [00:22<05:35,  1.89it/s, v_num=i68s, train_loss_step=18.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   6%|▋         | 43/678 [00:22<05:32,  1.91it/s, v_num=i68s, train_loss_step=18.40]Epoch 0:   6%|▋         | 43/678 [00:22<05:32,  1.91it/s, v_num=i68s, train_loss_step=10.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   6%|▋         | 44/678 [00:22<05:28,  1.93it/s, v_num=i68s, train_loss_step=10.80]Epoch 0:   6%|▋         | 44/678 [00:22<05:28,  1.93it/s, v_num=i68s, train_loss_step=19.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   7%|▋         | 45/678 [00:23<05:24,  1.95it/s, v_num=i68s, train_loss_step=19.30]Epoch 0:   7%|▋         | 45/678 [00:23<05:25,  1.95it/s, v_num=i68s, train_loss_step=19.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   7%|▋         | 46/678 [00:23<05:21,  1.97it/s, v_num=i68s, train_loss_step=19.60]Epoch 0:   7%|▋         | 46/678 [00:23<05:21,  1.97it/s, v_num=i68s, train_loss_step=15.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   7%|▋         | 47/678 [00:23<05:17,  1.99it/s, v_num=i68s, train_loss_step=15.90]Epoch 0:   7%|▋         | 47/678 [00:23<05:17,  1.98it/s, v_num=i68s, train_loss_step=27.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   7%|▋         | 48/678 [00:23<05:14,  2.00it/s, v_num=i68s, train_loss_step=27.80]Epoch 0:   7%|▋         | 48/678 [00:23<05:14,  2.00it/s, v_num=i68s, train_loss_step=18.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   7%|▋         | 49/678 [00:24<05:11,  2.02it/s, v_num=i68s, train_loss_step=18.40]Epoch 0:   7%|▋         | 49/678 [00:24<05:12,  2.02it/s, v_num=i68s, train_loss_step=18.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   7%|▋         | 50/678 [00:24<05:09,  2.03it/s, v_num=i68s, train_loss_step=18.50]Epoch 0:   7%|▋         | 50/678 [00:24<05:09,  2.03it/s, v_num=i68s, train_loss_step=14.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   8%|▊         | 51/678 [00:24<05:06,  2.04it/s, v_num=i68s, train_loss_step=14.60]Epoch 0:   8%|▊         | 51/678 [00:24<05:06,  2.04it/s, v_num=i68s, train_loss_step=22.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   8%|▊         | 52/678 [00:25<05:04,  2.06it/s, v_num=i68s, train_loss_step=22.60]Epoch 0:   8%|▊         | 52/678 [00:25<05:04,  2.06it/s, v_num=i68s, train_loss_step=15.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   8%|▊         | 53/678 [00:25<05:01,  2.07it/s, v_num=i68s, train_loss_step=15.00]Epoch 0:   8%|▊         | 53/678 [00:25<05:01,  2.07it/s, v_num=i68s, train_loss_step=19.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   8%|▊         | 54/678 [00:25<04:58,  2.09it/s, v_num=i68s, train_loss_step=19.40]Epoch 0:   8%|▊         | 54/678 [00:25<04:58,  2.09it/s, v_num=i68s, train_loss_step=15.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   8%|▊         | 55/678 [00:26<04:55,  2.11it/s, v_num=i68s, train_loss_step=15.10]Epoch 0:   8%|▊         | 55/678 [00:26<04:55,  2.11it/s, v_num=i68s, train_loss_step=9.350]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   8%|▊         | 56/678 [00:26<04:53,  2.12it/s, v_num=i68s, train_loss_step=9.350]Epoch 0:   8%|▊         | 56/678 [00:26<04:53,  2.12it/s, v_num=i68s, train_loss_step=17.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   8%|▊         | 57/678 [00:26<04:51,  2.13it/s, v_num=i68s, train_loss_step=17.30]Epoch 0:   8%|▊         | 57/678 [00:26<04:51,  2.13it/s, v_num=i68s, train_loss_step=23.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   9%|▊         | 58/678 [00:27<04:49,  2.14it/s, v_num=i68s, train_loss_step=23.50]Epoch 0:   9%|▊         | 58/678 [00:27<04:49,  2.14it/s, v_num=i68s, train_loss_step=24.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   9%|▊         | 59/678 [00:27<04:47,  2.16it/s, v_num=i68s, train_loss_step=24.00]Epoch 0:   9%|▊         | 59/678 [00:27<04:47,  2.15it/s, v_num=i68s, train_loss_step=11.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   9%|▉         | 60/678 [00:27<04:45,  2.17it/s, v_num=i68s, train_loss_step=11.90]Epoch 0:   9%|▉         | 60/678 [00:27<04:45,  2.17it/s, v_num=i68s, train_loss_step=16.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   9%|▉         | 61/678 [00:27<04:42,  2.18it/s, v_num=i68s, train_loss_step=16.50]Epoch 0:   9%|▉         | 61/678 [00:27<04:42,  2.18it/s, v_num=i68s, train_loss_step=17.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   9%|▉         | 62/678 [00:28<04:40,  2.20it/s, v_num=i68s, train_loss_step=17.70]Epoch 0:   9%|▉         | 62/678 [00:28<04:40,  2.19it/s, v_num=i68s, train_loss_step=29.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   9%|▉         | 63/678 [00:28<04:38,  2.21it/s, v_num=i68s, train_loss_step=29.10]Epoch 0:   9%|▉         | 63/678 [00:28<04:38,  2.21it/s, v_num=i68s, train_loss_step=15.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:   9%|▉         | 64/678 [00:28<04:36,  2.22it/s, v_num=i68s, train_loss_step=15.10]Epoch 0:   9%|▉         | 64/678 [00:28<04:36,  2.22it/s, v_num=i68s, train_loss_step=13.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  10%|▉         | 65/678 [00:29<04:42,  2.17it/s, v_num=i68s, train_loss_step=13.10]Epoch 0:  10%|▉         | 65/678 [00:29<04:42,  2.17it/s, v_num=i68s, train_loss_step=27.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  10%|▉         | 66/678 [00:30<04:40,  2.18it/s, v_num=i68s, train_loss_step=27.80]Epoch 0:  10%|▉         | 66/678 [00:30<04:40,  2.18it/s, v_num=i68s, train_loss_step=15.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  10%|▉         | 67/678 [00:30<04:38,  2.19it/s, v_num=i68s, train_loss_step=15.40]Epoch 0:  10%|▉         | 67/678 [00:30<04:38,  2.19it/s, v_num=i68s, train_loss_step=15.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  10%|█         | 68/678 [00:30<04:36,  2.20it/s, v_num=i68s, train_loss_step=15.30]Epoch 0:  10%|█         | 68/678 [00:30<04:36,  2.20it/s, v_num=i68s, train_loss_step=12.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  10%|█         | 69/678 [00:31<04:35,  2.21it/s, v_num=i68s, train_loss_step=12.30]Epoch 0:  10%|█         | 69/678 [00:31<04:35,  2.21it/s, v_num=i68s, train_loss_step=27.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  10%|█         | 70/678 [00:31<04:34,  2.22it/s, v_num=i68s, train_loss_step=27.90]Epoch 0:  10%|█         | 70/678 [00:31<04:34,  2.22it/s, v_num=i68s, train_loss_step=24.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  10%|█         | 71/678 [00:31<04:32,  2.23it/s, v_num=i68s, train_loss_step=24.40]Epoch 0:  10%|█         | 71/678 [00:31<04:32,  2.22it/s, v_num=i68s, train_loss_step=18.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  11%|█         | 72/678 [00:32<04:31,  2.24it/s, v_num=i68s, train_loss_step=18.90]Epoch 0:  11%|█         | 72/678 [00:32<04:31,  2.23it/s, v_num=i68s, train_loss_step=24.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  11%|█         | 73/678 [00:32<04:29,  2.25it/s, v_num=i68s, train_loss_step=24.80]Epoch 0:  11%|█         | 73/678 [00:32<04:29,  2.24it/s, v_num=i68s, train_loss_step=23.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  11%|█         | 74/678 [00:32<04:27,  2.26it/s, v_num=i68s, train_loss_step=23.80]Epoch 0:  11%|█         | 74/678 [00:32<04:27,  2.26it/s, v_num=i68s, train_loss_step=22.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  11%|█         | 75/678 [00:33<04:25,  2.27it/s, v_num=i68s, train_loss_step=22.40]Epoch 0:  11%|█         | 75/678 [00:33<04:25,  2.27it/s, v_num=i68s, train_loss_step=16.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  11%|█         | 76/678 [00:33<04:24,  2.28it/s, v_num=i68s, train_loss_step=16.00]Epoch 0:  11%|█         | 76/678 [00:33<04:24,  2.28it/s, v_num=i68s, train_loss_step=21.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  11%|█▏        | 77/678 [00:33<04:23,  2.28it/s, v_num=i68s, train_loss_step=21.80]Epoch 0:  11%|█▏        | 77/678 [00:33<04:23,  2.28it/s, v_num=i68s, train_loss_step=15.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  12%|█▏        | 78/678 [00:34<04:21,  2.29it/s, v_num=i68s, train_loss_step=15.60]Epoch 0:  12%|█▏        | 78/678 [00:34<04:21,  2.29it/s, v_num=i68s, train_loss_step=19.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  12%|█▏        | 79/678 [00:34<04:20,  2.30it/s, v_num=i68s, train_loss_step=19.50]Epoch 0:  12%|█▏        | 79/678 [00:34<04:20,  2.30it/s, v_num=i68s, train_loss_step=19.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  12%|█▏        | 80/678 [00:34<04:18,  2.31it/s, v_num=i68s, train_loss_step=19.20]Epoch 0:  12%|█▏        | 80/678 [00:34<04:19,  2.31it/s, v_num=i68s, train_loss_step=21.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  12%|█▏        | 81/678 [00:36<04:31,  2.20it/s, v_num=i68s, train_loss_step=21.50]Epoch 0:  12%|█▏        | 81/678 [00:36<04:31,  2.20it/s, v_num=i68s, train_loss_step=12.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  12%|█▏        | 82/678 [00:37<04:29,  2.21it/s, v_num=i68s, train_loss_step=12.60]Epoch 0:  12%|█▏        | 82/678 [00:37<04:29,  2.21it/s, v_num=i68s, train_loss_step=21.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  12%|█▏        | 83/678 [00:37<04:28,  2.22it/s, v_num=i68s, train_loss_step=21.10]Epoch 0:  12%|█▏        | 83/678 [00:37<04:28,  2.22it/s, v_num=i68s, train_loss_step=21.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  12%|█▏        | 84/678 [00:37<04:26,  2.23it/s, v_num=i68s, train_loss_step=21.00]Epoch 0:  12%|█▏        | 84/678 [00:37<04:26,  2.23it/s, v_num=i68s, train_loss_step=17.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  13%|█▎        | 85/678 [00:37<04:25,  2.24it/s, v_num=i68s, train_loss_step=17.80]Epoch 0:  13%|█▎        | 85/678 [00:38<04:25,  2.24it/s, v_num=i68s, train_loss_step=14.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  13%|█▎        | 86/678 [00:38<04:23,  2.25it/s, v_num=i68s, train_loss_step=14.40]Epoch 0:  13%|█▎        | 86/678 [00:38<04:23,  2.24it/s, v_num=i68s, train_loss_step=18.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  13%|█▎        | 87/678 [00:38<04:22,  2.25it/s, v_num=i68s, train_loss_step=18.40]Epoch 0:  13%|█▎        | 87/678 [00:38<04:22,  2.25it/s, v_num=i68s, train_loss_step=16.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  13%|█▎        | 88/678 [00:38<04:21,  2.26it/s, v_num=i68s, train_loss_step=16.20]Epoch 0:  13%|█▎        | 88/678 [00:38<04:21,  2.26it/s, v_num=i68s, train_loss_step=19.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  13%|█▎        | 89/678 [00:39<04:19,  2.27it/s, v_num=i68s, train_loss_step=19.80]Epoch 0:  13%|█▎        | 89/678 [00:39<04:19,  2.27it/s, v_num=i68s, train_loss_step=16.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  13%|█▎        | 90/678 [00:39<04:18,  2.28it/s, v_num=i68s, train_loss_step=16.60]Epoch 0:  13%|█▎        | 90/678 [00:39<04:18,  2.28it/s, v_num=i68s, train_loss_step=11.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  13%|█▎        | 91/678 [00:39<04:16,  2.29it/s, v_num=i68s, train_loss_step=11.00]Epoch 0:  13%|█▎        | 91/678 [00:39<04:16,  2.29it/s, v_num=i68s, train_loss_step=32.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  14%|█▎        | 92/678 [00:40<04:15,  2.30it/s, v_num=i68s, train_loss_step=32.00]Epoch 0:  14%|█▎        | 92/678 [00:40<04:15,  2.29it/s, v_num=i68s, train_loss_step=16.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  14%|█▎        | 93/678 [00:40<04:13,  2.30it/s, v_num=i68s, train_loss_step=16.50]Epoch 0:  14%|█▎        | 93/678 [00:40<04:14,  2.30it/s, v_num=i68s, train_loss_step=18.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  14%|█▍        | 94/678 [00:40<04:12,  2.31it/s, v_num=i68s, train_loss_step=18.00]Epoch 0:  14%|█▍        | 94/678 [00:40<04:12,  2.31it/s, v_num=i68s, train_loss_step=18.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  14%|█▍        | 95/678 [00:40<04:11,  2.32it/s, v_num=i68s, train_loss_step=18.70]Epoch 0:  14%|█▍        | 95/678 [00:41<04:11,  2.32it/s, v_num=i68s, train_loss_step=13.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  14%|█▍        | 96/678 [00:41<04:10,  2.32it/s, v_num=i68s, train_loss_step=13.50]Epoch 0:  14%|█▍        | 96/678 [00:41<04:10,  2.32it/s, v_num=i68s, train_loss_step=16.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  14%|█▍        | 97/678 [00:41<04:09,  2.33it/s, v_num=i68s, train_loss_step=16.90]Epoch 0:  14%|█▍        | 97/678 [00:41<04:09,  2.33it/s, v_num=i68s, train_loss_step=17.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  14%|█▍        | 98/678 [00:42<04:12,  2.30it/s, v_num=i68s, train_loss_step=17.10]Epoch 0:  14%|█▍        | 98/678 [00:42<04:12,  2.30it/s, v_num=i68s, train_loss_step=14.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  15%|█▍        | 99/678 [00:43<04:13,  2.29it/s, v_num=i68s, train_loss_step=14.10]Epoch 0:  15%|█▍        | 99/678 [00:43<04:13,  2.29it/s, v_num=i68s, train_loss_step=15.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  15%|█▍        | 100/678 [00:43<04:11,  2.30it/s, v_num=i68s, train_loss_step=15.00]Epoch 0:  15%|█▍        | 100/678 [00:43<04:12,  2.29it/s, v_num=i68s, train_loss_step=18.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  15%|█▍        | 101/678 [00:43<04:10,  2.30it/s, v_num=i68s, train_loss_step=18.70]Epoch 0:  15%|█▍        | 101/678 [00:43<04:10,  2.30it/s, v_num=i68s, train_loss_step=24.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  15%|█▌        | 102/678 [00:44<04:09,  2.31it/s, v_num=i68s, train_loss_step=24.50]Epoch 0:  15%|█▌        | 102/678 [00:44<04:09,  2.31it/s, v_num=i68s, train_loss_step=17.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  15%|█▌        | 103/678 [00:44<04:08,  2.32it/s, v_num=i68s, train_loss_step=17.10]Epoch 0:  15%|█▌        | 103/678 [00:44<04:08,  2.31it/s, v_num=i68s, train_loss_step=11.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  15%|█▌        | 104/678 [00:44<04:07,  2.32it/s, v_num=i68s, train_loss_step=11.40]Epoch 0:  15%|█▌        | 104/678 [00:44<04:07,  2.32it/s, v_num=i68s, train_loss_step=18.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  15%|█▌        | 105/678 [00:45<04:06,  2.32it/s, v_num=i68s, train_loss_step=18.00]Epoch 0:  15%|█▌        | 105/678 [00:45<04:06,  2.32it/s, v_num=i68s, train_loss_step=18.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  16%|█▌        | 106/678 [00:45<04:05,  2.33it/s, v_num=i68s, train_loss_step=18.60]Epoch 0:  16%|█▌        | 106/678 [00:45<04:05,  2.33it/s, v_num=i68s, train_loss_step=18.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  16%|█▌        | 107/678 [00:45<04:04,  2.34it/s, v_num=i68s, train_loss_step=18.30]Epoch 0:  16%|█▌        | 107/678 [00:45<04:04,  2.33it/s, v_num=i68s, train_loss_step=17.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  16%|█▌        | 108/678 [00:46<04:03,  2.34it/s, v_num=i68s, train_loss_step=17.10]Epoch 0:  16%|█▌        | 108/678 [00:46<04:03,  2.34it/s, v_num=i68s, train_loss_step=13.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  16%|█▌        | 109/678 [00:46<04:02,  2.35it/s, v_num=i68s, train_loss_step=13.70]Epoch 0:  16%|█▌        | 109/678 [00:46<04:02,  2.35it/s, v_num=i68s, train_loss_step=26.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  16%|█▌        | 110/678 [00:46<04:00,  2.36it/s, v_num=i68s, train_loss_step=26.30]Epoch 0:  16%|█▌        | 110/678 [00:46<04:01,  2.36it/s, v_num=i68s, train_loss_step=13.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  16%|█▋        | 111/678 [00:46<03:59,  2.36it/s, v_num=i68s, train_loss_step=13.80]Epoch 0:  16%|█▋        | 111/678 [00:46<03:59,  2.36it/s, v_num=i68s, train_loss_step=15.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  17%|█▋        | 112/678 [00:47<03:58,  2.37it/s, v_num=i68s, train_loss_step=15.10]Epoch 0:  17%|█▋        | 112/678 [00:47<03:58,  2.37it/s, v_num=i68s, train_loss_step=14.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  17%|█▋        | 113/678 [00:47<03:57,  2.38it/s, v_num=i68s, train_loss_step=14.30]Epoch 0:  17%|█▋        | 113/678 [00:47<03:57,  2.38it/s, v_num=i68s, train_loss_step=15.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  17%|█▋        | 114/678 [00:47<03:56,  2.38it/s, v_num=i68s, train_loss_step=15.80]Epoch 0:  17%|█▋        | 114/678 [00:47<03:56,  2.38it/s, v_num=i68s, train_loss_step=15.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  17%|█▋        | 115/678 [00:50<04:05,  2.29it/s, v_num=i68s, train_loss_step=15.90]Epoch 0:  17%|█▋        | 115/678 [00:50<04:06,  2.29it/s, v_num=i68s, train_loss_step=18.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  17%|█▋        | 116/678 [00:50<04:04,  2.30it/s, v_num=i68s, train_loss_step=18.70]Epoch 0:  17%|█▋        | 116/678 [00:50<04:04,  2.30it/s, v_num=i68s, train_loss_step=18.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  17%|█▋        | 117/678 [00:50<04:03,  2.30it/s, v_num=i68s, train_loss_step=18.70]Epoch 0:  17%|█▋        | 117/678 [00:50<04:03,  2.30it/s, v_num=i68s, train_loss_step=22.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  17%|█▋        | 118/678 [00:51<04:02,  2.31it/s, v_num=i68s, train_loss_step=22.70]Epoch 0:  17%|█▋        | 118/678 [00:51<04:02,  2.31it/s, v_num=i68s, train_loss_step=17.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  18%|█▊        | 119/678 [00:51<04:01,  2.31it/s, v_num=i68s, train_loss_step=17.70]Epoch 0:  18%|█▊        | 119/678 [00:51<04:02,  2.31it/s, v_num=i68s, train_loss_step=14.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  18%|█▊        | 120/678 [00:51<04:01,  2.31it/s, v_num=i68s, train_loss_step=14.00]Epoch 0:  18%|█▊        | 120/678 [00:51<04:01,  2.31it/s, v_num=i68s, train_loss_step=22.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  18%|█▊        | 121/678 [00:52<04:00,  2.32it/s, v_num=i68s, train_loss_step=22.60]Epoch 0:  18%|█▊        | 121/678 [00:52<04:00,  2.32it/s, v_num=i68s, train_loss_step=23.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  18%|█▊        | 122/678 [00:52<03:59,  2.33it/s, v_num=i68s, train_loss_step=23.50]Epoch 0:  18%|█▊        | 122/678 [00:52<03:59,  2.32it/s, v_num=i68s, train_loss_step=15.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  18%|█▊        | 123/678 [00:52<03:57,  2.33it/s, v_num=i68s, train_loss_step=15.80]Epoch 0:  18%|█▊        | 123/678 [00:52<03:58,  2.33it/s, v_num=i68s, train_loss_step=17.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  18%|█▊        | 124/678 [00:53<03:57,  2.34it/s, v_num=i68s, train_loss_step=17.10]Epoch 0:  18%|█▊        | 124/678 [00:53<03:57,  2.34it/s, v_num=i68s, train_loss_step=21.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  18%|█▊        | 125/678 [00:53<03:55,  2.34it/s, v_num=i68s, train_loss_step=21.20]Epoch 0:  18%|█▊        | 125/678 [00:53<03:56,  2.34it/s, v_num=i68s, train_loss_step=20.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  19%|█▊        | 126/678 [00:53<03:54,  2.35it/s, v_num=i68s, train_loss_step=20.70]Epoch 0:  19%|█▊        | 126/678 [00:53<03:55,  2.35it/s, v_num=i68s, train_loss_step=15.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  19%|█▊        | 127/678 [00:53<03:54,  2.35it/s, v_num=i68s, train_loss_step=15.90]Epoch 0:  19%|█▊        | 127/678 [00:53<03:54,  2.35it/s, v_num=i68s, train_loss_step=20.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  19%|█▉        | 128/678 [00:54<03:53,  2.36it/s, v_num=i68s, train_loss_step=20.80]Epoch 0:  19%|█▉        | 128/678 [00:54<03:53,  2.36it/s, v_num=i68s, train_loss_step=20.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  19%|█▉        | 129/678 [00:54<03:51,  2.37it/s, v_num=i68s, train_loss_step=20.10]Epoch 0:  19%|█▉        | 129/678 [00:54<03:52,  2.37it/s, v_num=i68s, train_loss_step=15.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  19%|█▉        | 130/678 [00:54<03:51,  2.37it/s, v_num=i68s, train_loss_step=15.10]Epoch 0:  19%|█▉        | 130/678 [00:54<03:51,  2.37it/s, v_num=i68s, train_loss_step=16.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  19%|█▉        | 131/678 [00:56<03:55,  2.32it/s, v_num=i68s, train_loss_step=16.60]Epoch 0:  19%|█▉        | 131/678 [00:56<03:55,  2.32it/s, v_num=i68s, train_loss_step=14.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  19%|█▉        | 132/678 [00:56<03:54,  2.33it/s, v_num=i68s, train_loss_step=14.70]Epoch 0:  19%|█▉        | 132/678 [00:56<03:54,  2.33it/s, v_num=i68s, train_loss_step=16.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  20%|█▉        | 133/678 [00:56<03:53,  2.33it/s, v_num=i68s, train_loss_step=16.00]Epoch 0:  20%|█▉        | 133/678 [00:57<03:53,  2.33it/s, v_num=i68s, train_loss_step=20.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  20%|█▉        | 134/678 [00:57<03:52,  2.34it/s, v_num=i68s, train_loss_step=20.30]Epoch 0:  20%|█▉        | 134/678 [00:57<03:52,  2.34it/s, v_num=i68s, train_loss_step=15.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  20%|█▉        | 135/678 [00:57<03:52,  2.34it/s, v_num=i68s, train_loss_step=15.10]Epoch 0:  20%|█▉        | 135/678 [00:57<03:52,  2.34it/s, v_num=i68s, train_loss_step=14.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  20%|██        | 136/678 [00:57<03:51,  2.35it/s, v_num=i68s, train_loss_step=14.70]Epoch 0:  20%|██        | 136/678 [00:57<03:51,  2.35it/s, v_num=i68s, train_loss_step=15.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  20%|██        | 137/678 [00:58<03:50,  2.35it/s, v_num=i68s, train_loss_step=15.30]Epoch 0:  20%|██        | 137/678 [00:58<03:50,  2.35it/s, v_num=i68s, train_loss_step=15.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  20%|██        | 138/678 [00:58<03:49,  2.36it/s, v_num=i68s, train_loss_step=15.40]Epoch 0:  20%|██        | 138/678 [00:58<03:49,  2.36it/s, v_num=i68s, train_loss_step=17.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  21%|██        | 139/678 [00:58<03:48,  2.36it/s, v_num=i68s, train_loss_step=17.80]Epoch 0:  21%|██        | 139/678 [00:58<03:48,  2.36it/s, v_num=i68s, train_loss_step=16.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  21%|██        | 140/678 [00:59<03:47,  2.37it/s, v_num=i68s, train_loss_step=16.00]Epoch 0:  21%|██        | 140/678 [00:59<03:47,  2.37it/s, v_num=i68s, train_loss_step=24.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  21%|██        | 141/678 [00:59<03:46,  2.37it/s, v_num=i68s, train_loss_step=24.30]Epoch 0:  21%|██        | 141/678 [00:59<03:46,  2.37it/s, v_num=i68s, train_loss_step=16.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  21%|██        | 142/678 [00:59<03:45,  2.38it/s, v_num=i68s, train_loss_step=16.60]Epoch 0:  21%|██        | 142/678 [00:59<03:45,  2.38it/s, v_num=i68s, train_loss_step=16.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  21%|██        | 143/678 [01:00<03:44,  2.38it/s, v_num=i68s, train_loss_step=16.50]Epoch 0:  21%|██        | 143/678 [01:00<03:44,  2.38it/s, v_num=i68s, train_loss_step=10.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  21%|██        | 144/678 [01:00<03:43,  2.39it/s, v_num=i68s, train_loss_step=10.50]Epoch 0:  21%|██        | 144/678 [01:00<03:43,  2.39it/s, v_num=i68s, train_loss_step=16.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  21%|██▏       | 145/678 [01:00<03:42,  2.39it/s, v_num=i68s, train_loss_step=16.00]Epoch 0:  21%|██▏       | 145/678 [01:00<03:42,  2.39it/s, v_num=i68s, train_loss_step=20.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  22%|██▏       | 146/678 [01:00<03:42,  2.40it/s, v_num=i68s, train_loss_step=20.90]Epoch 0:  22%|██▏       | 146/678 [01:00<03:42,  2.39it/s, v_num=i68s, train_loss_step=14.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  22%|██▏       | 147/678 [01:02<03:46,  2.35it/s, v_num=i68s, train_loss_step=14.00]Epoch 0:  22%|██▏       | 147/678 [01:02<03:46,  2.35it/s, v_num=i68s, train_loss_step=21.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  22%|██▏       | 148/678 [01:02<03:45,  2.35it/s, v_num=i68s, train_loss_step=21.60]Epoch 0:  22%|██▏       | 148/678 [01:02<03:45,  2.35it/s, v_num=i68s, train_loss_step=20.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  22%|██▏       | 149/678 [01:03<03:44,  2.36it/s, v_num=i68s, train_loss_step=20.20]Epoch 0:  22%|██▏       | 149/678 [01:03<03:44,  2.35it/s, v_num=i68s, train_loss_step=10.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  22%|██▏       | 150/678 [01:03<03:43,  2.36it/s, v_num=i68s, train_loss_step=10.90]Epoch 0:  22%|██▏       | 150/678 [01:03<03:43,  2.36it/s, v_num=i68s, train_loss_step=14.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  22%|██▏       | 151/678 [01:03<03:42,  2.36it/s, v_num=i68s, train_loss_step=14.20]Epoch 0:  22%|██▏       | 151/678 [01:03<03:43,  2.36it/s, v_num=i68s, train_loss_step=19.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  22%|██▏       | 152/678 [01:04<03:42,  2.37it/s, v_num=i68s, train_loss_step=19.90]Epoch 0:  22%|██▏       | 152/678 [01:04<03:42,  2.37it/s, v_num=i68s, train_loss_step=17.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  23%|██▎       | 153/678 [01:04<03:41,  2.37it/s, v_num=i68s, train_loss_step=17.60]Epoch 0:  23%|██▎       | 153/678 [01:04<03:41,  2.37it/s, v_num=i68s, train_loss_step=12.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  23%|██▎       | 154/678 [01:04<03:40,  2.38it/s, v_num=i68s, train_loss_step=12.50]Epoch 0:  23%|██▎       | 154/678 [01:04<03:40,  2.38it/s, v_num=i68s, train_loss_step=16.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  23%|██▎       | 155/678 [01:05<03:39,  2.38it/s, v_num=i68s, train_loss_step=16.10]Epoch 0:  23%|██▎       | 155/678 [01:05<03:39,  2.38it/s, v_num=i68s, train_loss_step=20.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  23%|██▎       | 156/678 [01:05<03:38,  2.39it/s, v_num=i68s, train_loss_step=20.30]Epoch 0:  23%|██▎       | 156/678 [01:05<03:38,  2.39it/s, v_num=i68s, train_loss_step=12.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  23%|██▎       | 157/678 [01:05<03:37,  2.39it/s, v_num=i68s, train_loss_step=12.90]Epoch 0:  23%|██▎       | 157/678 [01:05<03:37,  2.39it/s, v_num=i68s, train_loss_step=18.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  23%|██▎       | 158/678 [01:05<03:36,  2.40it/s, v_num=i68s, train_loss_step=18.80]Epoch 0:  23%|██▎       | 158/678 [01:05<03:36,  2.40it/s, v_num=i68s, train_loss_step=17.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  23%|██▎       | 159/678 [01:06<03:36,  2.40it/s, v_num=i68s, train_loss_step=17.70]Epoch 0:  23%|██▎       | 159/678 [01:06<03:36,  2.40it/s, v_num=i68s, train_loss_step=13.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  24%|██▎       | 160/678 [01:06<03:35,  2.40it/s, v_num=i68s, train_loss_step=13.90]Epoch 0:  24%|██▎       | 160/678 [01:06<03:35,  2.40it/s, v_num=i68s, train_loss_step=21.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  24%|██▎       | 161/678 [01:06<03:34,  2.41it/s, v_num=i68s, train_loss_step=21.10]Epoch 0:  24%|██▎       | 161/678 [01:06<03:34,  2.41it/s, v_num=i68s, train_loss_step=15.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  24%|██▍       | 162/678 [01:07<03:33,  2.41it/s, v_num=i68s, train_loss_step=15.80]Epoch 0:  24%|██▍       | 162/678 [01:07<03:34,  2.41it/s, v_num=i68s, train_loss_step=16.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  24%|██▍       | 163/678 [01:09<03:39,  2.35it/s, v_num=i68s, train_loss_step=16.40]Epoch 0:  24%|██▍       | 163/678 [01:09<03:39,  2.35it/s, v_num=i68s, train_loss_step=16.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  24%|██▍       | 164/678 [01:09<03:38,  2.35it/s, v_num=i68s, train_loss_step=16.80]Epoch 0:  24%|██▍       | 164/678 [01:09<03:38,  2.35it/s, v_num=i68s, train_loss_step=15.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  24%|██▍       | 165/678 [01:10<03:37,  2.36it/s, v_num=i68s, train_loss_step=15.30]Epoch 0:  24%|██▍       | 165/678 [01:10<03:37,  2.35it/s, v_num=i68s, train_loss_step=18.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  24%|██▍       | 166/678 [01:10<03:36,  2.36it/s, v_num=i68s, train_loss_step=18.90]Epoch 0:  24%|██▍       | 166/678 [01:10<03:37,  2.36it/s, v_num=i68s, train_loss_step=16.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  25%|██▍       | 167/678 [01:10<03:36,  2.36it/s, v_num=i68s, train_loss_step=16.50]Epoch 0:  25%|██▍       | 167/678 [01:10<03:36,  2.36it/s, v_num=i68s, train_loss_step=12.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  25%|██▍       | 168/678 [01:11<03:35,  2.36it/s, v_num=i68s, train_loss_step=12.60]Epoch 0:  25%|██▍       | 168/678 [01:11<03:35,  2.36it/s, v_num=i68s, train_loss_step=12.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  25%|██▍       | 169/678 [01:11<03:35,  2.37it/s, v_num=i68s, train_loss_step=12.50]Epoch 0:  25%|██▍       | 169/678 [01:11<03:35,  2.37it/s, v_num=i68s, train_loss_step=17.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  25%|██▌       | 170/678 [01:11<03:34,  2.37it/s, v_num=i68s, train_loss_step=17.70]Epoch 0:  25%|██▌       | 170/678 [01:11<03:34,  2.37it/s, v_num=i68s, train_loss_step=17.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  25%|██▌       | 171/678 [01:11<03:33,  2.38it/s, v_num=i68s, train_loss_step=17.50]Epoch 0:  25%|██▌       | 171/678 [01:11<03:33,  2.38it/s, v_num=i68s, train_loss_step=13.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  25%|██▌       | 172/678 [01:12<03:32,  2.38it/s, v_num=i68s, train_loss_step=13.50]Epoch 0:  25%|██▌       | 172/678 [01:12<03:32,  2.38it/s, v_num=i68s, train_loss_step=15.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  26%|██▌       | 173/678 [01:12<03:32,  2.38it/s, v_num=i68s, train_loss_step=15.70]Epoch 0:  26%|██▌       | 173/678 [01:12<03:32,  2.38it/s, v_num=i68s, train_loss_step=14.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  26%|██▌       | 174/678 [01:12<03:31,  2.38it/s, v_num=i68s, train_loss_step=14.60]Epoch 0:  26%|██▌       | 174/678 [01:12<03:31,  2.38it/s, v_num=i68s, train_loss_step=18.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  26%|██▌       | 175/678 [01:13<03:30,  2.39it/s, v_num=i68s, train_loss_step=18.30]Epoch 0:  26%|██▌       | 175/678 [01:13<03:30,  2.39it/s, v_num=i68s, train_loss_step=13.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  26%|██▌       | 176/678 [01:13<03:29,  2.39it/s, v_num=i68s, train_loss_step=13.10]Epoch 0:  26%|██▌       | 176/678 [01:13<03:29,  2.39it/s, v_num=i68s, train_loss_step=12.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  26%|██▌       | 177/678 [01:13<03:29,  2.40it/s, v_num=i68s, train_loss_step=12.30]Epoch 0:  26%|██▌       | 177/678 [01:13<03:29,  2.40it/s, v_num=i68s, train_loss_step=14.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  26%|██▋       | 178/678 [01:14<03:28,  2.40it/s, v_num=i68s, train_loss_step=14.10]Epoch 0:  26%|██▋       | 178/678 [01:14<03:28,  2.40it/s, v_num=i68s, train_loss_step=19.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  26%|██▋       | 179/678 [01:15<03:30,  2.37it/s, v_num=i68s, train_loss_step=19.20]Epoch 0:  26%|██▋       | 179/678 [01:15<03:30,  2.37it/s, v_num=i68s, train_loss_step=13.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  27%|██▋       | 180/678 [01:15<03:30,  2.37it/s, v_num=i68s, train_loss_step=13.80]Epoch 0:  27%|██▋       | 180/678 [01:15<03:30,  2.37it/s, v_num=i68s, train_loss_step=13.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  27%|██▋       | 181/678 [01:16<03:29,  2.37it/s, v_num=i68s, train_loss_step=13.30]Epoch 0:  27%|██▋       | 181/678 [01:16<03:29,  2.37it/s, v_num=i68s, train_loss_step=15.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  27%|██▋       | 182/678 [01:16<03:28,  2.38it/s, v_num=i68s, train_loss_step=15.60]Epoch 0:  27%|██▋       | 182/678 [01:16<03:28,  2.38it/s, v_num=i68s, train_loss_step=14.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  27%|██▋       | 183/678 [01:16<03:27,  2.38it/s, v_num=i68s, train_loss_step=14.90]Epoch 0:  27%|██▋       | 183/678 [01:16<03:27,  2.38it/s, v_num=i68s, train_loss_step=16.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  27%|██▋       | 184/678 [01:17<03:27,  2.38it/s, v_num=i68s, train_loss_step=16.40]Epoch 0:  27%|██▋       | 184/678 [01:17<03:27,  2.38it/s, v_num=i68s, train_loss_step=18.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  27%|██▋       | 185/678 [01:17<03:26,  2.38it/s, v_num=i68s, train_loss_step=18.40]Epoch 0:  27%|██▋       | 185/678 [01:17<03:26,  2.38it/s, v_num=i68s, train_loss_step=24.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  27%|██▋       | 186/678 [01:17<03:25,  2.39it/s, v_num=i68s, train_loss_step=24.10]Epoch 0:  27%|██▋       | 186/678 [01:17<03:26,  2.39it/s, v_num=i68s, train_loss_step=12.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  28%|██▊       | 187/678 [01:18<03:25,  2.39it/s, v_num=i68s, train_loss_step=12.10]Epoch 0:  28%|██▊       | 187/678 [01:18<03:25,  2.39it/s, v_num=i68s, train_loss_step=21.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  28%|██▊       | 188/678 [01:18<03:24,  2.40it/s, v_num=i68s, train_loss_step=21.40]Epoch 0:  28%|██▊       | 188/678 [01:18<03:24,  2.40it/s, v_num=i68s, train_loss_step=12.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  28%|██▊       | 189/678 [01:18<03:23,  2.40it/s, v_num=i68s, train_loss_step=12.30]Epoch 0:  28%|██▊       | 189/678 [01:18<03:23,  2.40it/s, v_num=i68s, train_loss_step=15.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  28%|██▊       | 190/678 [01:18<03:22,  2.41it/s, v_num=i68s, train_loss_step=15.50]Epoch 0:  28%|██▊       | 190/678 [01:18<03:22,  2.41it/s, v_num=i68s, train_loss_step=17.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  28%|██▊       | 191/678 [01:19<03:22,  2.41it/s, v_num=i68s, train_loss_step=17.60]Epoch 0:  28%|██▊       | 191/678 [01:19<03:22,  2.41it/s, v_num=i68s, train_loss_step=12.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  28%|██▊       | 192/678 [01:19<03:21,  2.41it/s, v_num=i68s, train_loss_step=12.60]Epoch 0:  28%|██▊       | 192/678 [01:19<03:21,  2.41it/s, v_num=i68s, train_loss_step=13.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  28%|██▊       | 193/678 [01:19<03:20,  2.41it/s, v_num=i68s, train_loss_step=13.80]Epoch 0:  28%|██▊       | 193/678 [01:19<03:20,  2.41it/s, v_num=i68s, train_loss_step=17.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  29%|██▊       | 194/678 [01:20<03:20,  2.42it/s, v_num=i68s, train_loss_step=17.90]Epoch 0:  29%|██▊       | 194/678 [01:20<03:20,  2.42it/s, v_num=i68s, train_loss_step=17.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  29%|██▉       | 195/678 [01:21<03:22,  2.38it/s, v_num=i68s, train_loss_step=17.60]Epoch 0:  29%|██▉       | 195/678 [01:21<03:22,  2.38it/s, v_num=i68s, train_loss_step=16.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  29%|██▉       | 196/678 [01:22<03:22,  2.38it/s, v_num=i68s, train_loss_step=16.40]Epoch 0:  29%|██▉       | 196/678 [01:22<03:22,  2.38it/s, v_num=i68s, train_loss_step=17.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  29%|██▉       | 197/678 [01:22<03:22,  2.38it/s, v_num=i68s, train_loss_step=17.30]Epoch 0:  29%|██▉       | 197/678 [01:22<03:22,  2.38it/s, v_num=i68s, train_loss_step=13.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  29%|██▉       | 198/678 [01:23<03:21,  2.38it/s, v_num=i68s, train_loss_step=13.40]Epoch 0:  29%|██▉       | 198/678 [01:23<03:21,  2.38it/s, v_num=i68s, train_loss_step=14.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  29%|██▉       | 199/678 [01:23<03:20,  2.39it/s, v_num=i68s, train_loss_step=14.30]Epoch 0:  29%|██▉       | 199/678 [01:23<03:20,  2.39it/s, v_num=i68s, train_loss_step=13.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  29%|██▉       | 200/678 [01:23<03:20,  2.39it/s, v_num=i68s, train_loss_step=13.60]Epoch 0:  29%|██▉       | 200/678 [01:23<03:20,  2.39it/s, v_num=i68s, train_loss_step=12.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  30%|██▉       | 201/678 [01:24<03:19,  2.39it/s, v_num=i68s, train_loss_step=12.80]Epoch 0:  30%|██▉       | 201/678 [01:24<03:19,  2.39it/s, v_num=i68s, train_loss_step=11.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  30%|██▉       | 202/678 [01:24<03:18,  2.39it/s, v_num=i68s, train_loss_step=11.20]Epoch 0:  30%|██▉       | 202/678 [01:24<03:19,  2.39it/s, v_num=i68s, train_loss_step=14.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  30%|██▉       | 203/678 [01:24<03:18,  2.40it/s, v_num=i68s, train_loss_step=14.60]Epoch 0:  30%|██▉       | 203/678 [01:24<03:18,  2.40it/s, v_num=i68s, train_loss_step=14.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  30%|███       | 204/678 [01:25<03:17,  2.40it/s, v_num=i68s, train_loss_step=14.50]Epoch 0:  30%|███       | 204/678 [01:25<03:17,  2.40it/s, v_num=i68s, train_loss_step=22.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  30%|███       | 205/678 [01:25<03:16,  2.40it/s, v_num=i68s, train_loss_step=22.70]Epoch 0:  30%|███       | 205/678 [01:25<03:16,  2.40it/s, v_num=i68s, train_loss_step=16.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  30%|███       | 206/678 [01:25<03:16,  2.41it/s, v_num=i68s, train_loss_step=16.60]Epoch 0:  30%|███       | 206/678 [01:25<03:16,  2.41it/s, v_num=i68s, train_loss_step=15.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  31%|███       | 207/678 [01:26<03:15,  2.41it/s, v_num=i68s, train_loss_step=15.70]Epoch 0:  31%|███       | 207/678 [01:26<03:15,  2.41it/s, v_num=i68s, train_loss_step=13.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  31%|███       | 208/678 [01:26<03:15,  2.41it/s, v_num=i68s, train_loss_step=13.80]Epoch 0:  31%|███       | 208/678 [01:26<03:15,  2.41it/s, v_num=i68s, train_loss_step=21.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  31%|███       | 209/678 [01:26<03:14,  2.41it/s, v_num=i68s, train_loss_step=21.10]Epoch 0:  31%|███       | 209/678 [01:26<03:14,  2.41it/s, v_num=i68s, train_loss_step=16.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  31%|███       | 210/678 [01:26<03:13,  2.42it/s, v_num=i68s, train_loss_step=16.90]Epoch 0:  31%|███       | 210/678 [01:26<03:13,  2.42it/s, v_num=i68s, train_loss_step=13.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  31%|███       | 211/678 [01:28<03:14,  2.40it/s, v_num=i68s, train_loss_step=13.50]Epoch 0:  31%|███       | 211/678 [01:28<03:14,  2.40it/s, v_num=i68s, train_loss_step=12.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  31%|███▏      | 212/678 [01:28<03:14,  2.40it/s, v_num=i68s, train_loss_step=12.50]Epoch 0:  31%|███▏      | 212/678 [01:28<03:14,  2.40it/s, v_num=i68s, train_loss_step=17.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  31%|███▏      | 213/678 [01:28<03:13,  2.40it/s, v_num=i68s, train_loss_step=17.60]Epoch 0:  31%|███▏      | 213/678 [01:28<03:13,  2.40it/s, v_num=i68s, train_loss_step=17.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  32%|███▏      | 214/678 [01:28<03:12,  2.41it/s, v_num=i68s, train_loss_step=17.40]Epoch 0:  32%|███▏      | 214/678 [01:28<03:12,  2.41it/s, v_num=i68s, train_loss_step=14.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  32%|███▏      | 215/678 [01:29<03:12,  2.41it/s, v_num=i68s, train_loss_step=14.50]Epoch 0:  32%|███▏      | 215/678 [01:29<03:12,  2.41it/s, v_num=i68s, train_loss_step=12.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  32%|███▏      | 216/678 [01:29<03:11,  2.41it/s, v_num=i68s, train_loss_step=12.40]Epoch 0:  32%|███▏      | 216/678 [01:29<03:11,  2.41it/s, v_num=i68s, train_loss_step=17.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  32%|███▏      | 217/678 [01:29<03:10,  2.41it/s, v_num=i68s, train_loss_step=17.90]Epoch 0:  32%|███▏      | 217/678 [01:29<03:10,  2.41it/s, v_num=i68s, train_loss_step=10.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  32%|███▏      | 218/678 [01:30<03:10,  2.41it/s, v_num=i68s, train_loss_step=10.10]Epoch 0:  32%|███▏      | 218/678 [01:30<03:10,  2.41it/s, v_num=i68s, train_loss_step=14.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  32%|███▏      | 219/678 [01:30<03:09,  2.42it/s, v_num=i68s, train_loss_step=14.00]Epoch 0:  32%|███▏      | 219/678 [01:30<03:09,  2.42it/s, v_num=i68s, train_loss_step=16.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  32%|███▏      | 220/678 [01:30<03:09,  2.42it/s, v_num=i68s, train_loss_step=16.60]Epoch 0:  32%|███▏      | 220/678 [01:30<03:09,  2.42it/s, v_num=i68s, train_loss_step=15.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  33%|███▎      | 221/678 [01:31<03:08,  2.42it/s, v_num=i68s, train_loss_step=15.20]Epoch 0:  33%|███▎      | 221/678 [01:31<03:08,  2.42it/s, v_num=i68s, train_loss_step=17.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  33%|███▎      | 222/678 [01:31<03:07,  2.43it/s, v_num=i68s, train_loss_step=17.80]Epoch 0:  33%|███▎      | 222/678 [01:31<03:07,  2.43it/s, v_num=i68s, train_loss_step=20.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  33%|███▎      | 223/678 [01:31<03:07,  2.43it/s, v_num=i68s, train_loss_step=20.10]Epoch 0:  33%|███▎      | 223/678 [01:31<03:07,  2.43it/s, v_num=i68s, train_loss_step=16.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  33%|███▎      | 224/678 [01:32<03:06,  2.43it/s, v_num=i68s, train_loss_step=16.10]Epoch 0:  33%|███▎      | 224/678 [01:32<03:06,  2.43it/s, v_num=i68s, train_loss_step=12.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  33%|███▎      | 225/678 [01:32<03:06,  2.43it/s, v_num=i68s, train_loss_step=12.70]Epoch 0:  33%|███▎      | 225/678 [01:32<03:06,  2.43it/s, v_num=i68s, train_loss_step=13.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  33%|███▎      | 226/678 [01:32<03:05,  2.43it/s, v_num=i68s, train_loss_step=13.50]Epoch 0:  33%|███▎      | 226/678 [01:32<03:05,  2.43it/s, v_num=i68s, train_loss_step=13.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  33%|███▎      | 227/678 [01:33<03:05,  2.44it/s, v_num=i68s, train_loss_step=13.00]Epoch 0:  33%|███▎      | 227/678 [01:33<03:05,  2.44it/s, v_num=i68s, train_loss_step=14.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  34%|███▎      | 228/678 [01:33<03:04,  2.44it/s, v_num=i68s, train_loss_step=14.20]Epoch 0:  34%|███▎      | 228/678 [01:33<03:04,  2.44it/s, v_num=i68s, train_loss_step=15.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  34%|███▍      | 229/678 [01:33<03:04,  2.44it/s, v_num=i68s, train_loss_step=15.80]Epoch 0:  34%|███▍      | 229/678 [01:33<03:04,  2.44it/s, v_num=i68s, train_loss_step=15.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  34%|███▍      | 230/678 [01:34<03:03,  2.44it/s, v_num=i68s, train_loss_step=15.10]Epoch 0:  34%|███▍      | 230/678 [01:34<03:03,  2.44it/s, v_num=i68s, train_loss_step=11.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  34%|███▍      | 231/678 [01:34<03:02,  2.44it/s, v_num=i68s, train_loss_step=11.50]Epoch 0:  34%|███▍      | 231/678 [01:34<03:02,  2.44it/s, v_num=i68s, train_loss_step=15.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  34%|███▍      | 232/678 [01:34<03:02,  2.45it/s, v_num=i68s, train_loss_step=15.30]Epoch 0:  34%|███▍      | 232/678 [01:34<03:02,  2.45it/s, v_num=i68s, train_loss_step=14.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  34%|███▍      | 233/678 [01:35<03:01,  2.45it/s, v_num=i68s, train_loss_step=14.10]Epoch 0:  34%|███▍      | 233/678 [01:35<03:01,  2.45it/s, v_num=i68s, train_loss_step=10.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  35%|███▍      | 234/678 [01:35<03:00,  2.45it/s, v_num=i68s, train_loss_step=10.80]Epoch 0:  35%|███▍      | 234/678 [01:35<03:00,  2.45it/s, v_num=i68s, train_loss_step=16.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  35%|███▍      | 235/678 [01:35<03:00,  2.46it/s, v_num=i68s, train_loss_step=16.90]Epoch 0:  35%|███▍      | 235/678 [01:35<03:00,  2.46it/s, v_num=i68s, train_loss_step=12.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  35%|███▍      | 236/678 [01:35<02:59,  2.46it/s, v_num=i68s, train_loss_step=12.80]Epoch 0:  35%|███▍      | 236/678 [01:35<02:59,  2.46it/s, v_num=i68s, train_loss_step=16.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  35%|███▍      | 237/678 [01:36<02:59,  2.46it/s, v_num=i68s, train_loss_step=16.30]Epoch 0:  35%|███▍      | 237/678 [01:36<02:59,  2.46it/s, v_num=i68s, train_loss_step=13.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  35%|███▌      | 238/678 [01:36<02:58,  2.47it/s, v_num=i68s, train_loss_step=13.60]Epoch 0:  35%|███▌      | 238/678 [01:36<02:58,  2.46it/s, v_num=i68s, train_loss_step=15.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  35%|███▌      | 239/678 [01:36<02:57,  2.47it/s, v_num=i68s, train_loss_step=15.70]Epoch 0:  35%|███▌      | 239/678 [01:36<02:57,  2.47it/s, v_num=i68s, train_loss_step=14.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  35%|███▌      | 240/678 [01:37<02:57,  2.47it/s, v_num=i68s, train_loss_step=14.80]Epoch 0:  35%|███▌      | 240/678 [01:37<02:57,  2.47it/s, v_num=i68s, train_loss_step=11.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  36%|███▌      | 241/678 [01:38<02:59,  2.44it/s, v_num=i68s, train_loss_step=11.60]Epoch 0:  36%|███▌      | 241/678 [01:38<02:59,  2.43it/s, v_num=i68s, train_loss_step=19.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  36%|███▌      | 242/678 [01:39<02:58,  2.44it/s, v_num=i68s, train_loss_step=19.00]Epoch 0:  36%|███▌      | 242/678 [01:39<02:58,  2.44it/s, v_num=i68s, train_loss_step=11.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  36%|███▌      | 243/678 [01:39<02:58,  2.44it/s, v_num=i68s, train_loss_step=11.60]Epoch 0:  36%|███▌      | 243/678 [01:39<02:58,  2.44it/s, v_num=i68s, train_loss_step=18.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  36%|███▌      | 244/678 [01:39<02:57,  2.44it/s, v_num=i68s, train_loss_step=18.20]Epoch 0:  36%|███▌      | 244/678 [01:39<02:57,  2.44it/s, v_num=i68s, train_loss_step=13.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  36%|███▌      | 245/678 [01:40<02:57,  2.45it/s, v_num=i68s, train_loss_step=13.00]Epoch 0:  36%|███▌      | 245/678 [01:40<02:57,  2.44it/s, v_num=i68s, train_loss_step=16.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  36%|███▋      | 246/678 [01:40<02:56,  2.45it/s, v_num=i68s, train_loss_step=16.90]Epoch 0:  36%|███▋      | 246/678 [01:40<02:56,  2.45it/s, v_num=i68s, train_loss_step=18.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  36%|███▋      | 247/678 [01:40<02:55,  2.45it/s, v_num=i68s, train_loss_step=18.70]Epoch 0:  36%|███▋      | 247/678 [01:40<02:55,  2.45it/s, v_num=i68s, train_loss_step=14.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  37%|███▋      | 248/678 [01:41<02:55,  2.45it/s, v_num=i68s, train_loss_step=14.70]Epoch 0:  37%|███▋      | 248/678 [01:41<02:55,  2.45it/s, v_num=i68s, train_loss_step=12.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  37%|███▋      | 249/678 [01:41<02:54,  2.46it/s, v_num=i68s, train_loss_step=12.70]Epoch 0:  37%|███▋      | 249/678 [01:41<02:54,  2.46it/s, v_num=i68s, train_loss_step=16.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  37%|███▋      | 250/678 [01:41<02:54,  2.46it/s, v_num=i68s, train_loss_step=16.90]Epoch 0:  37%|███▋      | 250/678 [01:41<02:54,  2.46it/s, v_num=i68s, train_loss_step=19.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  37%|███▋      | 251/678 [01:41<02:53,  2.46it/s, v_num=i68s, train_loss_step=19.80]Epoch 0:  37%|███▋      | 251/678 [01:41<02:53,  2.46it/s, v_num=i68s, train_loss_step=16.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  37%|███▋      | 252/678 [01:42<02:52,  2.47it/s, v_num=i68s, train_loss_step=16.00]Epoch 0:  37%|███▋      | 252/678 [01:42<02:52,  2.46it/s, v_num=i68s, train_loss_step=12.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  37%|███▋      | 253/678 [01:42<02:52,  2.47it/s, v_num=i68s, train_loss_step=12.00]Epoch 0:  37%|███▋      | 253/678 [01:42<02:52,  2.47it/s, v_num=i68s, train_loss_step=18.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  37%|███▋      | 254/678 [01:43<02:51,  2.47it/s, v_num=i68s, train_loss_step=18.20]Epoch 0:  37%|███▋      | 254/678 [01:43<02:52,  2.47it/s, v_num=i68s, train_loss_step=17.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  38%|███▊      | 255/678 [01:43<02:51,  2.47it/s, v_num=i68s, train_loss_step=17.50]Epoch 0:  38%|███▊      | 255/678 [01:43<02:51,  2.47it/s, v_num=i68s, train_loss_step=14.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  38%|███▊      | 256/678 [01:43<02:50,  2.47it/s, v_num=i68s, train_loss_step=14.40]Epoch 0:  38%|███▊      | 256/678 [01:43<02:50,  2.47it/s, v_num=i68s, train_loss_step=9.470]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  38%|███▊      | 257/678 [01:45<02:52,  2.44it/s, v_num=i68s, train_loss_step=9.470]Epoch 0:  38%|███▊      | 257/678 [01:45<02:52,  2.44it/s, v_num=i68s, train_loss_step=12.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  38%|███▊      | 258/678 [01:45<02:51,  2.45it/s, v_num=i68s, train_loss_step=12.00]Epoch 0:  38%|███▊      | 258/678 [01:45<02:51,  2.44it/s, v_num=i68s, train_loss_step=15.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  38%|███▊      | 259/678 [01:45<02:51,  2.45it/s, v_num=i68s, train_loss_step=15.50]Epoch 0:  38%|███▊      | 259/678 [01:45<02:51,  2.45it/s, v_num=i68s, train_loss_step=21.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  38%|███▊      | 260/678 [01:46<02:50,  2.45it/s, v_num=i68s, train_loss_step=21.30]Epoch 0:  38%|███▊      | 260/678 [01:46<02:50,  2.45it/s, v_num=i68s, train_loss_step=14.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  38%|███▊      | 261/678 [01:46<02:50,  2.45it/s, v_num=i68s, train_loss_step=14.50]Epoch 0:  38%|███▊      | 261/678 [01:46<02:50,  2.45it/s, v_num=i68s, train_loss_step=17.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  39%|███▊      | 262/678 [01:46<02:49,  2.45it/s, v_num=i68s, train_loss_step=17.50]Epoch 0:  39%|███▊      | 262/678 [01:46<02:49,  2.45it/s, v_num=i68s, train_loss_step=17.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  39%|███▉      | 263/678 [01:47<02:48,  2.46it/s, v_num=i68s, train_loss_step=17.00]Epoch 0:  39%|███▉      | 263/678 [01:47<02:48,  2.46it/s, v_num=i68s, train_loss_step=15.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  39%|███▉      | 264/678 [01:47<02:48,  2.46it/s, v_num=i68s, train_loss_step=15.10]Epoch 0:  39%|███▉      | 264/678 [01:47<02:48,  2.46it/s, v_num=i68s, train_loss_step=12.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  39%|███▉      | 265/678 [01:47<02:47,  2.46it/s, v_num=i68s, train_loss_step=12.80]Epoch 0:  39%|███▉      | 265/678 [01:47<02:47,  2.46it/s, v_num=i68s, train_loss_step=11.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  39%|███▉      | 266/678 [01:47<02:47,  2.47it/s, v_num=i68s, train_loss_step=11.60]Epoch 0:  39%|███▉      | 266/678 [01:47<02:47,  2.46it/s, v_num=i68s, train_loss_step=12.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  39%|███▉      | 267/678 [01:48<02:46,  2.47it/s, v_num=i68s, train_loss_step=12.60]Epoch 0:  39%|███▉      | 267/678 [01:48<02:46,  2.47it/s, v_num=i68s, train_loss_step=16.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  40%|███▉      | 268/678 [01:48<02:45,  2.47it/s, v_num=i68s, train_loss_step=16.70]Epoch 0:  40%|███▉      | 268/678 [01:48<02:46,  2.47it/s, v_num=i68s, train_loss_step=17.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  40%|███▉      | 269/678 [01:48<02:45,  2.47it/s, v_num=i68s, train_loss_step=17.30]Epoch 0:  40%|███▉      | 269/678 [01:48<02:45,  2.47it/s, v_num=i68s, train_loss_step=14.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  40%|███▉      | 270/678 [01:49<02:45,  2.47it/s, v_num=i68s, train_loss_step=14.20]Epoch 0:  40%|███▉      | 270/678 [01:49<02:45,  2.47it/s, v_num=i68s, train_loss_step=16.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  40%|███▉      | 271/678 [01:49<02:44,  2.47it/s, v_num=i68s, train_loss_step=16.40]Epoch 0:  40%|███▉      | 271/678 [01:49<02:44,  2.47it/s, v_num=i68s, train_loss_step=12.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  40%|████      | 272/678 [01:49<02:44,  2.47it/s, v_num=i68s, train_loss_step=12.20]Epoch 0:  40%|████      | 272/678 [01:49<02:44,  2.47it/s, v_num=i68s, train_loss_step=12.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  40%|████      | 273/678 [01:51<02:45,  2.45it/s, v_num=i68s, train_loss_step=12.90]Epoch 0:  40%|████      | 273/678 [01:51<02:45,  2.45it/s, v_num=i68s, train_loss_step=15.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  40%|████      | 274/678 [01:51<02:44,  2.45it/s, v_num=i68s, train_loss_step=15.70]Epoch 0:  40%|████      | 274/678 [01:51<02:44,  2.45it/s, v_num=i68s, train_loss_step=11.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  41%|████      | 275/678 [01:52<02:44,  2.45it/s, v_num=i68s, train_loss_step=11.10]Epoch 0:  41%|████      | 275/678 [01:52<02:44,  2.45it/s, v_num=i68s, train_loss_step=13.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  41%|████      | 276/678 [01:52<02:43,  2.46it/s, v_num=i68s, train_loss_step=13.80]Epoch 0:  41%|████      | 276/678 [01:52<02:43,  2.46it/s, v_num=i68s, train_loss_step=16.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  41%|████      | 277/678 [01:52<02:43,  2.46it/s, v_num=i68s, train_loss_step=16.60]Epoch 0:  41%|████      | 277/678 [01:52<02:43,  2.46it/s, v_num=i68s, train_loss_step=13.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  41%|████      | 278/678 [01:53<02:42,  2.46it/s, v_num=i68s, train_loss_step=13.00]Epoch 0:  41%|████      | 278/678 [01:53<02:42,  2.46it/s, v_num=i68s, train_loss_step=12.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  41%|████      | 279/678 [01:53<02:42,  2.46it/s, v_num=i68s, train_loss_step=12.30]Epoch 0:  41%|████      | 279/678 [01:53<02:42,  2.46it/s, v_num=i68s, train_loss_step=15.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  41%|████▏     | 280/678 [01:53<02:41,  2.46it/s, v_num=i68s, train_loss_step=15.50]Epoch 0:  41%|████▏     | 280/678 [01:53<02:41,  2.46it/s, v_num=i68s, train_loss_step=12.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  41%|████▏     | 281/678 [01:53<02:41,  2.47it/s, v_num=i68s, train_loss_step=12.70]Epoch 0:  41%|████▏     | 281/678 [01:53<02:41,  2.47it/s, v_num=i68s, train_loss_step=23.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  42%|████▏     | 282/678 [01:54<02:40,  2.47it/s, v_num=i68s, train_loss_step=23.40]Epoch 0:  42%|████▏     | 282/678 [01:54<02:40,  2.47it/s, v_num=i68s, train_loss_step=24.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  42%|████▏     | 283/678 [01:54<02:39,  2.47it/s, v_num=i68s, train_loss_step=24.60]Epoch 0:  42%|████▏     | 283/678 [01:54<02:39,  2.47it/s, v_num=i68s, train_loss_step=17.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  42%|████▏     | 284/678 [01:54<02:39,  2.47it/s, v_num=i68s, train_loss_step=17.00]Epoch 0:  42%|████▏     | 284/678 [01:54<02:39,  2.47it/s, v_num=i68s, train_loss_step=18.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  42%|████▏     | 285/678 [01:55<02:38,  2.48it/s, v_num=i68s, train_loss_step=18.70]Epoch 0:  42%|████▏     | 285/678 [01:55<02:38,  2.48it/s, v_num=i68s, train_loss_step=11.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  42%|████▏     | 286/678 [01:56<02:38,  2.47it/s, v_num=i68s, train_loss_step=11.60]Epoch 0:  42%|████▏     | 286/678 [01:56<02:39,  2.46it/s, v_num=i68s, train_loss_step=14.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  42%|████▏     | 287/678 [01:56<02:38,  2.47it/s, v_num=i68s, train_loss_step=14.40]Epoch 0:  42%|████▏     | 287/678 [01:56<02:38,  2.47it/s, v_num=i68s, train_loss_step=11.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  42%|████▏     | 288/678 [01:56<02:37,  2.47it/s, v_num=i68s, train_loss_step=11.80]Epoch 0:  42%|████▏     | 288/678 [01:56<02:37,  2.47it/s, v_num=i68s, train_loss_step=12.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  43%|████▎     | 289/678 [01:57<02:38,  2.46it/s, v_num=i68s, train_loss_step=12.20]Epoch 0:  43%|████▎     | 289/678 [01:57<02:38,  2.46it/s, v_num=i68s, train_loss_step=11.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  43%|████▎     | 290/678 [01:57<02:37,  2.46it/s, v_num=i68s, train_loss_step=11.60]Epoch 0:  43%|████▎     | 290/678 [01:57<02:37,  2.46it/s, v_num=i68s, train_loss_step=12.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  43%|████▎     | 291/678 [01:58<02:36,  2.47it/s, v_num=i68s, train_loss_step=12.90]Epoch 0:  43%|████▎     | 291/678 [01:58<02:37,  2.46it/s, v_num=i68s, train_loss_step=15.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  43%|████▎     | 292/678 [01:58<02:36,  2.47it/s, v_num=i68s, train_loss_step=15.90]Epoch 0:  43%|████▎     | 292/678 [01:58<02:36,  2.47it/s, v_num=i68s, train_loss_step=12.40]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  43%|████▎     | 293/678 [01:58<02:35,  2.47it/s, v_num=i68s, train_loss_step=12.40]Epoch 0:  43%|████▎     | 293/678 [01:58<02:35,  2.47it/s, v_num=i68s, train_loss_step=14.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  43%|████▎     | 294/678 [01:58<02:35,  2.47it/s, v_num=i68s, train_loss_step=14.90]Epoch 0:  43%|████▎     | 294/678 [01:58<02:35,  2.47it/s, v_num=i68s, train_loss_step=13.60]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  44%|████▎     | 295/678 [01:59<02:34,  2.48it/s, v_num=i68s, train_loss_step=13.60]Epoch 0:  44%|████▎     | 295/678 [01:59<02:34,  2.47it/s, v_num=i68s, train_loss_step=13.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  44%|████▎     | 296/678 [01:59<02:34,  2.48it/s, v_num=i68s, train_loss_step=13.10]Epoch 0:  44%|████▎     | 296/678 [01:59<02:34,  2.48it/s, v_num=i68s, train_loss_step=18.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  44%|████▍     | 297/678 [01:59<02:33,  2.48it/s, v_num=i68s, train_loss_step=18.20]Epoch 0:  44%|████▍     | 297/678 [01:59<02:33,  2.48it/s, v_num=i68s, train_loss_step=10.70]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  44%|████▍     | 298/678 [02:00<02:33,  2.48it/s, v_num=i68s, train_loss_step=10.70]Epoch 0:  44%|████▍     | 298/678 [02:00<02:33,  2.48it/s, v_num=i68s, train_loss_step=11.10]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  44%|████▍     | 299/678 [02:00<02:32,  2.48it/s, v_num=i68s, train_loss_step=11.10]Epoch 0:  44%|████▍     | 299/678 [02:00<02:32,  2.48it/s, v_num=i68s, train_loss_step=14.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  44%|████▍     | 300/678 [02:00<02:32,  2.49it/s, v_num=i68s, train_loss_step=14.00]Epoch 0:  44%|████▍     | 300/678 [02:00<02:32,  2.49it/s, v_num=i68s, train_loss_step=14.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  44%|████▍     | 301/678 [02:00<02:31,  2.49it/s, v_num=i68s, train_loss_step=14.20]Epoch 0:  44%|████▍     | 301/678 [02:00<02:31,  2.49it/s, v_num=i68s, train_loss_step=21.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  45%|████▍     | 302/678 [02:02<02:32,  2.46it/s, v_num=i68s, train_loss_step=21.90]Epoch 0:  45%|████▍     | 302/678 [02:02<02:32,  2.46it/s, v_num=i68s, train_loss_step=20.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  45%|████▍     | 303/678 [02:02<02:32,  2.47it/s, v_num=i68s, train_loss_step=20.90]Epoch 0:  45%|████▍     | 303/678 [02:02<02:32,  2.47it/s, v_num=i68s, train_loss_step=11.90]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  45%|████▍     | 304/678 [02:03<02:31,  2.47it/s, v_num=i68s, train_loss_step=11.90]Epoch 0:  45%|████▍     | 304/678 [02:03<02:31,  2.47it/s, v_num=i68s, train_loss_step=19.80]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  45%|████▍     | 305/678 [02:03<02:31,  2.47it/s, v_num=i68s, train_loss_step=19.80]Epoch 0:  45%|████▍     | 305/678 [02:03<02:31,  2.47it/s, v_num=i68s, train_loss_step=12.30]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  45%|████▌     | 306/678 [02:03<02:30,  2.47it/s, v_num=i68s, train_loss_step=12.30]Epoch 0:  45%|████▌     | 306/678 [02:03<02:30,  2.47it/s, v_num=i68s, train_loss_step=16.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  45%|████▌     | 307/678 [02:04<02:30,  2.47it/s, v_num=i68s, train_loss_step=16.50]Epoch 0:  45%|████▌     | 307/678 [02:04<02:30,  2.47it/s, v_num=i68s, train_loss_step=12.20]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  45%|████▌     | 308/678 [02:04<02:29,  2.47it/s, v_num=i68s, train_loss_step=12.20]Epoch 0:  45%|████▌     | 308/678 [02:04<02:29,  2.47it/s, v_num=i68s, train_loss_step=12.50]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  46%|████▌     | 309/678 [02:04<02:29,  2.47it/s, v_num=i68s, train_loss_step=12.50]Epoch 0:  46%|████▌     | 309/678 [02:05<02:29,  2.47it/s, v_num=i68s, train_loss_step=9.250]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  46%|████▌     | 310/678 [02:05<02:28,  2.47it/s, v_num=i68s, train_loss_step=9.250]Epoch 0:  46%|████▌     | 310/678 [02:05<02:28,  2.47it/s, v_num=i68s, train_loss_step=12.00]fld_a.shape input: torch.Size([4, 1, 63784, 17])
+fld_b.shape input: torch.Size([4, 1, 63784, 17])
+fld_a.shape: torch.Size([4, 63784, 17])
+fld_b.shape: torch.Size([4, 63784, 17])
+Epoch 0:  46%|████▌     | 311/678 [02:05<02:28,  2.48it/s, v_num=i68s, train_loss_step=12.00]Epoch 0:  46%|████▌     | 311/678 [02:05<02:28,  2.48it/s, v_num=i68s, train_loss_step=11.70]
