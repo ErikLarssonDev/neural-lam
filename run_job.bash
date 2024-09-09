@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J graphcast_diff_200e
+#SBATCH -J diff_eval_val
 #SBATCH -t 3-00:00:00
 #SBATCH --gpus=1 -C "thin"
 #SBATCH --mail-type=ALL
@@ -18,13 +18,13 @@ PYTHON_SCRIPT_PATH="neural_lam.train_model"
 
 MODEL="diffusion" # N_O, WNO2d, diffusion
 DIFFUSION_MODEL="--diffusion_model graphcast"
-RUN_NAME="--wandb_run_name graphcast_diff_200e"
-PATH_TO_MODEL="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/FNO2d-4x64-08_27_09-9685/last.ckpt"
+RUN_NAME="--wandb_run_name diff_eval_val"
+PATH_TO_MODEL="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graphcast_diff_200e-diffusion-4x64-09_06_13-0341/last.ckpt"
 
 # Execute Python script with arguments
-python3 train_model.py "--model" $MODEL $DIFFUSION_MODEL "--n_workers" 16 $RUN_NAME "--pred_residual" --batch_size 8
+python3 train_model.py "--model" $MODEL $DIFFUSION_MODEL "--n_workers" 16 $RUN_NAME "--pred_residual" --batch_size 8 --eval val --load $PATH_TO_MODEL
 # Fix Wandb run name
-# python3 train_model.py --model diffusion --diffusion_model graphcast --pred_residual --batch_size 8 --eval val
+# python3 train_model.py --model diffusion --diffusion_model graphcast --pred_residual --batch_size 8 --eval val --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graphcast_diff_200e-diffusion-4x64-09_06_13-0341/last.ckpt
 # python -m neural_lam.train_model --model graph_lam --graph multiscale --loss dtcwt_loss --batch_size 8 --n_workers 16 # 
 
 # Sanity check 1: 10 min
