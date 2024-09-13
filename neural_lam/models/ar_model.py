@@ -391,6 +391,7 @@ class ARModel(pl.LightningModule):
                 .cpu()
                 .numpy()
             )  # (d_f,)
+     
             var_vranges = list(zip(var_vmin, var_vmax))
 
             # Iterate over prediction horizon time steps

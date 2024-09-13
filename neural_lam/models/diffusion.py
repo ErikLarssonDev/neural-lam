@@ -84,10 +84,6 @@ class Diffusion(ARModel):
 
         # Run through sampler
         next_state = self.heun_sampler(self, latents, input_grid)
-
-        # Add residual if needed
-        if self.pred_residual:
-            next_state = prev_state + next_state
         
         return next_state, None
 
@@ -129,10 +125,6 @@ class Diffusion(ARModel):
         noisy_input = y+n
 
         next_state = self.forward(noisy_input, sigma, input_grid) # Shape (B, d_state, N_x, N_y)
-
-        # Add residual if needed
-        if self.pred_residual:
-            next_state = prev_state + next_state
 
         return next_state, None
     
@@ -406,6 +398,8 @@ class Diffusion(ARModel):
                 .numpy()
             )  # (d_f,)
             var_vranges = list(zip(var_vmin, var_vmax))
+            # print(f"pred topk {traj_slice.flatten(0, 2).topk(10)}")
+            # print(f"target topk {target_slice.flatten(0, 1).topk(10)}")
 
             # Iterate over prediction horizon time steps
             for t_i, (samples_t, target_t, ens_mean_t, ens_std_t) in enumerate(
@@ -428,7 +422,7 @@ class Diffusion(ARModel):
                         ens_std_t[:, var_i],
                         self.interior_mask[:, 0],
                         title=f"{var_name} ({var_unit}), {time_title_part}",
-                        vrange=var_vrange,
+                        # vrange=var_vrange,
                     )
                     for var_i, (var_name, var_unit, var_vrange) in enumerate(
                         zip(
@@ -753,8 +747,13 @@ class Diffusion(ARModel):
         emb = self.map_noise(noise_labels)
         emb_expanded = emb.unsqueeze(1).expand(class_labels.shape[0], class_labels.shape[1], -1) # Expand emb to shape [4, 63784, 16]
         class_labels = torch.cat([class_labels, emb_expanded], dim=-1)
-        output, _ = self.model.predict_step(x, class_labels[:, :, :34], class_labels[:, :, 34:])
-        return output
+        next_state, _ = self.model.predict_step(x, class_labels[:, :, :34], class_labels[:, :, 34:])
+
+        # Add residual if needed
+        if self.pred_residual:
+            next_state = class_labels[:, :, :17] + next_state
+
+        return next_state
     
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
