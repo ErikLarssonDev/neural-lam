@@ -75,7 +75,6 @@ def plot_prediction(pred, target, obs_mask, title=None, vrange=None):
         vmax = max(vals.max().cpu().item() for vals in (pred, target))
     else:
         vmin, vmax = vrange
-
     # Set up masking of border region
     mask_reshaped = obs_mask.reshape(*constants.GRID_SHAPE)
     pixel_alpha = (
@@ -135,7 +134,13 @@ def plot_ensemble_prediction(
         vmax = max(vals.max().cpu().item() for vals in (samples, target))
     else:
         vmin, vmax = vrange
-
+    # vmin = min(vals.min().cpu().item() for vals in (target)) # (samples, target))
+    # vmax = max(vals.max().cpu().item() for vals in (target)) # (samples, target))
+    print(f"titles: {title}")
+    print(f"vmin: {vmin}, vmax: {vmax}")
+    print(f"topk samples: {samples.topk(5)}")
+    print(f"target.shape: {target.shape}")
+    print(f"topk target: {target.topk(5)}")
     # Set up masking of border region
     mask_reshaped = obs_mask.reshape(*constants.GRID_SHAPE)
     pixel_alpha = (
