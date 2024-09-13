@@ -1,44 +1,0 @@
-W&B online. Running your script from this directory will now sync to the cloud.
-[rank: 0] Global seed set to 42
-/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/utils.py:23: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
-  return torch.load(
-/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/utils.py:48: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
-  return torch.load(
-/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/utils.py:123: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
-  return torch.load(os.path.join(graph_dir_path, fn), map_location=device)
-wandb: Currently logged in as: erik-larsson (erik-larsson-link-ping-university). Use `wandb login --relogin` to force relogin
-wandb: wandb version 0.17.9 is available!  To upgrade, please run:
-wandb:  $ pip install wandb --upgrade
-wandb: Tracking run with wandb version 0.17.7
-wandb: Run data is saved locally in ./wandb/run-20240906_135532-6z9remki
-wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run graphcast_diff_200e-diffusion-4x64-09_06_13-0341
-wandb: ⭐️ View project at https://wandb.ai/erik-larsson-link-ping-university/neural-lam_prob
-wandb: 🚀 View run at https://wandb.ai/erik-larsson-link-ping-university/neural-lam_prob/runs/6z9remki
-/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/lightning_fabric/plugins/environments/slurm.py:168: PossibleUserWarning: The `srun` command is available on your system but is not used. HINT: If your intention is to run Lightning on SLURM, prepend your python command with `srun` like so: srun python3 train_model.py --model diffusion --diffusion_model  ...
-  rank_zero_warn(
-GPU available: True (cuda), used: True
-TPU available: False, using: 0 TPU cores
-IPU available: False, using: 0 IPUs
-HPU available: False, using: 0 HPUs
-[rank: 0] Global seed set to 42
-Initializing distributed: GLOBAL_RANK: 0, MEMBER: 1/1
-----------------------------------------------------------------------------------------------------
-distributed_backend=nccl
-All distributed processes registered. Starting with 1 processes
-----------------------------------------------------------------------------------------------------
-
-LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
-
-  | Name      | Type           | Params
----------------------------------------------
-0 | map_noise | NoiseEmbedding | 22.8 K
-1 | model     | GraphCast      | 216 K 
----------------------------------------------
-239 K     Trainable params
-0         Non-trainable params
-239 K     Total params
-0.959     Total estimated model params size (MB)
-Loaded graph with 70345 nodes (63784 grid, 6561 mesh)
-Edges in subgraphs: m2m=57616, g2m=100656, m2g=255136
-Sanity Checking: 0it [00:00, ?it/s]Sanity Checking:   0%|          | 0/2 [00:00<?, ?it/s]Sanity Checking DataLoader 0:   0%|          | 0/2 [00:00<?, ?it/s]Sanity Checking DataLoader 0:  50%|█████     | 1/2 [00:08<00:08,  8.31s/it]
