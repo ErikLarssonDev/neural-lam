@@ -84,6 +84,10 @@ class Diffusion(ARModel):
 
         # Run through sampler
         next_state = self.heun_sampler(self, latents, input_grid)
+
+        # Add residual if needed
+        if self.pred_residual:
+            next_state = prev_state + next_state
         
         return next_state, None
 
@@ -117,6 +121,10 @@ class Diffusion(ARModel):
         sigma = (sigma_max_rho + rnd_uniform * (sigma_min_rho - sigma_max_rho)) ** rho
         y = true_states[:, 0, :, :] # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
 
+        # Make y residual if needed
+        if self.pred_residual:
+            y = y - prev_state
+
         n = torch.randn_like(y) * sigma
         # Add border condition
         if self.border_condition:
@@ -125,6 +133,10 @@ class Diffusion(ARModel):
         noisy_input = y+n
 
         next_state = self.forward(noisy_input, sigma, input_grid) # Shape (B, d_state, N_x, N_y)
+
+        # Add residual if needed
+        if self.pred_residual:
+            next_state = prev_state + next_state
 
         return next_state, None
     
@@ -748,10 +760,6 @@ class Diffusion(ARModel):
         emb_expanded = emb.unsqueeze(1).expand(class_labels.shape[0], class_labels.shape[1], -1) # Expand emb to shape [4, 63784, 16]
         class_labels = torch.cat([class_labels, emb_expanded], dim=-1)
         next_state, _ = self.model.predict_step(x, class_labels[:, :, :34], class_labels[:, :, 34:])
-
-        # Add residual if needed
-        if self.pred_residual:
-            next_state = class_labels[:, :, :17] + next_state
 
         return next_state
     
