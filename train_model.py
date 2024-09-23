@@ -14,6 +14,7 @@ from neural_lam.models.graph_efm import GraphEFM
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.diffusion import Diffusion
+from neural_lam.models.swin_u_trans_2 import SwinUTrans2
 from neural_lam.weather_dataset import WeatherDataset
 
 MODELS = {
@@ -21,6 +22,7 @@ MODELS = {
     "graph_fm": GraphFM,
     "graph_efm": GraphEFM,
     "diffusion": Diffusion,
+    "swin_u2": SwinUTrans2,
 }
 
 
@@ -38,7 +40,7 @@ def main():
         type=str,
         default="meps",
         help="Dataset, corresponding to name in data directory "
-        "(default: meps_example)",
+        "(default: meps)",
     )
     parser.add_argument(
         "--model",
@@ -88,6 +90,12 @@ def main():
         type=str,
         default=32,
         help="Numerical precision to use for model (32/16/bf16) (default: 32)",
+    )
+    parser.add_argument(
+        "--wandb_project",
+        type=str,
+        default="neural-lam_prob",
+        help="Wandb run name (default: 'neural-lam_prob')",
     )
     parser.add_argument(
         "--wandb_run_name",
@@ -311,6 +319,8 @@ def main():
         num_workers=args.n_workers,
     )
     max_pred_length = (65 // args.step_length) - 2  # 19
+    # if args.model == "diffusion":
+    #     max_pred_length = 1
     val_loader = torch.utils.data.DataLoader(
         WeatherDataset(
             args.dataset,
@@ -378,7 +388,7 @@ def main():
             )
         )
     logger = pl.loggers.WandbLogger(
-        project=constants.WANDB_PROJECT, name=run_name, config=args
+        project=args.wandb_project, name=run_name, config=args
     )
 
     # Training strategy

@@ -529,7 +529,7 @@ class Diffusion(ARModel):
         # Log loss per time step forward and mean
         val_log_dict = {
             f"val_loss_unroll{step}": time_step_loss[step - 1]
-            for step in constants.VAL_STEP_LOG_ERRORS
+            for step in constants.VAL_STEP_LOG_ERRORS # ONLY LOGGING FOR 1 STEP since logging diffusion steps for all steps is too much and not that informative
         }
         val_log_dict["val_mean_loss"] = mean_loss
         self.log_dict(
