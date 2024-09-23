@@ -9,33 +9,14 @@ import pytorch_lightning as pl
 import torch
 from lightning_fabric.utilities import seed
 
-<<<<<<< HEAD:train_model.py
-# First-party
-from neural_lam import config, utils
-from neural_lam.models.graph_lam import GraphLAM
-from neural_lam.models.hi_lam import HiLAM
-from neural_lam.models.hi_lam_parallel import HiLAMParallel
-from neural_lam.weather_dataset import WeatherDataset
-from neural_lam.models.WNO import WNO2d
-from neural_lam.models.UNet2D import UNet2D
-from neural_lam.models.Neural_Operator import Neural_Operator
-from neural_lam.models.diffusion import Diffusion
-from neural_lam.models.GenCast import GenCast
-=======
 # Local
 from . import WeatherDataset, config, utils
 from .models import GraphLAM, HiLAM, HiLAMParallel
->>>>>>> 4969f92ad974f136089d15e7e2e2e9d73a43590d:neural_lam/train_model.py
 
 MODELS = {
     "graph_lam": GraphLAM,
     "hi_lam": HiLAM,
     "hi_lam_parallel": HiLAMParallel,
-    "WNO2d": WNO2d,
-    "UNet2d": UNet2D,
-    "N_O": Neural_Operator,
-    "diffusion": Diffusion,
-    "GenCast": GenCast,
 }
 
 
@@ -60,10 +41,9 @@ def main(input_args=None):
     )
     parser.add_argument(
         "--subset_ds",
-        type=int,
-        default=0,
+        action="store_true",
         help="Use only a small subset of the dataset, for debugging"
-        "(default: 0=false)",
+        "(default: false)",
     )
     parser.add_argument(
         "--seed", type=int, default=42, help="random seed (default: 42)"
@@ -90,10 +70,9 @@ def main(input_args=None):
     )
     parser.add_argument(
         "--restore_opt",
-        type=int,
-        default=0,
+        action="store_true",
         help="If optimizer state should be restored with model "
-        "(default: 0 (false))",
+        "(default: false)",
     )
     parser.add_argument(
         "--precision",
@@ -137,11 +116,10 @@ def main(input_args=None):
     )
     parser.add_argument(
         "--output_std",
-        type=int,
-        default=0,
+        action="store_true",
         help="If models should additionally output std.-dev. per "
         "output dimensions "
-        "(default: 0 (no))",
+        "(default: False (no))",
     )
     parser.add_argument(
         "--neural_operator",
@@ -176,10 +154,9 @@ def main(input_args=None):
     )
     parser.add_argument(
         "--control_only",
-        type=int,
-        default=0,
+        action="store_true",
         help="Train only on control member of ensemble data "
-        "(default: 0 (False))",
+        "(default: False)",
     )
     parser.add_argument(
         "--loss",
@@ -280,7 +257,7 @@ def main(input_args=None):
             pred_length=args.ar_steps,
             split="train",
             subsample_step=args.step_length,
-            subset=bool(args.subset_ds),
+            subset=args.subset_ds,
             control_only=args.control_only,
             data_path=config_loader.dataset.data_path,
         ),
@@ -295,7 +272,7 @@ def main(input_args=None):
             pred_length=max_pred_length,
             split="val", # TODO: Change to val
             subsample_step=args.step_length,
-            subset=bool(args.subset_ds),
+            subset=args.subset_ds,
             control_only=args.control_only,
             data_path=config_loader.dataset.data_path,
         ),
@@ -367,8 +344,7 @@ def main(input_args=None):
                     pred_length=max_pred_length,
                     split="test",
                     subsample_step=args.step_length,
-                    subset=bool(args.subset_ds),
-                    data_path=config_loader.dataset.data_path,
+                    subset=args.subset_ds,
                 ),
                 args.batch_size,
                 shuffle=False,
