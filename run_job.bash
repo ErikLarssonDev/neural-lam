@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J diff_graph_fm_hier
+#SBATCH -J eval_400e
 #SBATCH -t 3-00:00:00
 #SBATCH --gpus=1 -C "thin"
 #SBATCH --mail-type=ALL
@@ -20,9 +20,10 @@ MODEL="diffusion" # N_O, WNO2d, diffusion
 DIFFUSION_MODEL="--diffusion_model graph_fm --graph hierarchical"
 RUN_NAME="--wandb_run_name diff_graph_fm_hier_400e"
 PATH_TO_MODEL="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diff_graph_fm_hier-diffusion-4x64-09_16_13-7088/last.ckpt"
+DIFFUSION_MODEL_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diff_graph_fm_hier_400e-diffusion-4x64-09_23_09-3756/last.ckpt"
 
 # Execute Python script with arguments
-python3 train_model.py "--model" $MODEL $DIFFUSION_MODEL "--n_workers" 16 $RUN_NAME "--pred_residual" --batch_size 10 --val_interval 10 --epochs 400 --load $PATH_TO_MODEL
+python3 train_model.py "--model" $MODEL $DIFFUSION_MODEL "--n_workers" 16 $RUN_NAME "--pred_residual" --batch_size 10 --load $DIFFUSION_MODEL_400e --eval val
 
 # python3 train_model.py --model diffusion --diffusion_model graph_fm --graph hierarchical --pred_residual --batch_size 10 --eval val --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graphcast_diff_200e-diffusion-4x64-09_06_13-0341/last.ckpt --dataset meps_example
 
