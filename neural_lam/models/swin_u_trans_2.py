@@ -900,7 +900,7 @@ if __name__=='__main__':
     print('#### Test Model ###')
     x = torch.rand(4, 50, 268, 238).to(device)
     unet = UNet(in_channels=50, out_channels=17).to(device)
-    model = SwinTransformerSys(img_size=(256, 256), in_chans=50, num_classes=17, window_size=8).to(device)
+    model = SwinTransformerSys(img_size=(268, 238), in_chans=50, num_classes=17, window_size=8).to(device)
     x, skip_connections = unet.encode(x)
     print(x.size())
     y = model(x)

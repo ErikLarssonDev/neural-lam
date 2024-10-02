@@ -99,7 +99,7 @@ class BaseGraphModel(ARModel):
         """
         raise NotImplementedError("process_step not implemented")
 
-    def predict_step(self, prev_state, prev_prev_state, forcing):
+    def predict_step(self, prev_state, prev_prev_state, forcing, emb):
         """
         Step state one step ahead using prediction model, X_{t-1}, X_t -> X_t+1
         prev_state: (B, num_grid_nodes, feature_dim), X_t
@@ -120,10 +120,10 @@ class BaseGraphModel(ARModel):
         )
 
         # Embed all features
-        grid_emb = self.grid_embedder(grid_features)  # (B, num_grid_nodes, d_h)
-        g2m_emb = self.g2m_embedder(self.g2m_features)  # (M_g2m, d_h)
-        m2g_emb = self.m2g_embedder(self.m2g_features)  # (M_m2g, d_h)
-        mesh_emb = self.embedd_mesh_nodes()
+        grid_emb = self.grid_embedder(grid_features, emb)  # (B, num_grid_nodes, d_h)
+        g2m_emb = self.g2m_embedder(self.g2m_features, emb)  # (M_g2m, d_h)
+        m2g_emb = self.m2g_embedder(self.m2g_features, emb)  # (M_m2g, d_h)
+        mesh_emb = self.embedd_mesh_nodes(emb)
 
         # Map from grid to mesh
         mesh_emb_expanded = self.expand_to_batch(
@@ -133,25 +133,25 @@ class BaseGraphModel(ARModel):
 
         # This also splits representation into grid and mesh
         mesh_rep = self.g2m_gnn(
-            grid_emb, mesh_emb_expanded, g2m_emb_expanded
+            grid_emb, mesh_emb_expanded, g2m_emb_expanded, emb
         )  # (B, num_mesh_nodes, d_h)
         # Also MLP with residual for grid representation
         grid_rep = grid_emb + self.encoding_grid_mlp(
-            grid_emb
+            grid_emb, emb
         )  # (B, num_grid_nodes, d_h)
 
         # Run processor step
-        mesh_rep = self.process_step(mesh_rep)
+        mesh_rep = self.process_step(mesh_rep, emb)
 
         # Map back from mesh to grid
         m2g_emb_expanded = self.expand_to_batch(m2g_emb, batch_size)
         grid_rep = self.m2g_gnn(
-            mesh_rep, grid_rep, m2g_emb_expanded
+            mesh_rep, grid_rep, m2g_emb_expanded, emb
         )  # (B, num_grid_nodes, d_h)
 
         # Map to output dimension, only for grid
         net_output = self.output_map(
-            grid_rep
+            grid_rep, emb
         )  # (B, num_grid_nodes, d_grid_out)
 
         if self.output_std:

@@ -223,7 +223,34 @@ def load_graph(graph_name, device="cpu"):
         "mesh_static_features": mesh_static_features,
     }
 
+class MLP(nn.Module):
+    def __init__(self, blueprint, layer_norm):
+        super(MLP, self).__init__()
+        hidden_layers = len(blueprint) - 2
+        assert hidden_layers >= 0, "Invalid MLP blueprint"
 
+        layers = []
+        for layer_i, (dim1, dim2) in enumerate(zip(blueprint[:-1], blueprint[1:])):
+            layers.append(nn.Linear(dim1, dim2))
+            if layer_i != hidden_layers:
+                layers.append(nn.SiLU())  # Swish activation
+
+        self.mlp_layers = nn.Sequential(*layers)
+
+        self.affine = nn.Linear(16, blueprint[-1]) # 16 is the embedding size of the noise vector
+                
+        # Optionally add layer norm to output
+        if layer_norm:
+            self.layer_norm = (nn.LayerNorm(blueprint[-1]))
+        else:
+            self.layer_norm = None
+
+    def forward(self, x, emb=0):
+        x = self.mlp_layers(x)
+        if self.layer_norm is not None:
+            x = self.layer_norm(x+self.affine(emb))
+        return x
+    
 def make_mlp(blueprint, layer_norm=True):
     """
     Create MLP from list blueprint, with
@@ -234,20 +261,21 @@ def make_mlp(blueprint, layer_norm=True):
     if layer_norm is True, includes a LayerNorm layer at
     the output (as used in GraphCast)
     """
-    hidden_layers = len(blueprint) - 2
-    assert hidden_layers >= 0, "Invalid MLP blueprint"
 
-    layers = []
-    for layer_i, (dim1, dim2) in enumerate(zip(blueprint[:-1], blueprint[1:])):
-        layers.append(nn.Linear(dim1, dim2))
-        if layer_i != hidden_layers:
-            layers.append(nn.SiLU())  # Swish activation
+    # hidden_layers = len(blueprint) - 2
+    # assert hidden_layers >= 0, "Invalid MLP blueprint"
 
-    # Optionally add layer norm to output
-    if layer_norm:
-        layers.append(nn.LayerNorm(blueprint[-1]))
+    # layers = []
+    # for layer_i, (dim1, dim2) in enumerate(zip(blueprint[:-1], blueprint[1:])):
+    #     layers.append(nn.Linear(dim1, dim2))
+    #     if layer_i != hidden_layers:
+    #         layers.append(nn.SiLU())  # Swish activation
 
-    return nn.Sequential(*layers)
+    # # Optionally add layer norm to output
+    # if layer_norm:
+    #     layers.append(nn.LayerNorm(blueprint[-1]))
+
+    return MLP(blueprint, layer_norm) # nn.Sequential(*layers)
 
 
 def fractional_plot_bundle(fraction):
