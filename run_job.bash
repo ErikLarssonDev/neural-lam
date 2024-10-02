@@ -18,7 +18,7 @@ PYTHON_SCRIPT_PATH="neural_lam.train_model"
 
 MODEL="diffusion" # N_O, WNO2d, diffusion
 DIFFUSION_MODEL="--diffusion_model graph_fm --graph hierarchical"
-RUN_NAME="--wandb_run_name diff_state"
+RUN_NAME="--wandb_run_name diff_layer_norm"
 PATH_TO_MODEL="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diff_graph_fm_hier-diffusion-4x64-09_16_13-7088/last.ckpt"
 DIFFUSION_MODEL_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diff_graph_fm_hier_400e-diffusion-4x64-09_23_09-3756/last.ckpt"
 
@@ -27,7 +27,7 @@ python3 train_model.py "--model" $MODEL $DIFFUSION_MODEL "--n_workers" 16 $RUN_N
 
 # python3 train_model.py --model diffusion --diffusion_model graph_fm --graph hierarchical --pred_residual --batch_size 10 --eval val --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graphcast_diff_200e-diffusion-4x64-09_06_13-0341/last.ckpt --dataset meps_example
 
-# python3 train_model.py --model swin_u2 --pred_residual --wandb_project neural_lam_wavelet
+# python3 train_model.py --model swin_u2 --pred_residual --wandb_project neural_lam_wavelet --val_interval 10 --batch_size 10 --n_workers 4
 # Sanity check 1: 10 min
 # Sanity check 2: 
 # Batch time training: 0.5 s / batch => 6 min / epoch

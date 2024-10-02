@@ -85,6 +85,7 @@ class GraphFM(BaseHiGraphModel):
         mesh_down_rep,
         down_gnns,
         same_gnns,
+        emb,
     ):
         """
         Run down-part of vertical processing, sequentially alternating between
@@ -92,7 +93,7 @@ class GraphFM(BaseHiGraphModel):
         """
         # Run same level processing on level L
         mesh_rep_levels[-1], mesh_same_rep[-1] = same_gnns[-1](
-            mesh_rep_levels[-1], mesh_rep_levels[-1], mesh_same_rep[-1]
+            mesh_rep_levels[-1], mesh_rep_levels[-1], mesh_same_rep[-1], emb
         )
 
         # Let level_l go from L-1 to 0
@@ -111,19 +112,19 @@ class GraphFM(BaseHiGraphModel):
 
             # Apply down GNN
             new_node_rep, mesh_down_rep[level_l] = down_gnn(
-                send_node_rep, rec_node_rep, down_edge_rep
+                send_node_rep, rec_node_rep, down_edge_rep, emb
             )
 
             # Run same level processing on level l
             mesh_rep_levels[level_l], mesh_same_rep[level_l] = same_gnn(
-                new_node_rep, new_node_rep, same_edge_rep
+                new_node_rep, new_node_rep, same_edge_rep, emb
             )
             # (B, N_mesh[l], d_h) and (B, M_same[l], d_h)
 
         return mesh_rep_levels, mesh_same_rep, mesh_down_rep
 
     def mesh_up_step(
-        self, mesh_rep_levels, mesh_same_rep, mesh_up_rep, up_gnns, same_gnns
+        self, mesh_rep_levels, mesh_same_rep, mesh_up_rep, up_gnns, same_gnns, emb
     ):
         """
         Run up-part of vertical processing, sequentially alternating between
@@ -132,7 +133,7 @@ class GraphFM(BaseHiGraphModel):
 
         # Run same level processing on level 0
         mesh_rep_levels[0], mesh_same_rep[0] = same_gnns[0](
-            mesh_rep_levels[0], mesh_rep_levels[0], mesh_same_rep[0]
+            mesh_rep_levels[0], mesh_rep_levels[0], mesh_same_rep[0], emb
         )
 
         # Let level_l go from 1 to L
@@ -149,20 +150,20 @@ class GraphFM(BaseHiGraphModel):
 
             # Apply up GNN
             new_node_rep, mesh_up_rep[level_l - 1] = up_gnn(
-                send_node_rep, rec_node_rep, up_edge_rep
+                send_node_rep, rec_node_rep, up_edge_rep, emb
             )
             # (B, N_mesh[l], d_h) and (B, M_up[l-1], d_h)
 
             # Run same level processing on level l
             mesh_rep_levels[level_l], mesh_same_rep[level_l] = same_gnn(
-                new_node_rep, new_node_rep, same_edge_rep
+                new_node_rep, new_node_rep, same_edge_rep, emb
             )
             # (B, N_mesh[l], d_h) and (B, M_same[l], d_h)
 
         return mesh_rep_levels, mesh_same_rep, mesh_up_rep
 
     def hi_processor_step(
-        self, mesh_rep_levels, mesh_same_rep, mesh_up_rep, mesh_down_rep
+        self, mesh_rep_levels, mesh_same_rep, mesh_up_rep, mesh_down_rep, emb
     ):
         """
         Internal processor step of hierarchical graph models.
@@ -190,6 +191,7 @@ class GraphFM(BaseHiGraphModel):
                 mesh_down_rep,
                 down_gnns,
                 down_same_gnns,
+                emb,
             )
 
             # Up
@@ -199,6 +201,7 @@ class GraphFM(BaseHiGraphModel):
                 mesh_up_rep,
                 up_gnns,
                 up_same_gnns,
+                emb,
             )
 
         # Note: We return all, even though only down edges really are used later

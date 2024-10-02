@@ -83,7 +83,7 @@ class InteractionNet(pyg.nn.MessagePassing):
 
         self.update_edges = update_edges
 
-    def forward(self, send_rep, rec_rep, edge_rep):
+    def forward(self, send_rep, rec_rep, edge_rep, emb=0):
         """
         Apply interaction network to update the representations of receiver
         nodes, and optionally the edge representations.
@@ -101,9 +101,9 @@ class InteractionNet(pyg.nn.MessagePassing):
         # but only aggregate to rec_nodes
         node_reps = torch.cat((rec_rep, send_rep), dim=-2)
         edge_rep_aggr, edge_diff = self.propagate(
-            self.edge_index, x=node_reps, edge_attr=edge_rep
+            self.edge_index, x=node_reps, edge_attr=edge_rep, emb=emb
         )
-        rec_diff = self.aggr_mlp(torch.cat((rec_rep, edge_rep_aggr), dim=-1))
+        rec_diff = self.aggr_mlp(torch.cat((rec_rep, edge_rep_aggr), dim=-1), emb)
 
         # Residual connections
         rec_rep = rec_rep + rec_diff
@@ -114,11 +114,11 @@ class InteractionNet(pyg.nn.MessagePassing):
 
         return rec_rep
 
-    def message(self, x_j, x_i, edge_attr):
+    def message(self, x_j, x_i, edge_attr, emb=0):
         """
         Compute messages from node j to node i.
         """
-        return self.edge_mlp(torch.cat((edge_attr, x_j, x_i), dim=-1))
+        return self.edge_mlp(torch.cat((edge_attr, x_j, x_i), dim=-1), emb)
 
     # pylint: disable-next=signature-differs
     def aggregate(self, inputs, index, ptr, dim_size):
@@ -160,7 +160,7 @@ class PropagationNet(InteractionNet):
             aggr="mean",
         )
 
-    def forward(self, send_rep, rec_rep, edge_rep):
+    def forward(self, send_rep, rec_rep, edge_rep, emb=0):
         """
         Apply propagation network to update the representations of receiver
         nodes, and optionally the edge representations.
@@ -178,9 +178,9 @@ class PropagationNet(InteractionNet):
         # but only aggregate to rec_nodes
         node_reps = torch.cat((rec_rep, send_rep), dim=-2)
         edge_rep_aggr, edge_diff = self.propagate(
-            self.edge_index, x=node_reps, edge_attr=edge_rep
+            self.edge_index, x=node_reps, edge_attr=edge_rep, emb=emb
         )
-        rec_diff = self.aggr_mlp(torch.cat((rec_rep, edge_rep_aggr), dim=-1))
+        rec_diff = self.aggr_mlp(torch.cat((rec_rep, edge_rep_aggr), dim=-1), emb)
 
         # Residual connections
         rec_rep = edge_rep_aggr + rec_diff  # residual is to aggregation
@@ -191,12 +191,12 @@ class PropagationNet(InteractionNet):
 
         return rec_rep
 
-    def message(self, x_j, x_i, edge_attr):
+    def message(self, x_j, x_i, edge_attr, emb=0):
         """
         Compute messages from node j to node i.
         """
         # Residual connection is to sender node, propagating information to edge
-        return x_j + self.edge_mlp(torch.cat((edge_attr, x_j, x_i), dim=-1))
+        return x_j + self.edge_mlp(torch.cat((edge_attr, x_j, x_i), dim=-1), emb)
 
 
 class SplitMLPs(nn.Module):

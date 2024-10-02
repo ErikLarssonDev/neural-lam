@@ -12,9 +12,6 @@ import torch
 import torch_geometric as pyg
 from torch_geometric.utils.convert import from_networkx
 
-# First-party
-from neural_lam import config
-
 
 def plot_graph(graph, title=None):
     fig, axis = plt.subplots(figsize=(8, 8), dpi=200)  # W,H
@@ -23,34 +20,30 @@ def plot_graph(graph, title=None):
 
     # Fix for re-indexed edge indices only containing mesh nodes at
     # higher levels in hierarchy
-    
-    degrees = 0
-    if edge_index.shape[1] > 0:
-        edge_index = edge_index - edge_index.min()
+    edge_index = edge_index - edge_index.min()
 
-        if pyg.utils.is_undirected(edge_index):
-            # Keep only 1 direction of edge_index
-            edge_index = edge_index[:, edge_index[0] < edge_index[1]]  # (2, M/2)
-        # TODO: indicate direction of directed edges
+    if pyg.utils.is_undirected(edge_index):
+        # Keep only 1 direction of edge_index
+        edge_index = edge_index[:, edge_index[0] < edge_index[1]]  # (2, M/2)
+    # TODO: indicate direction of directed edges
 
-        # Move all to cpu and numpy, compute (in)-degrees
-        degrees = (
-            pyg.utils.degree(edge_index[1], num_nodes=pos.shape[0]).cpu().numpy()
+    # Move all to cpu and numpy, compute (in)-degrees
+    degrees = (
+        pyg.utils.degree(edge_index[1], num_nodes=pos.shape[0]).cpu().numpy()
+    )
+    edge_index = edge_index.cpu().numpy()
+    pos = pos.cpu().numpy()
+
+    # Plot edges
+    from_pos = pos[edge_index[0]]  # (M/2, 2)
+    to_pos = pos[edge_index[1]]  # (M/2, 2)
+    edge_lines = np.stack((from_pos, to_pos), axis=1)
+    axis.add_collection(
+        matplotlib.collections.LineCollection(
+            edge_lines, lw=0.4, colors="black", zorder=1
         )
-        edge_index = edge_index.cpu().numpy()
-        pos = pos.cpu().numpy()
+    )
 
-        # Plot edges
-        from_pos = pos[edge_index[0]]  # (M/2, 2)
-        to_pos = pos[edge_index[1]]  # (M/2, 2)
-        edge_lines = np.stack((from_pos, to_pos), axis=1)
-        axis.add_collection(
-            matplotlib.collections.LineCollection(
-                edge_lines, lw=0.4, colors="black", zorder=1
-            )
-        )
-
-    
     # Plot nodes
     node_scatter = axis.scatter(
         pos[:, 0],
@@ -96,13 +89,11 @@ def save_edges_list(graphs, name, base_path):
         [graph.edge_index for graph in graphs],
         os.path.join(base_path, f"{name}_edge_index.pt"),
     )
-    print(f"Saving {name} edge features")
-    print(f"graph.len.unsqueeze(1): {graphs[0].len.unsqueeze(1).shape}")
     edge_features = [
         torch.cat((graph.len.unsqueeze(1), graph.vdiff), dim=1).to(
             torch.float32
         )
-        for graph in graphs #[:-1]
+        for graph in graphs
     ]  # Save as float32
     torch.save(edge_features, os.path.join(base_path, f"{name}_features.pt"))
 
@@ -159,13 +150,14 @@ def prepend_node_index(graph, new_index):
     return networkx.relabel_nodes(graph, to_mapping, copy=True)
 
 
-def main(input_args=None):
+def main():
     parser = ArgumentParser(description="Graph generation arguments")
     parser.add_argument(
-        "--data_config",
+        "--dataset",
         type=str,
-        default="neural_lam/data_config.yaml",
-        help="Path to data config file (default: neural_lam/data_config.yaml)",
+        default="meps_example",
+        help="Dataset to load grid point coordinates from "
+        "(default: meps_example)",
     )
     parser.add_argument(
         "--graph",
@@ -192,16 +184,10 @@ def main(input_args=None):
         default=0,
         help="Generate hierarchical mesh graph (default: 0, no)",
     )
-    parser.add_argument(
-        "--top_node", 
-        action="store_true",
-        help="Add top node to hierarchical mesh graph",
-    )
-    args = parser.parse_args(input_args)
+    args = parser.parse_args()
 
     # Load grid positions
-    config_loader = config.Config.from_file(args.data_config)
-    static_dir_path = os.path.join("data", config_loader.dataset.name, "static")
+    static_dir_path = os.path.join("/proj/berzelius-2022-164/weather/neural_lam_datasets", args.dataset, "static")
     graph_dir_path = os.path.join("graphs", args.graph)
     os.makedirs(graph_dir_path, exist_ok=True)
 
@@ -218,7 +204,7 @@ def main(input_args=None):
     nx = 3  # number of children = nx**2
     nlev = int(np.log(max(xy.shape)) / np.log(nx))
     nleaf = nx**nlev  # leaves at the bottom = nleaf**2
-   
+
     mesh_levels = nlev - 1
     if args.levels:
         # Limit the levels in mesh graph
@@ -228,11 +214,8 @@ def main(input_args=None):
 
     # multi resolution tree levels
     G = []
-    if args.top_node:
-        mesh_levels += 1
     for lev in range(1, mesh_levels + 1):
         n = int(nleaf / (nx**lev))
-        print(f"Level {lev}, n: {n}")
         g = mk_2d_graph(xy, n, n)
         if args.plot:
             plot_graph(from_networkx(g), title=f"Mesh graph, level {lev}")
@@ -383,10 +366,7 @@ def main(input_args=None):
             plot_graph(pyg_m2m, title="Mesh-to-mesh")
             plt.show()
 
-  
     # Save m2m edges
-    if args.top_node:
-        m2m_graphs = m2m_graphs[:-1]
     save_edges_list(m2m_graphs, "m2m", graph_dir_path)
 
     # Divide mesh node pos by max coordinate of grid cell

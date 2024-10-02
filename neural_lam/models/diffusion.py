@@ -756,10 +756,10 @@ class Diffusion(ARModel):
     
     def model_forward(self, x, noise_labels, class_labels, augment_labels=None):
         # Mapping.
-        emb = self.map_noise(noise_labels)
-        emb_expanded = emb.unsqueeze(1).expand(class_labels.shape[0], class_labels.shape[1], -1) # Expand emb to shape [4, 63784, 16]
-        class_labels = torch.cat([class_labels, emb_expanded], dim=-1)
-        next_state, _ = self.model.predict_step(x, class_labels[:, :, :34], class_labels[:, :, 34:])
+        emb = self.map_noise(noise_labels).unsqueeze(1)
+        # emb_expanded = emb.unsqueeze(1).expand(class_labels.shape[0], class_labels.shape[1], -1) # Expand emb to shape [4, 63784, 16]
+        # class_labels = torch.cat([class_labels, emb_expanded], dim=-1)
+        next_state, _ = self.model.predict_step(x, class_labels[:, :, :34], class_labels[:, :, 34:], emb)
 
         return next_state
     
@@ -828,7 +828,7 @@ class NoiseEmbedding(nn.Module):
     def __init__(self, num_frequencies=32, base_period=16):
         super(NoiseEmbedding, self).__init__()
         self.fourier_transform = FourierEmbedding(num_channels=num_frequencies, scale=base_period)
-        self.mlp = NoiseLevelMLP(input_dim=num_frequencies)
+        self.mlp = NoiseLevelMLP(input_dim=num_frequencies, output_dim=16)
 
     def forward(self, log_noise_levels):
         fourier_features = self.fourier_transform(log_noise_levels)
