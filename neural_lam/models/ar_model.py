@@ -604,3 +604,12 @@ class ARModel(pl.LightningModule):
                 )
                 loaded_state_dict[new_key] = loaded_state_dict[old_key]
                 del loaded_state_dict[old_key]
+
+    # def on_after_backward(self):
+    #     """
+    #     Checks so that there are no gradients that are None, this will cause an issue with the ddp training strategy in pytorch lightning
+    #     """
+    #     for name, param in self.named_parameters():
+    #         if param.grad is None:
+    #             print(name, "has no gradient!")
+    #             print(param.grad)

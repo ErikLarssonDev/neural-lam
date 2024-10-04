@@ -11,6 +11,7 @@ from neural_lam import constants, metrics, utils, vis
 
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
+from neural_lam.models.edm_networks import EDMPrecond
 
 class Diffusion(ARModel):
     """
@@ -30,18 +31,22 @@ class Diffusion(ARModel):
         self.sigma_max = 88
         self.sigma_data = 1
         self.use_fp16 = False
-        self.map_noise = NoiseEmbedding()
+        if args.diffusion_model != 'edm':
+            self.map_noise = NoiseEmbedding()
 
         if args.diffusion_model == 'graphcast':
             self.model = GraphCast(args)
         
         elif args.diffusion_model == 'graph_fm':
             self.model = GraphFM(args)
+        elif args.diffusion_model == 'edm':
+            self.model = EDMPrecond(img_resolution=256, in_channels=67, out_channels=17, model_type='SongUNet')
         else:
             raise ValueError(f"Diffusion model {args.diffusion_model} not recognized")
             
         self.available_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.pred_residual = args.pred_residual # Whether to predict the residual instead of the next state
+        self.diffusion_model = args.diffusion_model
 
         # Add lists for val and test errors of ensemble prediction
         # self.val_metrics.update(
@@ -164,10 +169,11 @@ class Diffusion(ARModel):
                 # pred_std: (B, num_grid_nodes, d_f) or None
 
                 # Overwrite border with true state
-                new_state = (
-                    self.border_mask * border_state
-                    + self.interior_mask * pred_state
-                )
+                new_state = pred_state
+                # new_state = (
+                #     self.border_mask * border_state
+                #     + self.interior_mask * pred_state
+                # )
 
                 prediction_list.append(new_state)
                 if self.output_std:
@@ -214,10 +220,11 @@ class Diffusion(ARModel):
             # pred_std: (B, num_grid_nodes, d_f) or None
 
             # Overwrite border with true state
-            new_state = (
-                self.border_mask * border_state
-                + self.interior_mask * pred_state
-            )
+            new_state = pred_state
+            # new_state = (
+            #     self.border_mask * border_state
+            #     + self.interior_mask * pred_state
+            # )
 
             prediction_list.append(new_state)
             if self.output_std:
@@ -271,7 +278,7 @@ class Diffusion(ARModel):
         # Compute loss
         batch_loss = torch.mean(
             self.loss(
-                prediction, target, pred_std, mask=self.interior_mask_bool
+                prediction, target, pred_std, # mask=self.interior_mask_bool
             )
         )  # mean over unrolled times and batch
 
@@ -292,7 +299,7 @@ class Diffusion(ARModel):
                 pred_traj_means,
                 target_states,
                 pred_traj_stds,
-                mask=self.interior_mask_bool,
+                # mask=self.interior_mask_bool,
             )  # (B, pred_steps)
             crps_loss = torch.mean(crps_estimate)
 
@@ -487,7 +494,7 @@ class Diffusion(ARModel):
             trajectories,
             target_states,
             traj_stds,
-            mask=self.interior_mask_bool,
+            # mask=self.interior_mask_bool,
             sum_vars=False,
         )
         # (B, pred_steps, d_f)
@@ -499,7 +506,7 @@ class Diffusion(ARModel):
             ens_mean,
             target_states,
             None,
-            mask=self.interior_mask_bool,
+            # mask=self.interior_mask_bool,
             sum_vars=False,
         )  # (B, pred_steps, d_f)
 
@@ -520,7 +527,7 @@ class Diffusion(ARModel):
 
         time_step_loss = torch.mean(
             self.loss(
-                prediction, target, pred_std, mask=self.interior_mask_bool
+                prediction, target, pred_std, # mask=self.interior_mask_bool
             ),
             dim=0,
         )  # (time_steps-1)
@@ -541,7 +548,7 @@ class Diffusion(ARModel):
             prediction,
             target,
             pred_std,
-            mask=self.interior_mask_bool,
+            # mask=self.interior_mask_bool,
             sum_vars=False,
         )  # (B, pred_steps, d_f)
         self.val_metrics["mse"].append(entry_mses)
@@ -620,7 +627,7 @@ class Diffusion(ARModel):
             ens_mean,
             target_states,
             ens_std,
-            mask=self.interior_mask_bool,
+            # mask=self.interior_mask_bool,
             sum_vars=False,
         )  # (B, pred_steps, d_f)
         self.test_metrics["ens_mae"].append(ens_maes)
@@ -628,7 +635,7 @@ class Diffusion(ARModel):
             trajectories,
             target_states,
             traj_stds,
-            mask=self.interior_mask_bool,
+            # mask=self.interior_mask_bool,
             sum_vars=False,
         )  # (B, pred_steps, d_f)
         self.test_metrics["crps_ens"].append(crps_batch)
@@ -740,6 +747,9 @@ class Diffusion(ARModel):
 #----------------------------------------------------------------------------
 
     def forward(self, x, sigma, class_labels=None, force_fp32=False, **model_kwargs):
+        if self.diffusion_model == 'edm':
+            return self.model(x, sigma, class_labels, force_fp32, **model_kwargs)
+        
         x = x.to(torch.float32)
         sigma = sigma.to(torch.float32).reshape(-1, 1, 1)
         dtype = torch.float16 if (self.use_fp16 and not force_fp32 and x.device.type == 'cuda') else torch.float32
@@ -748,8 +758,8 @@ class Diffusion(ARModel):
         c_out = sigma * self.sigma_data / (sigma ** 2 + self.sigma_data ** 2).sqrt()
         c_in = 1 / (self.sigma_data ** 2 + sigma ** 2).sqrt()
         c_noise = sigma.log() / 4
-        model_input = x * self.border_mask + (c_in * x) * self.interior_mask # Only add noise inside the border
-        F_x = self.model_forward((model_input).to(dtype), c_noise.flatten(), class_labels=class_labels, **model_kwargs)
+      
+        F_x = self.model_forward((c_in * x).to(dtype), c_noise.flatten(), class_labels=class_labels, **model_kwargs)
         assert F_x.dtype == dtype
         D_x = c_skip * x + c_out * F_x.to(torch.float32)
         return D_x
@@ -811,7 +821,6 @@ class ConditionalLayerNorm(nn.Module):
         offset = self.offset_layer(noise_level_encoding)  # (batch_size, normalized_shape)
         return self.layer_norm(x) * scale + offset
 
-# Example: Combine everything together
 class NoiseConditionalModel(nn.Module):
     def __init__(self, num_frequencies=32, base_period=16, normalized_shape=64):
         super(NoiseConditionalModel, self).__init__()
