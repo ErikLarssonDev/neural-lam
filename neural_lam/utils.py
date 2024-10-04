@@ -223,6 +223,18 @@ def load_graph(graph_name, device="cpu"):
         "mesh_static_features": mesh_static_features,
     }
 
+class ConditionalLayerNorm(nn.Module):
+    def __init__(self, normalized_shape, noise_level_dim=16):
+        super(ConditionalLayerNorm, self).__init__()
+        self.layer_norm = nn.LayerNorm(normalized_shape, elementwise_affine=False)
+        self.scale_layer = nn.Linear(noise_level_dim, normalized_shape)
+        self.offset_layer = nn.Linear(noise_level_dim, normalized_shape)
+
+    def forward(self, x, noise_level_encoding):
+        scale = self.scale_layer(noise_level_encoding)  # (batch_size, normalized_shape)
+        offset = self.offset_layer(noise_level_encoding)  # (batch_size, normalized_shape)
+        return self.layer_norm(x) * scale + offset
+
 class MLP(nn.Module):
     def __init__(self, blueprint, layer_norm):
         super(MLP, self).__init__()
@@ -236,19 +248,22 @@ class MLP(nn.Module):
                 layers.append(nn.SiLU())  # Swish activation
 
         self.mlp_layers = nn.Sequential(*layers)
-
-        self.affine = nn.Linear(16, blueprint[-1]) # 16 is the embedding size of the noise vector
+        
+            
                 
         # Optionally add layer norm to output
         if layer_norm:
-            self.layer_norm = (nn.LayerNorm(blueprint[-1]))
+            # self.layer_norm = (nn.LayerNorm(blueprint[-1]))
+            # self.affine = nn.Linear(16, blueprint[-1]) # 16 is the embedding size of the noise vector
+            self.layer_norm = ConditionalLayerNorm(blueprint[-1])
         else:
             self.layer_norm = None
 
     def forward(self, x, emb=0):
         x = self.mlp_layers(x)
         if self.layer_norm is not None:
-            x = self.layer_norm(x+self.affine(emb))
+            # x = self.layer_norm(x+self.affine(emb))
+            x = self.layer_norm(x, emb)
         return x
     
 def make_mlp(blueprint, layer_norm=True):

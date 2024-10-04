@@ -313,6 +313,7 @@ def main():
             subsample_step=args.step_length,
             subset=bool(args.subset_ds),
             control_only=args.control_only,
+            model_name=args.diffusion_model,
         ),
         args.batch_size,
         shuffle=True,
@@ -329,6 +330,7 @@ def main():
             subsample_step=args.step_length,
             subset=bool(args.subset_ds),
             control_only=args.control_only,
+            model_name=args.diffusion_model,
         ),
         args.batch_size,
         shuffle=False,
@@ -427,8 +429,9 @@ def main():
                 args.batch_size,
                 shuffle=False,
                 num_workers=args.n_workers,
+                model_name=args.diffusion_model,
             )
-
+    
         print(f"Running evaluation on {args.eval}")
         trainer.test(model=model, dataloaders=eval_loader)
     else:

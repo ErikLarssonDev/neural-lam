@@ -32,14 +32,17 @@ class WeatherDataset(torch.utils.data.Dataset):
         standardize=True,
         subset=False,
         control_only=False,
+        model_name="",
     ):
         super().__init__()
-
+        
         assert split in ("train", "val", "test"), "Unknown dataset split"
+        
+        self.model_name = model_name
+
         self.sample_dir_path = os.path.join(
             constants.DATA_PATH, dataset_name, "samples", split
         )
-
         member_file_regexp = (
             "nwp*mbr000.npy" if control_only else "nwp*mbr*.npy"
         )
@@ -256,5 +259,14 @@ class WeatherDataset(torch.utils.data.Dataset):
         # as it is static over time
         forcing = torch.cat((water_cover_expanded, forcing_windowed), dim=2)
         # (sample_len-2, N_grid, forcing_dim)
+        if self.model_name == "edm":
+            init_states = torch.reshape(init_states, (-1, 268, 238, init_states.shape[2])).permute((0,3,1,2)).contiguous()[:, :, :256, :232]
+            target_states = torch.reshape(target_states, (-1, 268, 238, target_states.shape[2])).permute((0,3,1,2)).contiguous()[:, :, :256, :232]
+            forcing = torch.reshape(forcing, (-1, 268, 238, forcing.shape[2])).permute((0,3,1,2)).contiguous()[:, :, :256, :232]
+
+            init_states = init_states.permute((0,2,3,1)).flatten(1,2)
+            target_states = target_states.permute((0,2,3,1)).flatten(1,2)
+            forcing = forcing.permute((0,2,3,1)).flatten(1,2)
+        
 
         return init_states, target_states, forcing
