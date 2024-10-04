@@ -766,7 +766,7 @@ class Diffusion(ARModel):
     
     def model_forward(self, x, noise_labels, class_labels, augment_labels=None):
         # Mapping.
-        emb = self.map_noise(noise_labels).unsqueeze(1)
+        emb = self.map_noise(noise_labels) # .unsqueeze(1)
         # emb_expanded = emb.unsqueeze(1).expand(class_labels.shape[0], class_labels.shape[1], -1) # Expand emb to shape [4, 63784, 16]
         # class_labels = torch.cat([class_labels, emb_expanded], dim=-1)
         next_state, _ = self.model.predict_step(x, class_labels[:, :, :34], class_labels[:, :, 34:], emb)
