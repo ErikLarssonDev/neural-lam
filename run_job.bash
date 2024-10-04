@@ -24,7 +24,7 @@ DIFFUSION_MODEL_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_mo
 DIFFUSION_GRAPH_FM_CON_NORM_200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diff_con_layer_norm_res-diffusion-4x64-10_03_10-5623/last.ckpt"
 
 # Execute Python script with arguments
-python3 train_model.py "--model" $MODEL $DIFFUSION_MODEL "--n_workers" 16 $RUN_NAME --batch_size 10 --pred_residual --val_interval 10 --load $DIFFUSION_GRAPH_FM_CON_NORM_200e #  --eval val
+python3 train_model.py "--model" $MODEL $DIFFUSION_MODEL "--n_workers" 16 $RUN_NAME --batch_size 10 --pred_residual --val_interval 10 --load $DIFFUSION_GRAPH_FM_CON_NORM_200e --eval val
 
 # python3 train_model.py --model diffusion --diffusion_model graph_fm --graph hierarchical --pred_residual --batch_size 10 --eval val --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diff_graph_fm_hier_400e-diffusion-4x64-09_23_09-3756/last.ckpt --dataset meps_example
 # python3 train_model.py --model diffusion --diffusion_model edm --pred_residual --batch_size 4 --wandb_run_name diff_edm_no_border --val_interval 10 --n_workers 16 
