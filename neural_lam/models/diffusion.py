@@ -64,7 +64,7 @@ class Diffusion(ARModel):
             }
         )
 
-    def predict_step(self, prev_state, prev_prev_state, forcing, border_state):
+    def predict_step(self, prev_state, prev_prev_state, forcing, border_state=None):
         """
         Predict weather state one time step ahead
         X_{t-1}, X_t -> X_t+1
@@ -163,7 +163,7 @@ class Diffusion(ARModel):
                 border_state = true_states[:, i]
 
                 pred_state, pred_std = self.predict_step(
-                    prev_state, prev_prev_state, forcing, border_state*self.border_mask
+                    prev_state, prev_prev_state, forcing, # border_state*self.border_mask
                 )
                 # state: (B, num_grid_nodes, d_f)
                 # pred_std: (B, num_grid_nodes, d_f) or None

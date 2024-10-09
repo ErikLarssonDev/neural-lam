@@ -259,6 +259,7 @@ class WeatherDataset(torch.utils.data.Dataset):
         # as it is static over time
         forcing = torch.cat((water_cover_expanded, forcing_windowed), dim=2)
         # (sample_len-2, N_grid, forcing_dim)
+      
         if self.model_name == "edm":
             init_states = torch.reshape(init_states, (-1, 268, 238, init_states.shape[2])).permute((0,3,1,2)).contiguous()[:, :, :256, :232]
             target_states = torch.reshape(target_states, (-1, 268, 238, target_states.shape[2])).permute((0,3,1,2)).contiguous()[:, :, :256, :232]
