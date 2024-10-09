@@ -142,10 +142,10 @@ def plot_ensemble_prediction(
     print(f"target.shape: {target.shape}")
     print(f"topk target: {target.topk(5)}")
     # Set up masking of border region
-    mask_reshaped = obs_mask.reshape(*constants.GRID_SHAPE)
-    pixel_alpha = (
-        mask_reshaped.clamp(0.7, 1).cpu().numpy()
-    )  # Faded border region
+    # mask_reshaped = obs_mask.reshape(*constants.GRID_SHAPE)
+    # pixel_alpha = (
+    #     mask_reshaped.clamp(0.7, 1).cpu().numpy()
+    # )  # Faded border region
 
     fig, axes = plt.subplots(
         3,
@@ -159,7 +159,7 @@ def plot_ensemble_prediction(
     gt_im = plot_on_axis(
         axes[0],
         target,
-        alpha=pixel_alpha,
+        # alpha=pixel_alpha,
         vmin=vmin,
         vmax=vmax,
         ax_title="Ground Truth",
@@ -167,13 +167,16 @@ def plot_ensemble_prediction(
     plot_on_axis(
         axes[1],
         ens_mean,
-        alpha=pixel_alpha,
+        # alpha=pixel_alpha,
         vmin=vmin,
         vmax=vmax,
         ax_title="Ens. Mean",
     )
     std_im = plot_on_axis(
-        axes[2], ens_std, alpha=pixel_alpha, ax_title="Ens. Std."
+        axes[2],
+        ens_std,
+        # alpha=pixel_alpha,
+        ax_title="Ens. Std."
     )  # Own vrange
 
     # Plot samples
@@ -183,7 +186,7 @@ def plot_ensemble_prediction(
         plot_on_axis(
             ax,
             member,
-            alpha=pixel_alpha,
+            # alpha=pixel_alpha,
             vmin=vmin,
             vmax=vmax,
             ax_title=f"Member {member_i}",
@@ -242,10 +245,10 @@ def plot_spatial_error(error, obs_mask, title=None, vrange=None):
         vmin, vmax = vrange
 
     # Set up masking of border region
-    mask_reshaped = obs_mask.reshape(*constants.GRID_SHAPE)
-    pixel_alpha = (
-        mask_reshaped.clamp(0.7, 1).cpu().numpy()
-    )  # Faded border region
+    # mask_reshaped = obs_mask.reshape(*constants.GRID_SHAPE)
+    # pixel_alpha = (
+    #     mask_reshaped.clamp(0.7, 1).cpu().numpy()
+    # )  # Faded border region
 
     fig, ax = plt.subplots(
         figsize=(5, 4.8), subplot_kw={"projection": constants.LAMBERT_PROJ}
@@ -258,7 +261,7 @@ def plot_spatial_error(error, obs_mask, title=None, vrange=None):
         error_grid,
         origin="lower",
         extent=constants.GRID_LIMITS,
-        alpha=pixel_alpha,
+        # alpha=pixel_alpha,
         vmin=vmin,
         vmax=vmax,
         cmap="OrRd",

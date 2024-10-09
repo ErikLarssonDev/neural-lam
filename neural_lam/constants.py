@@ -104,7 +104,7 @@ PARAM_UNITS = [
 
 # Projection and grid
 # Hard coded for now, but should eventually be part of dataset desc. files
-GRID_SHAPE = (268, 238)  # (y, x)
+GRID_SHAPE = (256, 232) # (268, 238)  # (y, x)
 
 LAMBERT_PROJ_PARAMS = {
     "a": 6367470,
