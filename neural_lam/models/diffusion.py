@@ -143,7 +143,8 @@ class Diffusion(ARModel):
         if self.pred_residual:
             next_state = prev_state + next_state
 
-        return next_state, None
+        weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
+        return next_state, weight
     
     def unroll_prediction(self, init_states, forcing_features, true_states):
             """
