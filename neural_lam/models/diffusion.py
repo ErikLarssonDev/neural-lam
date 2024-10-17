@@ -144,7 +144,8 @@ class Diffusion(ARModel):
             next_state = prev_state + next_state
 
         weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
-        return next_state, weight
+        
+        return next_state, None, weight
     
     def unroll_prediction(self, init_states, forcing_features, true_states):
             """
@@ -209,12 +210,13 @@ class Diffusion(ARModel):
         prediction_list = []
         pred_std_list = []
         pred_steps = forcing_features.shape[1]
+        weight_list = []
 
         for i in range(pred_steps):
             forcing = forcing_features[:, i]
             border_state = true_states[:, i]
 
-            pred_state, pred_std = self.predict_step_train(
+            pred_state, pred_std, weight = self.predict_step_train(
                 prev_state, prev_prev_state, forcing, true_states
             )
             # state: (B, num_grid_nodes, d_f)
@@ -228,6 +230,7 @@ class Diffusion(ARModel):
             # )
 
             prediction_list.append(new_state)
+            weight_list.append(weight)
             if self.output_std:
                 pred_std_list.append(pred_std)
 
@@ -238,6 +241,11 @@ class Diffusion(ARModel):
         prediction = torch.stack(
             prediction_list, dim=1
         )  # (B, pred_steps, num_grid_nodes, d_f)
+
+        weight = torch.stack(
+            weight_list, dim=1
+        )  # (B, pred_steps, num_grid_nodes, d_f)
+
         if self.output_std:
             pred_std = torch.stack(
                 pred_std_list, dim=1
@@ -245,7 +253,7 @@ class Diffusion(ARModel):
         else:
             pred_std = self.per_var_std  # (d_f,)
 
-        return prediction, pred_std
+        return prediction, pred_std, weight
 
     def common_step_train(self, batch):
         """
@@ -262,24 +270,24 @@ class Diffusion(ARModel):
             forcing_features,
         ) = batch
 
-        prediction, pred_std = self.unroll_prediction_train(
+        prediction, pred_std, weight = self.unroll_prediction_train(
             init_states, forcing_features, target_states
         )  # (B, pred_steps, num_grid_nodes, d_f)
         # prediction: (B, pred_steps, num_grid_nodes, d_f)
         # pred_std: (B, pred_steps, num_grid_nodes, d_f) or (d_f,)
 
-        return prediction, target_states, pred_std
+        return prediction, target_states, pred_std, weight
 
     def training_step(self, batch):
         """
         Train on single batch
         """
-        prediction, target, pred_std = self.common_step_train(batch)
+        prediction, target, pred_std, weight = self.common_step_train(batch)
 
         # Compute loss
         batch_loss = torch.mean(
             self.loss(
-                prediction, target, pred_std, # mask=self.interior_mask_bool
+                prediction, target, pred_std, weight=weight # mask=self.interior_mask_bool
             )
         )  # mean over unrolled times and batch
 
@@ -524,11 +532,11 @@ class Diffusion(ARModel):
         Run validation on single batch
         """
         # super().validation_step(batch, *args)
-        prediction, target, pred_std = self.common_step_train(batch)
+        prediction, target, pred_std, weight = self.common_step_train(batch)
 
         time_step_loss = torch.mean(
             self.loss(
-                prediction, target, pred_std, # mask=self.interior_mask_bool
+                prediction, target, pred_std, weight=weight # mask=self.interior_mask_bool
             ),
             dim=0,
         )  # (time_steps-1)
@@ -767,7 +775,9 @@ class Diffusion(ARModel):
     
     def model_forward(self, x, noise_labels, class_labels, augment_labels=None):
         # Mapping.
-        emb = self.map_noise(noise_labels) # .unsqueeze(1)
+        emb = self.map_noise(noise_labels) # .unsqueeze(1) # No need to unsqueeze for graph model
+        if self.diffusion_model == 'edm':
+            emb = emb.unsqueeze(1)
         # emb_expanded = emb.unsqueeze(1).expand(class_labels.shape[0], class_labels.shape[1], -1) # Expand emb to shape [4, 63784, 16]
         # class_labels = torch.cat([class_labels, emb_expanded], dim=-1)
         next_state, _ = self.model.predict_step(x, class_labels[:, :, :34], class_labels[:, :, 34:], emb)

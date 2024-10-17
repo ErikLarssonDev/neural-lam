@@ -52,8 +52,7 @@ def mask_and_reduce_metric(metric_entry_vals, mask, average_grid, sum_vars):
 
     return metric_entry_vals
 
-
-def wmse(pred, target, pred_std, mask=None, average_grid=True, sum_vars=True):
+def wmse(pred, target, pred_std, mask=None, average_grid=True, sum_vars=True, **kwargs):
     """
     Weighted Mean Squared Error
 
@@ -75,6 +74,8 @@ def wmse(pred, target, pred_std, mask=None, average_grid=True, sum_vars=True):
         pred, target, reduction="none"
     )  # (..., N, d_state)
     entry_mse_weighted = entry_mse / (pred_std**2)  # (..., N, d_state)
+    if 'weight' in kwargs:
+        entry_mse_weighted = entry_mse_weighted * kwargs['weight']
 
     return mask_and_reduce_metric(
         entry_mse_weighted,
