@@ -62,3 +62,122 @@ LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [MIG-43050ffc-7cff-5b74-a709-6c97babd80d6]
 242.304   Total estimated model params size (MB)
 Sanity Checking: 0it [00:00, ?it/s]/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/utils/data/dataloader.py:557: UserWarning: This DataLoader will create 16 worker processes in total. Our suggested max number of worker in current system is 4, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
   warnings.warn(_create_warning_msg(
+Sanity Checking:   0%|          | 0/2 [00:00<?, ?it/s]Sanity Checking DataLoader 0:   0%|          | 0/2 [00:00<?, ?it/s]Sanity Checking DataLoader 0:  50%|█████     | 1/2 [00:17<00:17, 17.33s/it]Sanity Checking DataLoader 0: 100%|██████████| 2/2 [00:31<00:00, 15.87s/it]                                                                           /home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/utils/data/dataloader.py:557: UserWarning: This DataLoader will create 16 worker processes in total. Our suggested max number of worker in current system is 4, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  warnings.warn(_create_warning_msg(
+Training: 0it [00:00, ?it/s]Training:   0%|          | 0/678 [00:00<?, ?it/s]Epoch 0:   0%|          | 0/678 [00:00<?, ?it/s] [rank0]: Traceback (most recent call last):
+[rank0]:   File "/proj/berzelius-2022-164/users/x_erila/neural-lam/train_model.py", line 447, in <module>
+[rank0]:     main()
+[rank0]:   File "/proj/berzelius-2022-164/users/x_erila/neural-lam/train_model.py", line 439, in main
+[rank0]:     trainer.fit(
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 532, in fit
+[rank0]:     call._call_and_handle_interrupt(
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/trainer/call.py", line 42, in _call_and_handle_interrupt
+[rank0]:     return trainer.strategy.launcher.launch(trainer_fn, *args, trainer=trainer, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/strategies/launchers/subprocess_script.py", line 93, in launch
+[rank0]:     return function(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 571, in _fit_impl
+[rank0]:     self._run(model, ckpt_path=ckpt_path)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 980, in _run
+[rank0]:     results = self._run_stage()
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1023, in _run_stage
+[rank0]:     self.fit_loop.run()
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/loops/fit_loop.py", line 202, in run
+[rank0]:     self.advance()
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/loops/fit_loop.py", line 355, in advance
+[rank0]:     self.epoch_loop.run(self._data_fetcher)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/loops/training_epoch_loop.py", line 133, in run
+[rank0]:     self.advance(data_fetcher)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/loops/training_epoch_loop.py", line 219, in advance
+[rank0]:     batch_output = self.automatic_optimization.run(trainer.optimizers[0], kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/loops/optimization/automatic.py", line 188, in run
+[rank0]:     self._optimizer_step(kwargs.get("batch_idx", 0), closure)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/loops/optimization/automatic.py", line 266, in _optimizer_step
+[rank0]:     call._call_lightning_module_hook(
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/trainer/call.py", line 146, in _call_lightning_module_hook
+[rank0]:     output = fn(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/core/module.py", line 1270, in optimizer_step
+[rank0]:     optimizer.step(closure=optimizer_closure)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/core/optimizer.py", line 161, in step
+[rank0]:     step_output = self._strategy.optimizer_step(self._optimizer, closure, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/strategies/ddp.py", line 257, in optimizer_step
+[rank0]:     optimizer_output = super().optimizer_step(optimizer, closure, model, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/strategies/strategy.py", line 231, in optimizer_step
+[rank0]:     return self.precision_plugin.optimizer_step(optimizer, model=model, closure=closure, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/plugins/precision/precision_plugin.py", line 116, in optimizer_step
+[rank0]:     return optimizer.step(closure=closure, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/optim/optimizer.py", line 484, in wrapper
+[rank0]:     out = func(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/optim/optimizer.py", line 89, in _use_grad
+[rank0]:     ret = func(self, *args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/optim/adamw.py", line 204, in step
+[rank0]:     loss = closure()
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/plugins/precision/precision_plugin.py", line 103, in _wrap_closure
+[rank0]:     closure_result = closure()
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/loops/optimization/automatic.py", line 142, in __call__
+[rank0]:     self._result = self.closure(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+[rank0]:     return func(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/loops/optimization/automatic.py", line 128, in closure
+[rank0]:     step_output = self._step_fn()
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/loops/optimization/automatic.py", line 315, in _training_step
+[rank0]:     training_step_output = call._call_strategy_hook(trainer, "training_step", *kwargs.values())
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/trainer/call.py", line 294, in _call_strategy_hook
+[rank0]:     output = fn(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/strategies/ddp.py", line 330, in training_step
+[rank0]:     return self.model(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/parallel/distributed.py", line 1636, in forward
+[rank0]:     else self._run_ddp_forward(*inputs, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/parallel/distributed.py", line 1454, in _run_ddp_forward
+[rank0]:     return self.module(*inputs, **kwargs)  # type: ignore[index]
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/pytorch_lightning/overrides/base.py", line 90, in forward
+[rank0]:     output = self._forward_module.training_step(*inputs, **kwargs)
+[rank0]:   File "/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/models/diffusion.py", line 285, in training_step
+[rank0]:     prediction, target, pred_std, weight = self.common_step_train(batch)
+[rank0]:   File "/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/models/diffusion.py", line 273, in common_step_train
+[rank0]:     prediction, pred_std, weight = self.unroll_prediction_train(
+[rank0]:   File "/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/models/diffusion.py", line 219, in unroll_prediction_train
+[rank0]:     pred_state, pred_std, weight = self.predict_step_train(
+[rank0]:   File "/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/models/diffusion.py", line 140, in predict_step_train
+[rank0]:     next_state = self.forward(noisy_input, sigma, input_grid) # Shape (B, d_state, N_x, N_y)
+[rank0]:   File "/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/models/diffusion.py", line 760, in forward
+[rank0]:     return self.model(x, sigma, class_labels, force_fp32, **model_kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:   File "/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/models/edm_networks.py", line 660, in forward
+[rank0]:     F_x = self.model((c_in * x).to(dtype), c_noise.flatten(), class_labels=class_labels, **model_kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:   File "/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/models/edm_networks.py", line 358, in forward
+[rank0]:     x = block(x, emb)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:   File "/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/models/edm_networks.py", line 163, in forward
+[rank0]:     x = self.conv0(silu(self.norm0(x)))
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:   File "/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/models/edm_networks.py", line 101, in forward
+[rank0]:     x = torch.nn.functional.group_norm(x, num_groups=self.num_groups, weight=self.weight.to(x.dtype), bias=self.bias.to(x.dtype), eps=self.eps)
+[rank0]:   File "/home/x_erila/.conda/envs/BZ31/lib/python3.10/site-packages/torch/nn/functional.py", line 2606, in group_norm
+[rank0]:     return torch.group_norm(input, num_groups, weight, bias, eps, torch.backends.cudnn.enabled)
+[rank0]: torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 116.00 MiB. GPU 0 has a total capacity of 9.50 GiB of which 86.00 MiB is free. Including non-PyTorch memory, this process has 9.40 GiB memory in use. Of the allocated memory 8.68 GiB is allocated by PyTorch, and 285.09 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+wandb: - 0.027 MB of 0.027 MB uploadedwandb: \ 0.027 MB of 0.027 MB uploadedwandb: | 0.027 MB of 0.027 MB uploadedwandb: / 0.036 MB of 0.063 MB uploaded (0.004 MB deduped)wandb: - 0.036 MB of 0.063 MB uploaded (0.004 MB deduped)wandb: \ 0.063 MB of 0.063 MB uploaded (0.004 MB deduped)wandb: 🚀 View run std_1_loss_diff_edm_no_border-diffusion-4x64-10_17_11-6333 at: https://wandb.ai/erik-larsson-link-ping-university/neural-lam_prob/runs/w9hhzvge
+wandb: ⭐️ View project at: https://wandb.ai/erik-larsson-link-ping-university/neural-lam_prob
+wandb: Synced 6 W&B file(s), 0 media file(s), 2 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20241017_112929-w9hhzvge/logs
+wandb: WARNING The new W&B backend becomes opt-out in version 0.18.0; try it out with `wandb.require("core")`! See https://wandb.me/wandb-core for more information.

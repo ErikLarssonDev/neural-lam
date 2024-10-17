@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -J std_1_loss_diff_edm_no_border
 #SBATCH -t 3-00:00:00
-#SBATCH --reservation=1g.10gb
+#SBATCH --gpus=1 -C "thin"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=erila85@liu.se
 #
