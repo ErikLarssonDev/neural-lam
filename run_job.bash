@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J std_1_loss_diff_edm_no_border
+#SBATCH -J loss_res_graph_fm_con_norm_no_border
 #SBATCH -t 3-00:00:00
 #SBATCH --gpus=1 -C "thin"
 #SBATCH --mail-type=ALL
@@ -26,10 +26,10 @@ LOSS_DIFF_GRAPH_CON_NORM_RES="/proj/berzelius-2022-164/users/x_erila/neural-lam/
 LOSS_DIFF_EDM_CON_NORM_RES="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/loss_diff_edm_no_border-diffusion-4x64-10_15_10-5635/last.ckpt"
 
 # Execute Python script with arguments
-# python3 train_model.py "--model" $MODEL $DIFFUSION_MODEL "--n_workers" 16 $RUN_NAME --batch_size 10 --pred_residual --val_interval 10 --load $LOSS_DIFF_GRAPH_CON_NORM_RES --eval val
+python3 train_model.py "--model" $MODEL $DIFFUSION_MODEL "--n_workers" 16 $RUN_NAME --batch_size 10 --pred_residual --val_interval 10 --load $LOSS_DIFF_GRAPH_CON_NORM_RES --eval val
 
 # python3 train_model.py --model diffusion --diffusion_model graph_fm --graph hierarchical --pred_residual --batch_size 10 --eval val --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/loss_res_graph_fm_con_norm_no_border-diffusion-4x64-10_15_11-6256/last.ckpt 
-python3 train_model.py --model diffusion --diffusion_model edm --pred_residual --batch_size 4 --wandb_run_name std_1_loss_diff_edm_no_border --val_interval 10 --n_workers 16 # --eval val --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/loss_diff_edm_no_border-diffusion-4x64-10_15_10-5635/last.ckpt
+# python3 train_model.py --model diffusion --diffusion_model edm --pred_residual --batch_size 4 --wandb_run_name std_1_loss_diff_edm_no_border --val_interval 10 --n_workers 16 # --eval val --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/loss_diff_edm_no_border-diffusion-4x64-10_15_10-5635/last.ckpt
 # python3 train_model.py --model swin_u2 --pred_residual --wandb_project neural_lam_wavelet --val_interval 10 --batch_size 10 --n_workers 4
 # Sanity check 1: 10 min
 # Sanity check 2: 
