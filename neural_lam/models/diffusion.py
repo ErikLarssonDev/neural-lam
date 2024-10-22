@@ -724,10 +724,10 @@ class Diffusion(ARModel):
         t_steps = torch.cat([net.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]) # t_N = 0
 
         # Main sampling loop.
-        if self.border_condition: # Only add noise inside the border
-            latents = latents * self.border_mask + latents * t_steps[0] * self.interior_mask
-        else:
-            latents = latents * t_steps[0]
+        # if self.border_condition: # Only add noise inside the border
+        #     latents = latents * self.border_mask + latents * t_steps[0] * self.interior_mask
+        # else:
+        latents = latents * t_steps[0]
 
         x_next = latents
         for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
@@ -736,19 +736,19 @@ class Diffusion(ARModel):
             # Euler step.
             denoised = net.forward(x_cur, t_cur, class_labels)
             d_cur = (x_cur - denoised) / t_cur
-            if self.border_condition: # Only add noise inside the border
-                x_next = x_cur * self.border_mask + (x_cur + (t_next - t_cur) * d_cur) * self.interior_mask
-            else:       
-                x_next = x_cur + (t_next - t_cur) * d_cur
+            # if self.border_condition: # Only add noise inside the border
+            #     x_next = x_cur * self.border_mask + (x_cur + (t_next - t_cur) * d_cur) * self.interior_mask
+            # else:       
+            x_next = x_cur + (t_next - t_cur) * d_cur
 
             # Apply 2nd order correction.
             if i < num_steps - 1:
                 denoised = net.forward(x_next, t_next, class_labels)
                 d_prime = (x_next - denoised) / t_next
 
-            if self.border_condition: # Only add noise inside the border
-                x_next = x_cur * self.border_mask + (x_cur + (t_next - t_cur) * (0.5 * d_cur + 0.5 * d_prime)) * self.interior_mask
-            else:       
+                # if self.border_condition: # Only add noise inside the border
+                #     x_next = x_cur * self.border_mask + (x_cur + (t_next - t_cur) * (0.5 * d_cur + 0.5 * d_prime)) * self.interior_mask
+                # else:       
                 x_next = x_cur + (t_next - t_cur) * (0.5 * d_cur + 0.5 * d_prime)
 
         return x_next
@@ -775,9 +775,9 @@ class Diffusion(ARModel):
     
     def model_forward(self, x, noise_labels, class_labels, augment_labels=None):
         # Mapping.
-        emb = self.map_noise(noise_labels) # .unsqueeze(1) # No need to unsqueeze for graph model
-        if self.diffusion_model == 'edm':
-            emb = emb.unsqueeze(1)
+        emb = self.map_noise(noise_labels).unsqueeze(1) 
+        # if self.diffusion_model == 'edm':
+        #     emb = emb.unsqueeze(1)
         # emb_expanded = emb.unsqueeze(1).expand(class_labels.shape[0], class_labels.shape[1], -1) # Expand emb to shape [4, 63784, 16]
         # class_labels = torch.cat([class_labels, emb_expanded], dim=-1)
         next_state, _ = self.model.predict_step(x, class_labels[:, :, :34], class_labels[:, :, 34:], emb)
