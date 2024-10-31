@@ -248,9 +248,7 @@ class MLP(nn.Module):
                 layers.append(nn.SiLU())  # Swish activation
 
         self.mlp_layers = nn.Sequential(*layers)
-        
-            
-                
+         
         # Optionally add layer norm to output
         if layer_norm:
             # self.layer_norm = (nn.LayerNorm(blueprint[-1]))

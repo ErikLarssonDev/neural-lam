@@ -122,7 +122,7 @@ def main():
     parser.add_argument(
         "--hidden_dim",
         type=int,
-        default=64,
+        default=128,
         help="Dimensionality of all hidden representations (default: 64)",
     )
     parser.add_argument(
@@ -141,9 +141,9 @@ def main():
     parser.add_argument(
         "--processor_layers",
         type=int,
-        default=4,
+        default=6,
         help="Number of GNN layers in processor GNN (for prob. model: in "
-        "decoder) (default: 4)",
+        "decoder) (default: 6)",
     )
     parser.add_argument(
         "--encoder_processor_layers",
@@ -193,6 +193,13 @@ def main():
         help="If PropagationNets should be used for all vertical message "
         "passing (g2m, m2g, up in hierarchy), in deterministic models."
         "(default: 0 (no))",
+    )
+    parser.add_argument(
+        "--sampler",
+        type=str,
+        default="heun",
+        help="The sampler to use when generating trajectories with a diffusion model"
+        "(heun/edm) (default: heun)",
     )
 
     # Training options
@@ -425,11 +432,11 @@ def main():
                     split="test",
                     subsample_step=args.step_length,
                     subset=bool(args.subset_ds),
+                    model_name=args.diffusion_model,
                 ),
                 args.batch_size,
                 shuffle=False,
                 num_workers=args.n_workers,
-                model_name=args.diffusion_model,
             )
     
         print(f"Running evaluation on {args.eval}")
