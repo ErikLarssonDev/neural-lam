@@ -62,6 +62,54 @@ def plot_error_map(errors, title=None, step_length=3):
 
     return fig
 
+@matplotlib.rc_context(utils.fractional_plot_bundle(1))
+def plot_diffusion(pred_steps, pred, target, obs_mask=None, title=None, vrange=None):
+    """
+    Plot diffusion steps, prediction and ground truth.
+    Each has shape (N_grid,)
+    """
+    # Get common scale for values
+    if vrange is None:
+        vmin = min(vals.min().cpu().item() for vals in (pred, target))
+        vmax = max(vals.max().cpu().item() for vals in (pred, target))
+    else:
+        vmin, vmax = vrange
+    # Set up masking of border region
+    mask_reshaped = obs_mask.reshape(*constants.GRID_SHAPE)
+    pixel_alpha = (
+        mask_reshaped.clamp(0.7, 1).cpu().numpy()
+    )  # Faded border region
+
+    fig, axes = plt.subplots(
+        1, 2, figsize=(13, 7), subplot_kw={"projection": constants.LAMBERT_PROJ}
+    )
+
+    # Plot pred and target
+    for ax, data in zip(axes, (target, pred)):
+        ax.coastlines()  # Add coastline outlines
+        data_grid = data.reshape(*constants.GRID_SHAPE).cpu().numpy()
+        im = ax.imshow(
+            data_grid,
+            origin="lower",
+            extent=constants.GRID_LIMITS,
+            alpha=pixel_alpha,
+            vmin=vmin,
+            vmax=vmax,
+            cmap="plasma",
+        )
+
+    # Ticks and labels
+    axes[0].set_title("Ground Truth", size=15)
+    axes[1].set_title("Prediction", size=15)
+    cbar = fig.colorbar(im, aspect=30)
+    cbar.ax.tick_params(labelsize=10)
+
+    if title:
+        fig.suptitle(title, size=20)
+
+    return fig
+
+
 
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
 def plot_prediction(pred, target, obs_mask, title=None, vrange=None):

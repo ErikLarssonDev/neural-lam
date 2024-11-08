@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import wandb
 import copy
+import math 
 
 from neural_lam.models.ar_model import ARModel
 from neural_lam import constants, metrics, utils, vis
@@ -23,6 +24,7 @@ class Diffusion(ARModel):
 
         # Some dimensionalities that can be useful to have stored
         self.border_condition = args.border_condition
+        self.plot_diffusion_steps = args.plot_diffusion_steps
         self.input_dim = 3*constants.GRID_STATE_DIM + constants.GRID_FORCING_DIM + constants.BATCH_STATIC_FEATURE_DIM
         self.output_dim = constants.GRID_STATE_DIM
 
@@ -89,23 +91,25 @@ class Diffusion(ARModel):
 
         # Run through sampler
         if self.sampler == "heun":
-            next_state = self.heun_sampler(latents=latents, class_labels=input_grid)
+            next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid)
         elif self.sampler == "edm":
-            next_state = self.edm_sampler(latents=latents, class_labels=input_grid)
+            next_state, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid)
+        elif self.sampler == "ddpm":
+            next_state, diff_states = self.ddpm_sampler(latents=latents, class_labels=input_grid)
 
         # Add residual if needed
         if self.pred_residual:
-            print(f"next_state: {next_state.shape}")
-            print(f"next_state mean: {torch.mean(next_state, dim=(0, 1))}")
-            print(f"self.step_diff_mean: {self.step_diff_mean.shape}")
-            print(f"self.step_diff_std: {self.step_diff_std.shape}")
-            print(f"self.step_diff_mean: {self.step_diff_mean}")
-            print(f"self.step_diff_std: {self.step_diff_std}")
             next_state = (next_state * self.step_diff_std) + self.step_diff_mean # Unormalize residual
-            print(f"next_state mean after unormalize: {torch.mean(next_state, dim=(0, 1))}")
-            print(f"self.data_mean: {self.data_mean}")
-            print(f"self.data_std: {self.data_std}")
             next_state = prev_state + next_state
+        
+        if self.plot_diffusion_steps:
+            diff_states.append((border_state - prev_state - self.step_diff_mean) / self.step_diff_std) 
+            print(f"diff_states: {diff_states}")
+            print(f"diff_states shape: {len(diff_states)}")
+            print(f"diff_states_tensor shape: {torch.stack(diff_states, dim=0).shape}")
+            np.save(f"/proj/berzelius-2022-164/users/x_erila/neural-lam/output/diff_states_{self.sampler}.npy", np.array(torch.stack(diff_states, dim=0).cpu().detach().numpy()))
+            np.save(f"/proj/berzelius-2022-164/users/x_erila/neural-lam/output/next_state_{self.sampler}.npy", next_state.cpu().detach().numpy())
+            np.save(f"/proj/berzelius-2022-164/users/x_erila/neural-lam/output/true_state_{self.sampler}.npy", border_state.cpu().detach().numpy())
         
         return next_state, None
 
@@ -173,17 +177,20 @@ class Diffusion(ARModel):
                 border_state = true_states[:, i]
 
                 pred_state, pred_std = self.predict_step(
-                    prev_state, prev_prev_state, forcing, # border_state*self.border_mask
+                    prev_state, prev_prev_state, forcing, border_state
                 )
                 # state: (B, num_grid_nodes, d_f)
                 # pred_std: (B, num_grid_nodes, d_f) or None
 
                 # Overwrite border with true state
-                new_state = pred_state
-                # new_state = (
-                #     self.border_mask * border_state
-                #     + self.interior_mask * pred_state
-                # )
+                if self.border_condition:
+                    new_state = (
+                        self.border_mask * border_state
+                        + self.interior_mask * pred_state
+                    )
+                else:
+                    new_state = pred_state
+        
 
                 prediction_list.append(new_state)
                 if self.output_std:
@@ -231,11 +238,13 @@ class Diffusion(ARModel):
             # pred_std: (B, num_grid_nodes, d_f) or None
 
             # Overwrite border with true state
-            new_state = pred_state
-            # new_state = (
-            #     self.border_mask * border_state
-            #     + self.interior_mask * pred_state
-            # )
+            if self.border_condition:
+                new_state = (
+                    self.border_mask * border_state
+                    + self.interior_mask * pred_state
+                )
+            else:
+                new_state = pred_state
 
             prediction_list.append(new_state)
             weight_list.append(weight)
@@ -687,6 +696,8 @@ class Diffusion(ARModel):
         num_steps=20, sigma_min=0.03, sigma_max=80, rho=7,
         S_churn=2.5, S_min=0.75, S_max=80, S_noise=1.05,
     ):
+        diff_steps = []
+
         # Adjust noise levels based on what's supported by the network.
         sigma_min = max(sigma_min, self.sigma_min)
         sigma_max = min(sigma_max, self.sigma_max)
@@ -695,11 +706,13 @@ class Diffusion(ARModel):
         step_indices = torch.arange(num_steps, dtype=torch.float64, device=latents.device)
         t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
         t_steps = torch.cat([self.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]) # t_N = 0
+        print(f"t_steps: {t_steps}")
 
         # Main sampling loop.
         x_next = latents * t_steps[0]
         for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
             x_cur = x_next
+            diff_steps.append(x_cur)
 
             # Increase noise temporarily.
             gamma = min(S_churn / num_steps, np.sqrt(2) - 1) if S_min <= t_cur <= S_max else 0
@@ -717,7 +730,7 @@ class Diffusion(ARModel):
                 d_prime = (x_next - denoised) / t_next
                 x_next = x_hat + (t_next - t_hat) * (0.5 * d_cur + 0.5 * d_prime)
 
-        return x_next
+        return x_next, diff_steps
 
     #----------------------------------------------------------------------------
     # Proposed Heun sampler (Algorithm 1).
@@ -725,6 +738,7 @@ class Diffusion(ARModel):
         self, latents, class_labels=None, randn_like=torch.randn_like,
         num_steps=20, sigma_min=0.03, sigma_max=80, rho=7,
     ):
+        diff_steps = []
         # Adjust noise levels based on what's supported by the network.
         sigma_min = max(sigma_min, self.sigma_min)
         sigma_max = min(sigma_max, self.sigma_max)
@@ -733,11 +747,13 @@ class Diffusion(ARModel):
         step_indices = torch.arange(num_steps, dtype=torch.float32, device=latents.device)
         t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
         t_steps = torch.cat([self.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]) # t_N = 0
+        print(f"t_steps: {t_steps}")
 
         # Main sampling loop.
         x_next = latents * t_steps[0]
         for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
             x_cur = x_next
+            diff_steps.append(x_cur)
 
             # Euler step.
             denoised = self.forward(x_cur, t_cur, class_labels)
@@ -750,14 +766,69 @@ class Diffusion(ARModel):
                 d_prime = (x_next - denoised) / t_next   
                 x_next = x_cur + (t_next - t_cur) * (0.5 * d_cur + 0.5 * d_prime)
 
-        return x_next
+        return x_next, diff_steps
 
 #----------------------------------------------------------------------------
+
+    # Sampler used in GenCast
+    def ddpm_sampler(
+        self, latents, class_labels=None, randn_like=torch.randn_like,
+        num_steps=20, sigma_min=0.03, sigma_max=80, rho=7,
+        S_churn=2.5, S_min=0.75, S_max=80, S_noise=1.05, r=0.5,
+    ):
+        diff_steps = []
+
+        device = latents.device
+        time_steps = torch.arange(0, num_steps).to(device) / (num_steps - 1)
+        sigmas = (sigma_max ** (1 / rho)+ time_steps * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
+        print(f"t_steps: {sigmas}")
+
+        # batch_ones = torch.ones(1, 1).to(device)
+
+        # initialize noise
+        x = sigmas[0] * latents
+
+        for i in range(len(sigmas) - 1):
+            diff_steps.append(x)
+            # stochastic churn from Karras et al. (Alg. 2)
+            gamma = (
+                min(S_churn / num_steps, math.sqrt(2) - 1)
+                if S_min <= sigmas[i] <= S_max
+                else 0.0
+            )
+            # noise inflation from Karras et al. (Alg. 2)
+            noise = S_noise * randn_like(latents)
+
+            sigma_hat = sigmas[i] * (gamma + 1)
+            if gamma > 0:
+                x = x + (sigma_hat**2 - sigmas[i] ** 2) ** 0.5 * noise            
+            denoised = self.forward(x, sigma_hat, class_labels)
+
+            if i == len(sigmas) - 2:
+                # final Euler step
+                d = (x - denoised) / sigma_hat
+                x = x + d * (sigmas[i + 1] - sigma_hat)
+            else:
+                # DPMSolver++2S  step (Alg. 1 in Lu et al.) with alpha_t=1.
+                # t_{i-1} is t_hat because of stochastic churn!
+                lambda_hat = -torch.log(sigma_hat)
+                lambda_next = -torch.log(sigmas[i + 1])
+                h = lambda_next - lambda_hat
+                lambda_mid = lambda_hat + r * h
+                sigma_mid = torch.exp(-lambda_mid)
+
+                u = sigma_mid / sigma_hat * x - (torch.exp(-r * h) - 1) * denoised
+                denoised_2 = self.forward(u, sigma_mid, class_labels)
+                D = (1 - 1 / (2 * r)) * denoised + 1 / (2 * r) * denoised_2
+                x = sigmas[i + 1] / sigma_hat * x - (torch.exp(-h) - 1) * D
+
+        return x, diff_steps
+        
 
     def forward(self, x, sigma, class_labels=None, force_fp32=False, **model_kwargs):
         if self.diffusion_model == 'edm':
             return self.model(x, sigma, class_labels, force_fp32, **model_kwargs)
-        
+                
         x = x.to(torch.float32)
         sigma = sigma.to(torch.float32).reshape(-1, 1, 1)
         dtype = torch.float16 if (self.use_fp16 and not force_fp32 and x.device.type == 'cuda') else torch.float32
