@@ -294,6 +294,12 @@ def main():
         default=5,
         help="Number of ensemble members during evaluation (default: 5)",
     )
+    parser.add_argument(
+        "--plot_diffusion_steps",
+        action="store_true",
+        help="If the diffusion steps should be saved, only one time step is saved",
+    )
+
     args = parser.parse_args()
 
     # Asserts for arguments
@@ -327,12 +333,12 @@ def main():
         num_workers=args.n_workers,
     )
     max_pred_length = (65 // args.step_length) - 2  # 19
-    # if args.model == "diffusion":
-    #     max_pred_length = 1
+    if args.plot_diffusion_steps:
+        max_pred_length = 1
     val_loader = torch.utils.data.DataLoader(
         WeatherDataset(
             args.dataset,
-            pred_length=max_pred_length,
+            pred_length=args.ar_steps,
             split="val",
             subsample_step=args.step_length,
             subset=bool(args.subset_ds),
