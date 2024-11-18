@@ -5,7 +5,6 @@ from torch import nn
 from neural_lam.interaction_net import InteractionNet, PropagationNet
 from neural_lam.models.base_hi_graph_model import BaseHiGraphModel
 
-
 class GraphFM(BaseHiGraphModel):
     """
     Hierarchical Graph-based Forecasting Model

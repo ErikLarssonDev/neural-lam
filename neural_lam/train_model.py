@@ -1,4 +1,5 @@
 # Standard library
+import json
 import random
 import time
 from argparse import ArgumentParser
@@ -26,21 +27,18 @@ MODELS = {
 }
 
 
-def main():
+def main(input_args=None):
     """
     Main function for training and evaluating models
     """
     parser = ArgumentParser(
         description="Train or evaluate NeurWP models for LAM"
     )
-
-    # General options
     parser.add_argument(
-        "--dataset",
+        "--data_config",
         type=str,
-        default="meps",
-        help="Dataset, corresponding to name in data directory "
-        "(default: meps)",
+        default="neural_lam/data_config.yaml",
+        help="Path to data config file (default: neural_lam/data_config.yaml)",
     )
     parser.add_argument(
         "--model",
@@ -50,10 +48,9 @@ def main():
     )
     parser.add_argument(
         "--subset_ds",
-        type=int,
-        default=0,
+        action="store_true",
         help="Use only a small subset of the dataset, for debugging"
-        "(default: 0=false)",
+        "(default: false)",
     )
     parser.add_argument(
         "--seed", type=int, default=42, help="random seed (default: 42)"
@@ -80,10 +77,9 @@ def main():
     )
     parser.add_argument(
         "--restore_opt",
-        type=int,
-        default=0,
+        action="store_true",
         help="If optimizer state should be restored with model "
-        "(default: 0 (false))",
+        "(default: false)",
     )
     parser.add_argument(
         "--precision",
@@ -166,11 +162,17 @@ def main():
     )
     parser.add_argument(
         "--output_std",
-        type=int,
-        default=0,
+        action="store_true",
         help="If models should additionally output std.-dev. per "
         "output dimensions "
-        "(default: 0 (no))",
+        "(default: False (no))",
+    )
+    parser.add_argument(
+        "--shared_grid_embedder",
+        action="store_true",  # Default to separate embedders
+        help="If the same embedder MLP should be used for interior and boundary"
+        " grid nodes. Note that this requires the same dimensionality for "
+        "both kinds of grid inputs. (default: False (no))",
     )
     parser.add_argument(
         "--prior_dist",
@@ -212,10 +214,9 @@ def main():
     )
     parser.add_argument(
         "--control_only",
-        type=int,
-        default=0,
+        action="store_true",
         help="Train only on control member of ensemble data "
-        "(default: 0 (False))",
+        "(default: False)",
     )
     parser.add_argument(
         "--loss",
@@ -302,6 +303,38 @@ def main():
 
     args = parser.parse_args()
 
+    # Logger Settings
+    parser.add_argument(
+        "--wandb_project",
+        type=str,
+        default="neural_lam",
+        help="Wandb project name (default: neural_lam)",
+    )
+    parser.add_argument(
+        "--val_steps_to_log",
+        type=list,
+        default=[1, 2, 3, 5, 10, 15, 19],
+        help="Steps to log val loss for (default: [1, 2, 3, 5, 10, 15, 19])",
+    )
+    parser.add_argument(
+        "--metrics_watch",
+        nargs="+",
+        default=[],
+        help="List of metrics to watch, including any prefix (e.g. val_rmse)",
+    )
+    parser.add_argument(
+        "--var_leads_metrics_watch",
+        type=str,
+        default="{}",
+        help="""JSON string with variable-IDs and lead times to log watched
+             metrics (e.g. '{"1": [1, 2], "3": [3, 4]}')""",
+    )
+    args = parser.parse_args(input_args)
+    args.var_leads_metrics_watch = {
+        int(k): v for k, v in json.loads(args.var_leads_metrics_watch).items()
+    }
+    config_loader = config.Config.from_file(args.data_config)
+
     # Asserts for arguments
     assert args.model in MODELS, f"Unknown model: {args.model}"
     assert args.step_length <= 3, "Too high step length"
@@ -320,11 +353,11 @@ def main():
     # Load data
     train_loader = torch.utils.data.DataLoader(
         WeatherDataset(
-            args.dataset,
+            config_loader.dataset.name,
             pred_length=args.ar_steps,
             split="train",
             subsample_step=args.step_length,
-            subset=bool(args.subset_ds),
+            subset=args.subset_ds,
             control_only=args.control_only,
             model_name=args.diffusion_model,
         ),
@@ -337,11 +370,11 @@ def main():
         max_pred_length = 1
     val_loader = torch.utils.data.DataLoader(
         WeatherDataset(
-            args.dataset,
-            pred_length=args.ar_steps,
+            config_loader.dataset.name,
+            pred_length=max_pred_length,
             split="val",
             subsample_step=args.step_length,
-            subset=bool(args.subset_ds),
+            subset=args.subset_ds,
             control_only=args.control_only,
             model_name=args.diffusion_model,
         ),
@@ -361,14 +394,7 @@ def main():
 
     # Load model parameters Use new args for model
     model_class = MODELS[args.model]
-    if args.load:
-        model = model_class.load_from_checkpoint(args.load, args=args)
-        if args.restore_opt:
-            # Save for later
-            # Unclear if this works for multi-GPU
-            model.opt_state = torch.load(args.load)["optimizer_states"][0]
-    else:
-        model = model_class(args)
+    model = model_class(args)
 
     prefix = "subset-" if args.subset_ds else ""
     if args.eval:
@@ -425,7 +451,9 @@ def main():
 
     # Only init once, on rank 0 only
     if trainer.global_rank == 0:
-        utils.init_wandb_metrics(logger)  # Do after wandb.init
+        utils.init_wandb_metrics(
+            logger, args.val_steps_to_log
+        )  # Do after wandb.init
 
     if args.eval:
         if args.eval == "val":
@@ -433,7 +461,7 @@ def main():
         else:  # Test
             eval_loader = torch.utils.data.DataLoader(
                 WeatherDataset(
-                    args.dataset,
+                    config_loader.dataset.name,
                     pred_length=max_pred_length,
                     split="test",
                     subsample_step=args.step_length,
@@ -446,13 +474,14 @@ def main():
             )
     
         print(f"Running evaluation on {args.eval}")
-        trainer.test(model=model, dataloaders=eval_loader)
+        trainer.test(model=model, dataloaders=eval_loader, ckpt_path=args.load)
     else:
         # Train model
         trainer.fit(
             model=model,
             train_dataloaders=train_loader,
             val_dataloaders=val_loader,
+            ckpt_path=args.load,
         )
 
 
