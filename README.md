@@ -1,8 +1,14 @@
+[![slack](https://img.shields.io/badge/slack-join-brightgreen.svg?logo=slack)](https://join.slack.com/t/ml-lam/shared_invite/zt-2t112zvm8-Vt6aBvhX7nYa6Kbj_LkCBQ)
+![Linting](https://github.com/mllam/neural-lam/actions/workflows/pre-commit.yml/badge.svg?branch=main)
+[![test (pdm install, gpu)](https://github.com/mllam/neural-lam/actions/workflows/ci-pdm-install-and-test-gpu.yml/badge.svg)](https://github.com/mllam/neural-lam/actions/workflows/ci-pdm-install-and-test-gpu.yml)
+[![test (pdm install, cpu)](https://github.com/mllam/neural-lam/actions/workflows/ci-pdm-install-and-test-cpu.yml/badge.svg)](https://github.com/mllam/neural-lam/actions/workflows/ci-pdm-install-and-test-cpu.yml)
+
 <p align="middle">
     <img src="figures/neural_lam_header.png" width="700">
 </p>
 
-Neural-LAM is a repository of graph-based neural weather prediction models.
+Neural-LAM is a repository of graph-based neural weather prediction models for Limited Area Modeling (LAM).
+Also global forecasting is possible, but currently on a [different branch](https://github.com/mllam/neural-lam/tree/prob_model_global) ([planned to be merged with main](https://github.com/mllam/neural-lam/issues/63)).
 The code uses [PyTorch](https://pytorch.org/) and [PyTorch Lightning](https://lightning.ai/pytorch-lightning).
 Graph Neural Networks are implemented using [PyG](https://pyg.org/) and logging is set up through [Weights & Biases](https://wandb.ai/).
 
@@ -17,11 +23,15 @@ Graph Neural Networks are implemented using [PyG](https://pyg.org/) and logging 
 This branch contains the code for our paper [*Probabilistic Weather Forecasting with Hierarchical Graph Neural Networks*](https://arxiv.org/abs/2406.04759), for Limited Area Modeling (LAM).
 In particular, it contains implementations of:
 
-* Our ensemble forecasting model Graph-EFM.
-* The hierarchical Graph-FM model (also called Hi-LAM in [Oskarsson et al. (2023)](https://arxiv.org/abs/2309.17370) and on the `main` branch).
-* Our re-implementation of GraphCast, by [Lam et al. (2023)](https://arxiv.org/abs/2212.12794).
+# Publications
+For a more in-depth scientific introduction to machine learning for LAM weather forecasting see the publications listed here.
+As the code in the repository is continuously evolving, the latest version might feature some small differences to what was used for these publications.
+We retain some paper-specific branches for reproducibility purposes.
 
-If you use these models in your work, please cite:
+
+*If you use Neural-LAM in your work, please cite the relevant paper(s)*.
+
+#### [Graph-based Neural Weather Prediction for Limited Area Modeling](https://arxiv.org/abs/2309.17370)
 ```
 @article{probabilistic_weather_forecasting,
     title={Probabilistic Weather Forecasting with Hierarchical Graph Neural Networks},
@@ -30,10 +40,20 @@ If you use these models in your work, please cite:
     journal={arXiv preprint}
 }
 ```
+See the branch [`ccai_paper_2023`](https://github.com/joeloskarsson/neural-lam/tree/ccai_paper_2023) for a revision of the code that reproduces this workshop paper.
 
-We are currently working to merge these models also to the `main` branch of Neural-LAM.
-This README describes how to use the different models and run the experiments from the paper.
-Do also check the [`main` branch](https://github.com/mllam/neural-lam) for further details and more updated implementations for parts of the codebase.
+#### [Probabilistic Weather Forecasting with Hierarchical Graph Neural Networks](https://arxiv.org/abs/2406.04759)
+```
+@inproceedings{oskarsson2024probabilistic,
+  title = {Probabilistic Weather Forecasting with Hierarchical Graph Neural Networks},
+  author = {Oskarsson, Joel and Landelius, Tomas and Deisenroth, Marc Peter and Lindsten, Fredrik},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume = {37},
+  year = {2024},
+}
+```
+See the branches [`prob_model_lam`](https://github.com/mllam/neural-lam/tree/prob_model_lam) and [`prob_model_global`](https://github.com/mllam/neural-lam/tree/prob_model_global) for revisions of the code that reproduces this paper.
+The global and probabilistic models from this paper are not yet fully merged with `main` (see issues [62](https://github.com/mllam/neural-lam/issues/62) and [63](https://github.com/mllam/neural-lam/issues/63)).
 
 # Modularity
 The Neural-LAM code is designed to modularize the different components involved in training and evaluating neural weather prediction models.
@@ -49,29 +69,49 @@ Still, some restrictions are inevitable:
 
 
 ## A note on the limited area setting
-Currently we are using these models on a limited area covering the Nordic region, the so called MEPS area (see [paper](https://arxiv.org/abs/2309.17370)).
+Currently we are using these models on a limited area covering the Nordic region, the so called MEPS area (see [paper](#graph-based-neural-weather-prediction-for-limited-area-modeling)).
 There are still some parts of the code that is quite specific for the MEPS area use case.
-This is in particular true for the mesh graph creation (`create_mesh.py`) and some of the constants used (`neural_lam/constants.py`).
-Work is being done to refactor the code to be fully area-agnostic.
+This is in particular true for the mesh graph creation (`python -m neural_lam.create_mesh`) and some of the constants set in a `data_config.yaml` file (path specified in `python -m neural_lam.train_model --data_config <data-config-filepath>` ).
+There is ongoing efforts to refactor the code to be fully area-agnostic.
+See issues [4](https://github.com/mllam/neural-lam/issues/4) and [24](https://github.com/mllam/neural-lam/issues/24) for more about this.
+See also the [weather-model-graphs](https://github.com/mllam/weather-model-graphs) package for constructing graphs for arbitrary areas.
 
 # Using Neural-LAM
 Below follows instructions on how to use Neural-LAM to train and evaluate models.
 
 ## Installation
-Follow the steps below to create the necessary python environment.
 
-1. Use python 3.10.
-2. Install version 2.0.1 of PyTorch. Follow instructions on the [PyTorch webpage](https://pytorch.org/get-started/previous-versions/) for how to set this up with GPU support on your system.
-3. Install required packages specified in `requirements.txt`.
-4. Install PyTorch Geometric version 2.3.1. This can be done by running
-```
-TORCH="2.0.1"
-CUDA="cu117"
+When installing `neural-lam` you have a choice of either installing with
+directly `pip` or using the `pdm` package manager.
+We recommend using `pdm` as it makes it easy to add/remove packages while
+keeping versions consistent (it automatically updates the `pyproject.toml`
+file), makes it easy to handle virtual environments and includes the
+development toolchain packages installation too.
 
-pip install pyg-lib==0.2.0 torch-scatter==2.1.1 torch-sparse==0.6.17 torch-cluster==1.6.1\
-    torch-geometric==2.3.1 -f https://pytorch-geometric.com/whl/torch-${TORCH}+${CUDA}.html
-```
-You will have to adjust the `CUDA` variable to match the CUDA version on your system or to run on CPU. See the [installation webpage](https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html) for more information.
+**regarding `torch` installation**: because `torch` creates different package
+variants for different CUDA versions and cpu-only support you will need to install
+`torch` separately if you don't want the most recent GPU variant that also
+expects the most recent version of CUDA on your system.
+
+We cover all the installation options in our [github actions ci/cd
+setup](.github/workflows/) which you can use as a reference.
+
+### Using `pdm`
+
+1. Clone this repository and navigate to the root directory.
+2. Install `pdm` if you don't have it installed on your system (either with `pip install pdm` or [following the install instructions](https://pdm-project.org/latest/#installation)).
+> If you are happy using the latest version of `torch` with GPU support (expecting the latest version of CUDA is installed on your system) you can skip to step 5.
+3. Create a virtual environment for pdm to use with `pdm venv create --with-pip`.
+4. Install a specific version of `torch` with `pdm run python -m pip install torch --index-url https://download.pytorch.org/whl/cpu` for a CPU-only version or `pdm run python -m pip install torch --index-url https://download.pytorch.org/whl/cu111` for CUDA 11.1 support (you can find the correct URL for the variant you want on [PyTorch webpage](https://pytorch.org/get-started/locally/)).
+5. Install the dependencies with `pdm install` (by default this in include the). If you will be developing `neural-lam` we recommend to install the development dependencies with `pdm install --group dev`. By default `pdm` installs the `neural-lam` package in editable mode, so you can make changes to the code and see the effects immediately.
+
+### Using `pip`
+
+1. Clone this repository and navigate to the root directory.
+> If you are happy using the latest version of `torch` with GPU support (expecting the latest version of CUDA is installed on your system) you can skip to step 3.
+2. Install a specific version of `torch` with `python -m pip install torch --index-url https://download.pytorch.org/whl/cpu` for a CPU-only version or `python -m pip install torch --index-url https://download.pytorch.org/whl/cu111` for CUDA 11.1 support (you can find the correct URL for the variant you want on [PyTorch webpage](https://pytorch.org/get-started/locally/)).
+3. Install the dependencies with `python -m pip install .`. If you will be developing `neural-lam` we recommend to install in editable mode and install the development dependencies with `python -m pip install -e ".[dev]"` so you can make changes to the code and see the effects immediately.
+
 
 ## Data
 Datasets should be stored in a directory called `data`.
@@ -80,39 +120,39 @@ See the [repository format section](#format-of-data-directory) for details on th
 The full MEPS dataset can be shared with other researchers on request, contact us for this.
 A tiny subset of the data (named `meps_example`) is available in `example_data.zip`, which can be downloaded from [here](https://liuonline-my.sharepoint.com/:u:/g/personal/joeos82_liu_se/EaUUq6h9og1EsLwJmKAltWwB7zP2gmObe-K8pL6qGYYiGg?e=yQbFuV).
 Download the file and unzip in the neural-lam directory.
-After downloading this data, the graphs used in the paper can be generated as described below.
-Note that this is far too little data to train any useful models, but all scripts can be ran with it.
+Graphs used in the initial paper are also available for download at the same link (but can as easily be re-generated using `python -m neural_lam.create_mesh`).
+Note that this is far too little data to train any useful models, but all pre-processing and training steps can be run with it.
 It should thus be useful to make sure that your python environment is set up correctly and that all the code can be ran without any issues.
 
 ## Pre-processing
-An overview of how the different scripts and files depend on each other is given in this figure:
+An overview of how the different pre-processing steps, training and files depend on each other is given in this figure:
 <p align="middle">
   <img src="figures/component_dependencies.png"/>
 </p>
-In order to start training models at least three pre-processing scripts have to be ran:
+In order to start training models at least three pre-processing steps have to be run:
 
-* `create_mesh.py`
-* `create_grid_features.py`
-* `create_parameter_weights.py`
+* `python -m neural_lam.create_mesh`
+* `python -m neural_lam.create_grid_features`
+* `python -m neural_lam.create_parameter_weights`
 
 ### Create graph
-Run `create_mesh.py` with suitable options to generate the graph you want to use (see `python create_mesh.py --help` for a list of options).
-The graphs used in the paper can be created as:
+Run `python -m neural_lam.create_mesh` with suitable options to generate the graph you want to use (see `python neural_lam.create_mesh --help` for a list of options).
+The graphs used for the different models in the [paper](#graph-based-neural-weather-prediction-for-limited-area-modeling) can be created as:
 
-* **multi-scale**: `python create_mesh.py --graph multiscale`
-* **hierarchical**: `python create_mesh.py --graph hierarchical --hierarchical 1 --levels 3`
+* **GC-LAM**: `python -m neural_lam.create_mesh --graph multiscale`
+* **Hi-LAM**: `python -m neural_lam.create_mesh --graph hierarchical --hierarchical` (also works for Hi-LAM-Parallel)
+* **L1-LAM**: `python -m neural_lam.create_mesh --graph 1level --levels 1`
 
 The graph-related files are stored in a directory called `graphs`.
 
 ### Create remaining static features
-To create the remaining static files run the scripts `create_grid_features.py` and `create_parameter_weights.py`.
-The main option to set for these is just which dataset to use.
+To create the remaining static files run `python -m neural_lam.create_grid_features` and `python -m neural_lam.create_parameter_weights`.
 
 ## Weights & Biases Integration
 The project is fully integrated with [Weights & Biases](https://www.wandb.ai/) (W&B) for logging and visualization, but can just as easily be used without it.
 When W&B is used, training configuration, training/test statistics and plots are sent to the W&B servers and made available in an interactive web interface.
 If W&B is turned off, logging instead saves everything locally to a directory like `wandb/dryrun...`.
-The W&B project name is set to `neural-lam`, but this can be changed in `neural_lam/constants.py`.
+The W&B project name is set to `neural-lam`, but this can be changed in the flags of `python -m neural_lam.train_model` (using argsparse).
 See the [W&B documentation](https://docs.wandb.ai/) for details.
 
 If you would like to login and use W&B, run:
@@ -125,8 +165,8 @@ wandb off
 ```
 
 ## Train Models
-Models can be trained using `train_model.py`.
-Run `python train_model.py --help` for a full list of training options.
+Models can be trained using `python -m neural_lam.train_model`.
+Run `python neural_lam.train_model --help` for a full list of training options.
 A few of the key ones are outlined below:
 
 * `--dataset`: Which data to train on
@@ -145,10 +185,11 @@ The implemented models are:
 ### GraphCast
 This is our re-implementation of GraphCast, and really can be used with any type of non-hierarchical graph (not just multi-scale).
 The encode-process-decode framework is used with a mesh graph in order to make one-step pedictions.
+This model class is used both for the L1-LAM and GC-LAM models from the [paper](#graph-based-neural-weather-prediction-for-limited-area-modeling), only with different graphs.
 
 To train GraphCast use
 ```
-python train_model.py --model graphcast --graph multiscale ...
+python -m neural_lam.train_model --model graph_lam --graph 1level ...
 ```
 
 ### Graph-FM
@@ -156,7 +197,7 @@ Deterministic graph-based forecasting model that uses a hierarchical mesh graph 
 
 To train Graph-FM use
 ```
-python train_model.py --model graph_fm --graph hierarchical ...
+python -m neural_lam.train_model --model graph_lam --graph multiscale ...
 ```
 
 ### Graph-EFM
@@ -165,17 +206,17 @@ The same model can be used both with multi-scale and hierarchical graphs, with d
 
 To train Graph-EFM use e.g.
 ```
-python train_model.py --model graph_efm --graph multiscale ...
+python -m neural_lam.train_model --model hi_lam --graph hierarchical ...
 ```
 or
 ```
-python train_model.py --model graph_efm --graph hierarchical ...
+python -m neural_lam.train_model --model hi_lam_parallel --graph hierarchical ...
 ```
 
 Checkpoint files for our models trained on the MEPS data are available upon request.
 
 ## Evaluate Models
-Evaluation is also done using `train_model.py`, but using the `--eval` option.
+Evaluation is also done using `python -m neural_lam.train_model`, but using the `--eval` option.
 Use `--eval val` to evaluate the model on the validation set and `--eval test` to evaluate on test data.
 Most of the training options are also relevant for evaluation (not `ar_steps`, evaluation always unrolls full forecasts).
 Some options specifically important for evaluation are:
@@ -184,7 +225,9 @@ Some options specifically important for evaluation are:
 * `--n_example_pred`: Number of example predictions to plot during evaluation.
 * `--ensemble_size`: Number of ensemble members to sample (for Graph-EFM)
 
-**Note:** While it is technically possible to use multiple GPUs for running evaluation, this is strongly discouraged if using a batch size > 1. If using multiple devices the `DistributedSampler` will replicate some samples to make sure all devices have the same batch size, meaning that evaluation metrics will be unreliable. This issue stems from PyTorch Lightning. See for example [this draft PR](https://github.com/Lightning-AI/torchmetrics/pull/1886) for more discussion and ongoing work to remedy this.
+**Note:** While it is technically possible to use multiple GPUs for running evaluation, this is strongly discouraged. If using multiple devices the `DistributedSampler` will replicate some samples to make sure all devices have the same batch size, meaning that evaluation metrics will be unreliable.
+A possible workaround is to just use batch size 1 during evaluation.
+This issue stems from PyTorch Lightning. See for example [this PR](https://github.com/Lightning-AI/torchmetrics/pull/1886) for more discussion.
 
 # Repository Structure
 Except for training and pre-processing scripts all the source code can be found in the `neural_lam` directory.
@@ -219,13 +262,13 @@ data
 │       ├── nwp_xy.npy                      - Coordinates of grid nodes (part of dataset)
 │       ├── surface_geopotential.npy        - Geopotential at surface of grid nodes (part of dataset)
 │       ├── border_mask.npy                 - Mask with True for grid nodes that are part of border (part of dataset)
-│       ├── grid_features.pt                - Static features of grid nodes (create_grid_features.py)
-│       ├── parameter_mean.pt               - Means of state parameters (create_parameter_weights.py)
-│       ├── parameter_std.pt                - Std.-dev. of state parameters (create_parameter_weights.py)
-│       ├── diff_mean.pt                    - Means of one-step differences (create_parameter_weights.py)
-│       ├── diff_std.pt                     - Std.-dev. of one-step differences (create_parameter_weights.py)
-│       ├── flux_stats.pt                   - Mean and std.-dev. of solar flux forcing (create_parameter_weights.py)
-│       └── parameter_weights.npy           - Loss weights for different state parameters (create_parameter_weights.py)
+│       ├── grid_features.pt                - Static features of grid nodes (neural_lam.create_grid_features)
+│       ├── parameter_mean.pt               - Means of state parameters (neural_lam.create_parameter_weights)
+│       ├── parameter_std.pt                - Std.-dev. of state parameters (neural_lam.create_parameter_weights)
+│       ├── diff_mean.pt                    - Means of one-step differences (neural_lam.create_parameter_weights)
+│       ├── diff_std.pt                     - Std.-dev. of one-step differences (neural_lam.create_parameter_weights)
+│       ├── flux_stats.pt                   - Mean and std.-dev. of solar flux forcing (neural_lam.create_parameter_weights)
+│       └── parameter_weights.npy           - Loss weights for different state parameters (neural_lam.create_parameter_weights)
 ├── dataset2
 ├── ...
 └── datasetN
@@ -237,13 +280,13 @@ The structure is shown with examples below:
 ```
 graphs
 ├── graph1                                  - Directory with a graph definition
-│   ├── m2m_edge_index.pt                   - Edges in mesh graph (create_mesh.py)
-│   ├── g2m_edge_index.pt                   - Edges from grid to mesh (create_mesh.py)
-│   ├── m2g_edge_index.pt                   - Edges from mesh to grid (create_mesh.py)
-│   ├── m2m_features.pt                     - Static features of mesh edges (create_mesh.py)
-│   ├── g2m_features.pt                     - Static features of grid to mesh edges (create_mesh.py)
-│   ├── m2g_features.pt                     - Static features of mesh to grid edges (create_mesh.py)
-│   └── mesh_features.pt                    - Static features of mesh nodes (create_mesh.py)
+│   ├── m2m_edge_index.pt                   - Edges in mesh graph (neural_lam.create_mesh)
+│   ├── g2m_edge_index.pt                   - Edges from grid to mesh (neural_lam.create_mesh)
+│   ├── m2g_edge_index.pt                   - Edges from mesh to grid (neural_lam.create_mesh)
+│   ├── m2m_features.pt                     - Static features of mesh edges (neural_lam.create_mesh)
+│   ├── g2m_features.pt                     - Static features of grid to mesh edges (neural_lam.create_mesh)
+│   ├── m2g_features.pt                     - Static features of mesh to grid edges (neural_lam.create_mesh)
+│   └── mesh_features.pt                    - Static features of mesh nodes (neural_lam.create_mesh)
 ├── graph2
 ├── ...
 └── graphN
@@ -253,9 +296,9 @@ graphs
 To keep track of levels in the mesh graph, a list format is used for the files with mesh graph information.
 In particular, the files
 ```
-│   ├── m2m_edge_index.pt                   - Edges in mesh graph (create_mesh.py)
-│   ├── m2m_features.pt                     - Static features of mesh edges (create_mesh.py)
-│   ├── mesh_features.pt                    - Static features of mesh nodes (create_mesh.py)
+│   ├── m2m_edge_index.pt                   - Edges in mesh graph (neural_lam.create_mesh)
+│   ├── m2m_features.pt                     - Static features of mesh edges (neural_lam.create_mesh)
+│   ├── mesh_features.pt                    - Static features of mesh nodes (neural_lam.create_mesh)
 ```
 all contain lists of length `L`, for a hierarchical mesh graph with `L` layers.
 For non-hierarchical graphs `L == 1` and these are all just singly-entry lists.
@@ -266,15 +309,28 @@ In addition, hierarchical mesh graphs (`L > 1`) feature a few additional files w
 ```
 ├── graph1
 │   ├── ...
-│   ├── mesh_down_edge_index.pt             - Downward edges in mesh graph (create_mesh.py)
-│   ├── mesh_up_edge_index.pt               - Upward edges in mesh graph (create_mesh.py)
-│   ├── mesh_down_features.pt               - Static features of downward mesh edges (create_mesh.py)
-│   ├── mesh_up_features.pt                 - Static features of upward mesh edges (create_mesh.py)
+│   ├── mesh_down_edge_index.pt             - Downward edges in mesh graph (neural_lam.create_mesh)
+│   ├── mesh_up_edge_index.pt               - Upward edges in mesh graph (neural_lam.create_mesh)
+│   ├── mesh_down_features.pt               - Static features of downward mesh edges (neural_lam.create_mesh)
+│   ├── mesh_up_features.pt                 - Static features of upward mesh edges (neural_lam.create_mesh)
 │   ├── ...
 ```
 These files have the same list format as the ones above, but each list has length `L-1` (as these edges describe connections between levels).
 Entries 0 in these lists describe edges between the lowest levels 1 and 2.
 
+# Development and Contributing
+Any push or Pull-Request to the main branch will trigger a selection of pre-commit hooks.
+These hooks will run a series of checks on the code, like formatting and linting.
+If any of these checks fail the push or PR will be rejected.
+To test whether your code passes these checks before pushing, run
+``` bash
+pre-commit run --all-files
+```
+from the root directory of the repository.
+
+Furthermore, all tests in the ```tests``` directory will be run upon pushing changes by a github action. Failure in any of the tests will also reject the push/PR.
+
 # Contact
-For questions about our implementation or ideas for extending it, feel free to get in touch.
-You can open a github issue on this page, or (if more suitable) send an email to [joel.oskarsson@liu.se](mailto:joel.oskarsson@liu.se).
+If you are interested in machine learning models for LAM, have questions about the implementation or ideas for extending it, feel free to get in touch.
+There is an open [mllam slack channel](https://join.slack.com/t/ml-lam/shared_invite/zt-2t112zvm8-Vt6aBvhX7nYa6Kbj_LkCBQ) that anyone can join (after following the link you have to request to join, this is to avoid spam bots).
+You can also open a github issue on this page, or (if more suitable) send an email to [joel.oskarsson@liu.se](mailto:joel.oskarsson@liu.se).

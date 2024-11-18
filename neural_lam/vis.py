@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-# First-party
-from neural_lam import constants, utils
+# Local
+from . import utils
 
 
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
-def plot_error_map(errors, title=None, step_length=3):
+def plot_error_map(errors, data_config, title=None, step_length=3):
     """
     Plot a heatmap of errors of different variables at different
     predictions horizons
@@ -52,7 +52,7 @@ def plot_error_map(errors, title=None, step_length=3):
     y_ticklabels = [
         f"{name} ({unit})"
         for name, unit in zip(
-            constants.PARAM_NAMES_SHORT, constants.PARAM_UNITS
+            data_config.dataset.var_names, data_config.dataset.var_units
         )
     ]
     ax.set_yticklabels(y_ticklabels, rotation=30, size=label_size)
@@ -62,57 +62,105 @@ def plot_error_map(errors, title=None, step_length=3):
 
     return fig
 
-@matplotlib.rc_context(utils.fractional_plot_bundle(1))
-def plot_diffusion(pred_steps, pred, target, obs_mask=None, title=None, vrange=None):
-    """
-    Plot diffusion steps, prediction and ground truth.
-    Each has shape (N_grid,)
-    """
-    # Get common scale for values
-    if vrange is None:
-        vmin = min(vals.min().cpu().item() for vals in (pred, target))
-        vmax = max(vals.max().cpu().item() for vals in (pred, target))
-    else:
-        vmin, vmax = vrange
-    # Set up masking of border region
-    mask_reshaped = obs_mask.reshape(*constants.GRID_SHAPE)
-    pixel_alpha = (
-        mask_reshaped.clamp(0.7, 1).cpu().numpy()
-    )  # Faded border region
+# @matplotlib.rc_context(utils.fractional_plot_bundle(1))
+# def plot_diffusion(pred_steps, pred, target, obs_mask=None, title=None, vrange=None):
+#     """
+#     Plot diffusion steps, prediction and ground truth.
+#     Each has shape (N_grid,)
+#     """
+#     # Get common scale for values
+#     if vrange is None:
+#         vmin = min(vals.min().cpu().item() for vals in (pred, target))
+#         vmax = max(vals.max().cpu().item() for vals in (pred, target))
+#     else:
+#         vmin, vmax = vrange
+#     # Set up masking of border region
+#     mask_reshaped = obs_mask.reshape(*constants.GRID_SHAPE)
+#     pixel_alpha = (
+#         mask_reshaped.clamp(0.7, 1).cpu().numpy()
+#     )  # Faded border region
 
-    fig, axes = plt.subplots(
-        1, 2, figsize=(13, 7), subplot_kw={"projection": constants.LAMBERT_PROJ}
+#     fig, axes = plt.subplots(
+#         1, 2, figsize=(13, 7), subplot_kw={"projection": constants.LAMBERT_PROJ}
+#     )
+
+#     # Plot pred and target
+#     for ax, data in zip(axes, (target, pred)):
+#         ax.coastlines()  # Add coastline outlines
+#         data_grid = data.reshape(*constants.GRID_SHAPE).cpu().numpy()
+#         im = ax.imshow(
+#             data_grid,
+#             origin="lower",
+#             extent=constants.GRID_LIMITS,
+#             alpha=pixel_alpha,
+#             vmin=vmin,
+#             vmax=vmax,
+#             cmap="plasma",
+#         )
+
+#     # Ticks and labels
+#     axes[0].set_title("Ground Truth", size=15)
+#     axes[1].set_title("Prediction", size=15)
+#     cbar = fig.colorbar(im, aspect=30)
+#     cbar.ax.tick_params(labelsize=10)
+
+#     if title:
+#         fig.suptitle(title, size=20)
+
+#     return fig
+
+
+
+def plot_on_axis(
+    ax,
+    data,
+    data_config,
+    obs_mask=None,
+    vmin=None,
+    vmax=None,
+    ax_title=None,
+    cmap="plasma",
+    grid_limits=None,
+):
+    """
+    Plot weather state on given axis
+    """
+    # Set up masking of border region
+    if obs_mask is None:
+        pixel_alpha = 1
+    else:
+        mask_reshaped = obs_mask.reshape(*data_config.grid_shape_state)
+        pixel_alpha = (
+            mask_reshaped.clamp(0.7, 1).cpu().numpy()
+        )  # Faded border region
+
+    ax.coastlines()  # Add coastline outlines
+    data_grid = data.reshape(*data_config.grid_shape_state).cpu().numpy()
+    im = ax.imshow(
+        data_grid,
+        origin="lower",
+        alpha=pixel_alpha,
+        vmin=vmin,
+        vmax=vmax,
+        cmap=cmap,
+        extent=grid_limits,
     )
 
-    # Plot pred and target
-    for ax, data in zip(axes, (target, pred)):
-        ax.coastlines()  # Add coastline outlines
-        data_grid = data.reshape(*constants.GRID_SHAPE).cpu().numpy()
-        im = ax.imshow(
-            data_grid,
-            origin="lower",
-            extent=constants.GRID_LIMITS,
-            alpha=pixel_alpha,
-            vmin=vmin,
-            vmax=vmax,
-            cmap="plasma",
-        )
-
-    # Ticks and labels
-    axes[0].set_title("Ground Truth", size=15)
-    axes[1].set_title("Prediction", size=15)
-    cbar = fig.colorbar(im, aspect=30)
-    cbar.ax.tick_params(labelsize=10)
-
-    if title:
-        fig.suptitle(title, size=20)
-
-    return fig
-
+    if ax_title:
+        ax.set_title(ax_title, size=15)
+    return im
 
 
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
-def plot_prediction(pred, target, obs_mask, title=None, vrange=None):
+def plot_prediction(
+    pred,
+    target,
+    data_config,
+    obs_mask=None,
+    title=None,
+    vrange=None,
+    grid_limits=None,
+):
     """
     Plot example prediction and grond truth.
     Each has shape (N_grid,)
@@ -123,28 +171,18 @@ def plot_prediction(pred, target, obs_mask, title=None, vrange=None):
         vmax = max(vals.max().cpu().item() for vals in (pred, target))
     else:
         vmin, vmax = vrange
-    # Set up masking of border region
-    mask_reshaped = obs_mask.reshape(*constants.GRID_SHAPE)
-    pixel_alpha = (
-        mask_reshaped.clamp(0.7, 1).cpu().numpy()
-    )  # Faded border region
 
     fig, axes = plt.subplots(
-        1, 2, figsize=(13, 7), subplot_kw={"projection": constants.LAMBERT_PROJ}
+        1,
+        2,
+        figsize=(13, 7),
+        subplot_kw={"projection": data_config.coords_projection},
     )
 
     # Plot pred and target
     for ax, data in zip(axes, (target, pred)):
-        ax.coastlines()  # Add coastline outlines
-        data_grid = data.reshape(*constants.GRID_SHAPE).cpu().numpy()
-        im = ax.imshow(
-            data_grid,
-            origin="lower",
-            extent=constants.GRID_LIMITS,
-            alpha=pixel_alpha,
-            vmin=vmin,
-            vmax=vmax,
-            cmap="plasma",
+        im = plot_on_axis(
+            ax, data, data_config, obs_mask, vmin, vmax, grid_limits=grid_limits
         )
 
     # Ticks and labels
@@ -160,123 +198,9 @@ def plot_prediction(pred, target, obs_mask, title=None, vrange=None):
 
 
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
-def plot_ensemble_prediction(
-    samples, target, ens_mean, ens_std, obs_mask, title=None, vrange=None
+def plot_spatial_error(
+    error, data_config, obs_mask=None, title=None, vrange=None, grid_limits=None
 ):
-    """
-    Plot example predictions, ground truth, mean and std.-dev.
-    from ensemble forecast
-
-    samples: (S, N_grid,)
-    target: (N_grid,)
-    ens_mean: (N_grid,)
-    ens_std: (N_grid,)
-    obs_mask: (N_grid,)
-    (optional) title: title of plot
-    (optional) vrange: tuple of length with common min and max of values
-        (not for std.)
-    """
-    # Get common scale for values
-    if vrange is None:
-        vmin = min(vals.min().cpu().item() for vals in (samples, target))
-        vmax = max(vals.max().cpu().item() for vals in (samples, target))
-    else:
-        vmin, vmax = vrange
-    # vmin = min(vals.min().cpu().item() for vals in (target)) # (samples, target))
-    # vmax = max(vals.max().cpu().item() for vals in (target)) # (samples, target))
-
-    # Set up masking of border region
-    # mask_reshaped = obs_mask.reshape(*constants.GRID_SHAPE)
-    # pixel_alpha = (
-    #     mask_reshaped.clamp(0.7, 1).cpu().numpy()
-    # )  # Faded border region
-
-    fig, axes = plt.subplots(
-        3,
-        3,
-        figsize=(15, 15),
-        subplot_kw={"projection": constants.LAMBERT_PROJ},
-    )
-    axes = axes.flatten()
-
-    # Plot target, ensemble mean and std.
-    gt_im = plot_on_axis(
-        axes[0],
-        target,
-        # alpha=pixel_alpha,
-        vmin=vmin,
-        vmax=vmax,
-        ax_title="Ground Truth",
-    )
-    plot_on_axis(
-        axes[1],
-        ens_mean,
-        # alpha=pixel_alpha,
-        vmin=vmin,
-        vmax=vmax,
-        ax_title="Ens. Mean",
-    )
-    std_im = plot_on_axis(
-        axes[2],
-        ens_std,
-        # alpha=pixel_alpha,
-        ax_title="Ens. Std."
-    )  # Own vrange
-
-    # Plot samples
-    for member_i, (ax, member) in enumerate(
-        zip(axes[3:], samples[:6]), start=1
-    ):
-        plot_on_axis(
-            ax,
-            member,
-            # alpha=pixel_alpha,
-            vmin=vmin,
-            vmax=vmax,
-            ax_title=f"Member {member_i}",
-        )
-
-    # Turn off unused axes
-    for ax in axes[(3 + samples.shape[0]) :]:
-        ax.axis("off")
-
-    # Add colorbars
-    values_cbar = fig.colorbar(
-        gt_im, ax=axes[:2], aspect=60, location="bottom", shrink=0.9
-    )
-    values_cbar.ax.tick_params(labelsize=10)
-    std_cbar = fig.colorbar(std_im, aspect=30, location="bottom", shrink=0.9)
-    std_cbar.ax.tick_params(labelsize=10)
-
-    if title:
-        fig.suptitle(title, size=20)
-
-    return fig
-
-
-def plot_on_axis(ax, data, alpha=None, vmin=None, vmax=None, ax_title=None):
-    """
-    Plot weather state on given axis
-    """
-    ax.coastlines()  # Add coastline outlines
-    data_grid = data.reshape(*constants.GRID_SHAPE).cpu().numpy()
-    im = ax.imshow(
-        data_grid,
-        origin="lower",
-        extent=constants.GRID_LIMITS,
-        alpha=alpha,
-        vmin=vmin,
-        vmax=vmax,
-        cmap="plasma",
-    )
-
-    if ax_title:
-        ax.set_title(ax_title, size=15)
-    return im
-
-
-@matplotlib.rc_context(utils.fractional_plot_bundle(1))
-def plot_spatial_error(error, obs_mask, title=None, vrange=None):
     """
     Plot errors over spatial map
     Error and obs_mask has shape (N_grid,)
@@ -288,27 +212,20 @@ def plot_spatial_error(error, obs_mask, title=None, vrange=None):
     else:
         vmin, vmax = vrange
 
-    # Set up masking of border region
-    # mask_reshaped = obs_mask.reshape(*constants.GRID_SHAPE)
-    # pixel_alpha = (
-    #     mask_reshaped.clamp(0.7, 1).cpu().numpy()
-    # )  # Faded border region
-
     fig, ax = plt.subplots(
-        figsize=(5, 4.8), subplot_kw={"projection": constants.LAMBERT_PROJ}
+        figsize=(5, 4.8),
+        subplot_kw={"projection": data_config.coords_projection},
     )
 
-    ax.coastlines()  # Add coastline outlines
-    error_grid = error.reshape(*constants.GRID_SHAPE).cpu().numpy()
-
-    im = ax.imshow(
-        error_grid,
-        origin="lower",
-        extent=constants.GRID_LIMITS,
-        # alpha=pixel_alpha,
-        vmin=vmin,
-        vmax=vmax,
+    im = plot_on_axis(
+        ax,
+        error,
+        data_config,
+        obs_mask,
+        vmin,
+        vmax,
         cmap="OrRd",
+        grid_limits=grid_limits,
     )
 
     # Ticks and labels

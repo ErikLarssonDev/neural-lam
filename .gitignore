@@ -2,12 +2,15 @@
 wandb
 slurm_log*
 saved_models
+lightning_logs
 data
 graphs
 *.sif
 sweeps
 test_*.sh
 output/
+.vscode
+*slurm*
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
@@ -73,3 +76,8 @@ tags
 
 # Coc configuration directory
 .vim
+
+# pdm (https://pdm-project.org/en/stable/)
+.pdm-python
+# exclude pdm.lock file so that both cpu and gpu versions of torch will be accepted by pdm
+pdm.lock
