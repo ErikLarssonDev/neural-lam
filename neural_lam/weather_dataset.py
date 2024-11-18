@@ -269,5 +269,4 @@ class WeatherDataset(torch.utils.data.Dataset):
             target_states = target_states.permute((0,2,3,1)).flatten(1,2)
             forcing = forcing.permute((0,2,3,1)).flatten(1,2)
         
-
-        return init_states, target_states, forcing
+        return init_states[..., constants.USED_PARAMS], target_states[..., constants.USED_PARAMS], forcing

@@ -46,7 +46,7 @@ class Diffusion(ARModel):
         elif args.diffusion_model == 'graph_fm':
             self.model = GraphFM(args)
         elif args.diffusion_model == 'edm':
-            self.model = EDMPrecond(img_resolution=256, in_channels=67, out_channels=17, model_type='SongUNet')
+            self.model = EDMPrecond(img_resolution=256, in_channels=self.input_dim, out_channels=self.output_dim, model_type='SongUNet')
         else:
             raise ValueError(f"Diffusion model {args.diffusion_model} not recognized")
             
@@ -87,7 +87,7 @@ class Diffusion(ARModel):
         """
 
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1) # (B, N_grid, d_input)
-        latents = torch.randn_like(input_grid[:, :, :17]).to(self.available_device)
+        latents = torch.randn_like(input_grid[:, :, :self.output_dim]).to(self.available_device)
 
         # Run through sampler
         if self.sampler == "heun":
@@ -99,17 +99,17 @@ class Diffusion(ARModel):
 
         # Add residual if needed
         if self.pred_residual:
-            next_state = (next_state * self.step_diff_std) + self.step_diff_mean # Unormalize residual
+            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
             next_state = prev_state + next_state
         
         if self.plot_diffusion_steps:
-            diff_states.append((border_state - prev_state - self.step_diff_mean) / self.step_diff_std) 
+            diff_states.append((border_state - prev_state - self.step_diff_mean[constants.USED_PARAMS]) / self.step_diff_std[constants.USED_PARAMS]) 
             print(f"diff_states: {diff_states}")
             print(f"diff_states shape: {len(diff_states)}")
             print(f"diff_states_tensor shape: {torch.stack(diff_states, dim=0).shape}")
-            np.save(f"/proj/berzelius-2022-164/users/x_erila/neural-lam/output/diff_states_{self.sampler}.npy", np.array(torch.stack(diff_states, dim=0).cpu().detach().numpy()))
-            np.save(f"/proj/berzelius-2022-164/users/x_erila/neural-lam/output/next_state_{self.sampler}.npy", next_state.cpu().detach().numpy())
-            np.save(f"/proj/berzelius-2022-164/users/x_erila/neural-lam/output/true_state_{self.sampler}.npy", border_state.cpu().detach().numpy())
+            np.save(f"/proj/berzelius-2022-164/users/x_erila/neural-lam/output/diff_states_{self.sampler}_sigma_002.npy", np.array(torch.stack(diff_states, dim=0).cpu().detach().numpy()))
+            np.save(f"/proj/berzelius-2022-164/users/x_erila/neural-lam/output/next_state_{self.sampler}_sigma_002.npy", next_state.cpu().detach().numpy())
+            np.save(f"/proj/berzelius-2022-164/users/x_erila/neural-lam/output/true_state_{self.sampler}_sigma_002.npy", border_state.cpu().detach().numpy())
         
         return next_state, None
 
@@ -143,7 +143,7 @@ class Diffusion(ARModel):
         # Make y residual if needed
         if self.pred_residual:
             y = y - prev_state
-            y = (y - self.step_diff_mean) / self.step_diff_std # Normalize residual
+            y = (y - self.step_diff_mean[constants.USED_PARAMS]) / self.step_diff_std[constants.USED_PARAMS] # Normalize residual
 
         n = torch.randn_like(y) * sigma    
         noisy_input = y+n
@@ -152,7 +152,7 @@ class Diffusion(ARModel):
 
         # Add residual if needed
         if self.pred_residual:
-            next_state = (next_state * self.step_diff_std) + self.step_diff_mean # Unormalize residual
+            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
             next_state = prev_state + next_state
 
         weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
@@ -390,7 +390,7 @@ class Diffusion(ARModel):
                 [pred_pair[1] for pred_pair in traj_list], dim=1
             )
         else:
-            traj_stds = self.per_var_std
+            traj_stds = self.per_var_std[constants.USED_PARAMS]
 
         return traj_means, traj_stds
     
@@ -409,8 +409,8 @@ class Diffusion(ARModel):
         # (B, S, pred_steps, num_grid_nodes, d_f)
 
         # Rescale to original data scale
-        traj_rescaled = trajectories * self.data_std + self.data_mean
-        target_rescaled = target_states * self.data_std + self.data_mean
+        traj_rescaled = trajectories * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+        target_rescaled = target_states * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
 
         # Compute mean and std of ensemble
         ens_mean = torch.mean(
@@ -475,8 +475,8 @@ class Diffusion(ARModel):
                     )
                     for var_i, (var_name, var_unit, var_vrange) in enumerate(
                         zip(
-                            constants.PARAM_NAMES_SHORT,
-                            constants.PARAM_UNITS,
+                            constants.PARAM_NAMES_SHORT[constants.USED_PARAMS],
+                            constants.PARAM_UNITS[constants.USED_PARAMS],
                             var_vranges,
                         )
                     )
@@ -487,7 +487,7 @@ class Diffusion(ARModel):
                     {
                         f"{var_name}_{example_title}": wandb.Image(fig)
                         for var_name, fig in zip(
-                            constants.PARAM_NAMES_SHORT, var_figs
+                            constants.PARAM_NAMES_SHORT[constants.USED_PARAMS], var_figs
                         )
                     }
                 )
@@ -846,12 +846,7 @@ class Diffusion(ARModel):
     def model_forward(self, x, noise_labels, class_labels, augment_labels=None):
         # Mapping.
         emb = self.map_noise(noise_labels).unsqueeze(1).expand(x.shape[0], 1, -1)
-
-        # if self.diffusion_model == 'edm':
-        #     emb = emb.unsqueeze(1)
-        # emb_expanded = emb.unsqueeze(1).expand(class_labels.shape[0], class_labels.shape[1], -1) # Expand emb to shape [4, 63784, 16]
-        # class_labels = torch.cat([class_labels, emb_expanded], dim=-1)
-        next_state, _ = self.model.predict_step(x, class_labels[:, :, :34], class_labels[:, :, 34:], emb)
+        next_state, _ = self.model.predict_step(x, class_labels[:, :, :len(constants.USED_PARAMS)*2], class_labels[:, :, len(constants.USED_PARAMS)*2:], emb)
 
         return next_state
     

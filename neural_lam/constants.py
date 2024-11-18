@@ -10,9 +10,9 @@ SECONDS_IN_YEAR = (
 )  # Assuming no leap years in dataset (2024 is next)
 
 # Log prediction error for these lead times
-VAL_STEP_LOG_ERRORS = np.array([1, 2, 3, 5, 10, 15, 19])
+VAL_STEP_LOG_ERRORS = np.array([1])
 # Also save checkpoints for minimum loss at these lead times
-VAL_STEP_CHECKPOINTS = (1, 19)
+VAL_STEP_CHECKPOINTS = [1]
 
 # Log these metrics to wandb as scalar values for
 # specific variables and lead times
@@ -43,7 +43,7 @@ VAL_PLOT_VARS = {
 LATENT_SAMPLES_PLOT = 4  # Number of samples to plot
 
 # Variable names
-PARAM_NAMES = [
+PARAM_NAMES = np.array([
     "pres_heightAboveGround_0_instant",
     "pres_heightAboveSea_0_instant",
     "nlwrs_heightAboveGround_0_accum",
@@ -61,9 +61,9 @@ PARAM_NAMES = [
     "wvint_entireAtmosphere_0_instant",
     "z_isobaricInhPa_1000_instant",
     "z_isobaricInhPa_500_instant",
-]
+])
 
-PARAM_NAMES_SHORT = [
+PARAM_NAMES_SHORT = np.array([
     "pres_0g",
     "pres_0s",
     "nlwrs_0",
@@ -81,8 +81,8 @@ PARAM_NAMES_SHORT = [
     "wvint_0",
     "z_1000",
     "z_500",
-]
-PARAM_UNITS = [
+])
+PARAM_UNITS = np.array([
     "Pa",
     "Pa",
     "W/m²",
@@ -100,11 +100,15 @@ PARAM_UNITS = [
     "kg/m²",
     "m²/s²",
     "m²/s²",
-]
+])
+
+# USED_PARAMS = [10] # Only using a subset of parameters
+USED_PARAMS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] # All params
 
 # Projection and grid
 # Hard coded for now, but should eventually be part of dataset desc. files
 GRID_SHAPE = (268, 238) # (268, 238), for CNN (256, 232)  # (y, x)
+# GRID_SHAPE = (256, 232)  # (y, x) for EDM UNET
 
 LAMBERT_PROJ_PARAMS = {
     "a": 6367470,
@@ -136,4 +140,4 @@ LAMBERT_PROJ = cartopy.crs.LambertConformal(
 # Data dimensions
 BATCH_STATIC_FEATURE_DIM = 1 # Only open water
 GRID_FORCING_DIM = 5 * 3 + 1  # 5 feat. for 3 time-step window + 1 batch-static
-GRID_STATE_DIM = 17
+GRID_STATE_DIM = len(USED_PARAMS)  # Number of variables to predict
