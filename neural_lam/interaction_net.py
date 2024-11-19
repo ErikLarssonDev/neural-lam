@@ -4,7 +4,7 @@ import torch_geometric as pyg
 from torch import nn
 
 # Local
-from . import utils
+from neural_lam import utils
 
 
 class InteractionNet(pyg.nn.MessagePassing):

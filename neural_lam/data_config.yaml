@@ -1,5 +1,5 @@
 dataset:
-  name: meps_example
+  name: meps
   var_names:
     - pres_0g
     - pres_0s

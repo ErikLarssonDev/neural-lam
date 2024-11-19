@@ -7,7 +7,7 @@ import numpy as np
 import weather_model_graphs as wmg
 
 # Local
-from . import config, utils
+from neural_lam import config, utils
 
 WMG_ARCHETYPES = {
     "keisler": wmg.create.archetype.create_keisler_graph,
@@ -47,7 +47,7 @@ def main(input_args=None):
     parser.add_argument(
         "--mesh_node_distance",
         type=float,
-        default=3.0,
+        default=0.02185185185185185, 
         help="Distance between created mesh nodes",
     )
     parser.add_argument(
