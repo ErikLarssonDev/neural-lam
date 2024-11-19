@@ -70,7 +70,7 @@ class Diffusion(ARModel):
             }
         )
 
-    def predict_step(self, prev_state, prev_prev_state, forcing, border_state=None):
+    def predict_step(self, prev_state, prev_prev_state, forcing, boundary_forcing=None):
         """
         Predict weather state one time step ahead
         X_{t-1}, X_t -> X_t+1
@@ -91,29 +91,20 @@ class Diffusion(ARModel):
 
         # Run through sampler
         if self.sampler == "heun":
-            next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid)
+            next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing)
         elif self.sampler == "edm":
-            next_state, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid)
+            next_state, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing)
         elif self.sampler == "ddpm":
-            next_state, diff_states = self.ddpm_sampler(latents=latents, class_labels=input_grid)
+            next_state, diff_states = self.ddpm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing)
 
         # Add residual if needed
         if self.pred_residual:
             next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
             next_state = prev_state + next_state
         
-        if self.plot_diffusion_steps:
-            diff_states.append((border_state - prev_state - self.step_diff_mean[constants.USED_PARAMS]) / self.step_diff_std[constants.USED_PARAMS]) 
-            print(f"diff_states: {diff_states}")
-            print(f"diff_states shape: {len(diff_states)}")
-            print(f"diff_states_tensor shape: {torch.stack(diff_states, dim=0).shape}")
-            np.save(f"/proj/berzelius-2022-164/users/x_erila/neural-lam/output/diff_states_{self.sampler}_sigma_002.npy", np.array(torch.stack(diff_states, dim=0).cpu().detach().numpy()))
-            np.save(f"/proj/berzelius-2022-164/users/x_erila/neural-lam/output/next_state_{self.sampler}_sigma_002.npy", next_state.cpu().detach().numpy())
-            np.save(f"/proj/berzelius-2022-164/users/x_erila/neural-lam/output/true_state_{self.sampler}_sigma_002.npy", border_state.cpu().detach().numpy())
-        
         return next_state, None
 
-    def predict_step_train(self, prev_state, prev_prev_state, forcing, true_states=None):
+    def predict_step_train(self, prev_state, prev_prev_state, forcing, boundary_forcing=None):
         """
         Predict weather state one time step ahead
         X_{t-1}, X_t -> X_t+1
@@ -133,12 +124,12 @@ class Diffusion(ARModel):
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
 
         # Sample from F inverse
-        rnd_uniform = torch.rand([true_states.shape[0], 1, 1], device=true_states.device)
+        rnd_uniform = torch.rand([prev_state.shape[0], 1, 1], device=prev_state.device)
         rho_inv = 1 / self.rho
         sigma_max_rho = self.sigma_max ** rho_inv
         sigma_min_rho = self.sigma_min ** rho_inv
         sigma = (sigma_max_rho + rnd_uniform * (sigma_min_rho - sigma_max_rho)) ** self.rho
-        y = true_states[:, 0, :, :] # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
+        y = prev_state[:, 0, :, :] # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
 
         # Make y residual if needed
         if self.pred_residual:
@@ -148,7 +139,7 @@ class Diffusion(ARModel):
         n = torch.randn_like(y) * sigma    
         noisy_input = y+n
 
-        next_state = self.forward(noisy_input, sigma, input_grid) # Shape (B, d_state, N_x, N_y)
+        next_state = self.forward(noisy_input, sigma, input_grid, boundary_forcing) # Shape (B, d_state, N_x, N_y)
 
         # Add residual if needed
         if self.pred_residual:
@@ -159,7 +150,7 @@ class Diffusion(ARModel):
         
         return next_state, None, weight
     
-    def unroll_prediction(self, init_states, forcing_features, true_states):
+    def unroll_prediction(self, init_states, forcing, boundary_forcing):
             """
             Roll out prediction taking multiple autoregressive steps with model
             init_states: (B, 2, num_grid_nodes, d_f)
@@ -170,11 +161,11 @@ class Diffusion(ARModel):
             prev_state = init_states[:, 1]
             prediction_list = []
             pred_std_list = []
-            pred_steps = forcing_features.shape[1]
+            pred_steps = forcing.shape[1]
 
             for i in range(pred_steps):
-                forcing = forcing_features[:, i]
-                border_state = true_states[:, i]
+                forcing = forcing[:, i]
+                border_state = boundary_forcing[:, i]
 
                 pred_state, pred_std = self.predict_step(
                     prev_state, prev_prev_state, forcing, border_state
@@ -182,14 +173,7 @@ class Diffusion(ARModel):
                 # state: (B, num_grid_nodes, d_f)
                 # pred_std: (B, num_grid_nodes, d_f) or None
 
-                # Overwrite border with true state
-                if self.border_condition:
-                    new_state = (
-                        self.border_mask * border_state
-                        + self.interior_mask * pred_state
-                    )
-                else:
-                    new_state = pred_state
+                new_state = pred_state
         
 
                 prediction_list.append(new_state)
@@ -213,7 +197,7 @@ class Diffusion(ARModel):
             return prediction, pred_std
 
 
-    def unroll_prediction_train(self, init_states, forcing_features, true_states):
+    def unroll_prediction_train(self, init_states, forcing, boundary_forcing):
         """
         Roll out prediction taking multiple autoregressive steps with model
         init_states: (B, 2, num_grid_nodes, d_f)
@@ -224,27 +208,21 @@ class Diffusion(ARModel):
         prev_state = init_states[:, 1]
         prediction_list = []
         pred_std_list = []
-        pred_steps = forcing_features.shape[1]
+        pred_steps = forcing.shape[1]
         weight_list = []
 
         for i in range(pred_steps):
-            forcing = forcing_features[:, i]
-            border_state = true_states[:, i]
+            forcing = forcing[:, i]
+            border_state = boundary_forcing[:, i]
 
             pred_state, pred_std, weight = self.predict_step_train(
-                prev_state, prev_prev_state, forcing, true_states
+                prev_state, prev_prev_state, forcing, border_state
             )
             # state: (B, num_grid_nodes, d_f)
             # pred_std: (B, num_grid_nodes, d_f) or None
 
             # Overwrite border with true state
-            if self.border_condition:
-                new_state = (
-                    self.border_mask * border_state
-                    + self.interior_mask * pred_state
-                )
-            else:
-                new_state = pred_state
+            new_state = pred_state
 
             prediction_list.append(new_state)
             weight_list.append(weight)
@@ -692,7 +670,7 @@ class Diffusion(ARModel):
     # Proposed EDM sampler (Algorithm 2).
 
     def edm_sampler(
-        self, latents, class_labels=None, randn_like=torch.randn_like,
+        self, latents, class_labels=None, boundary_forcing=None, randn_like=torch.randn_like,
         num_steps=20, sigma_min=0.03, sigma_max=80, rho=7,
         S_churn=2.5, S_min=0.75, S_max=80, S_noise=1.05,
     ):
@@ -735,7 +713,7 @@ class Diffusion(ARModel):
     #----------------------------------------------------------------------------
     # Proposed Heun sampler (Algorithm 1).
     def heun_sampler(
-        self, latents, class_labels=None, randn_like=torch.randn_like,
+        self, latents, class_labels=None, boundary_forcing=None, randn_like=torch.randn_like,
         num_steps=20, sigma_min=0.03, sigma_max=80, rho=7,
     ):
         diff_steps = []
@@ -772,7 +750,7 @@ class Diffusion(ARModel):
 
     # Sampler used in GenCast
     def ddpm_sampler(
-        self, latents, class_labels=None, randn_like=torch.randn_like,
+        self, latents, class_labels=None, boundary_forcing=None, randn_like=torch.randn_like,
         num_steps=20, sigma_min=0.03, sigma_max=80, rho=7,
         S_churn=2.5, S_min=0.75, S_max=80, S_noise=1.05, r=0.5,
     ):
@@ -825,10 +803,7 @@ class Diffusion(ARModel):
         return x, diff_steps
         
 
-    def forward(self, x, sigma, class_labels=None, force_fp32=False, **model_kwargs):
-        if self.diffusion_model == 'edm':
-            return self.model(x, sigma, class_labels, force_fp32, **model_kwargs)
-                
+    def forward(self, x, sigma, class_labels=None, boundary_forcing=None, force_fp32=False, **model_kwargs):               
         x = x.to(torch.float32)
         sigma = sigma.to(torch.float32).reshape(-1, 1, 1)
         dtype = torch.float16 if (self.use_fp16 and not force_fp32 and x.device.type == 'cuda') else torch.float32
@@ -838,15 +813,15 @@ class Diffusion(ARModel):
         c_in = 1 / (self.sigma_data ** 2 + sigma ** 2).sqrt()
         c_noise = sigma.log() / 4
       
-        F_x = self.model_forward((c_in * x).to(dtype), c_noise.flatten(), class_labels=class_labels, **model_kwargs)
+        F_x = self.model_forward((c_in * x).to(dtype), c_noise.flatten(), class_labels=class_labels, boundary_forcing=None, **model_kwargs)
         assert F_x.dtype == dtype
         D_x = c_skip * x + c_out * F_x.to(torch.float32)
         return D_x
     
-    def model_forward(self, x, noise_labels, class_labels, augment_labels=None):
+    def model_forward(self, x, noise_labels, class_labels, boundary_forcing=None):
         # Mapping.
         emb = self.map_noise(noise_labels).unsqueeze(1).expand(x.shape[0], 1, -1)
-        next_state, _ = self.model.predict_step(x, class_labels[:, :, :len(constants.USED_PARAMS)*2], class_labels[:, :, len(constants.USED_PARAMS)*2:], emb)
+        next_state, _ = self.model.predict_step(x, class_labels[:, :, :len(constants.USED_PARAMS)*2], class_labels[:, :, len(constants.USED_PARAMS)*2:], boundary_forcing, emb)
 
         return next_state
     

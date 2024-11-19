@@ -11,7 +11,6 @@ from tueplots import bundles, figsizes
 
 # First-party
 from neural_lam import constants
-from neural_lam.interaction_net import InteractionNet
 
 
 def load_dataset_stats(dataset_name, device="cpu"):
@@ -357,7 +356,6 @@ def init_wandb_metrics(wandb_logger, val_steps):
     experiment.define_metric("val_mean_loss", summary="min")
     for step in val_steps:
         experiment.define_metric(f"val_loss_unroll{step}", summary="min")
-
 
 def get_reordered_grid_pos(dataset_name, device="cpu"):
     """

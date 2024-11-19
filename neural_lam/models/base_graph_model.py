@@ -111,7 +111,7 @@ class BaseGraphModel(ARModel):
         raise NotImplementedError("process_step not implemented")
 
     def predict_step(
-        self, prev_state, prev_prev_state, forcing, emb, boundary_forcing
+        self, prev_state, prev_prev_state, forcing, boundary_forcing, emb
     ):
         """
         Step state one step ahead using prediction model, X_{t-1}, X_t -> X_t+1

@@ -8,7 +8,7 @@ import numpy as np
 import torch
 
 # Local
-from . import utils
+from neural_lam import utils, constants
 
 
 class WeatherDataset(torch.utils.data.Dataset):
@@ -283,6 +283,7 @@ class WeatherDataset(torch.utils.data.Dataset):
         # boundary, boundary forcing should contain (in order) prev_state,
         # prev_prev_state, forcing (and later added on static features).
 
+        # TODO: Add the option to condition on the boundary forcing for the next time step boundary_forcing_sample[2:],
         boundary_forcing = torch.cat(
             (
                 boundary_forcing_sample[1:-1],
