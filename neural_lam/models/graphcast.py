@@ -60,14 +60,14 @@ class GraphCast(BaseGraphModel):
         """
         return self.mesh_static_features.shape[0], 0
 
-    def embedd_mesh_nodes(self):
+    def embedd_mesh_nodes(self, emb=None):
         """
         Embed static mesh features
         Returns tensor of shape (N_mesh, d_h)
         """
-        return self.mesh_embedder(self.mesh_static_features)  # (N_mesh, d_h)
+        return self.mesh_embedder(self.mesh_static_features, emb)  # (N_mesh, d_h)
 
-    def process_step(self, mesh_rep):
+    def process_step(self, mesh_rep, emb=None):
         """
         Process step of embedd-process-decode framework
         Processes the representation on the mesh, possible in multiple steps
@@ -77,11 +77,12 @@ class GraphCast(BaseGraphModel):
         """
         # Embed m2m here first
         batch_size = mesh_rep.shape[0]
-        m2m_emb = self.m2m_embedder(self.m2m_features)  # (M_mesh, d_h)
+        m2m_emb = self.m2m_embedder(self.m2m_features, emb)  # (M_mesh, d_h)
         m2m_emb_expanded = self.expand_to_batch(
             m2m_emb, batch_size
         )  # (B, M_mesh, d_h)
-
+        print(f"m2m_emb_expanded: {m2m_emb_expanded.shape}")
+        print(f"mesh_rep: {mesh_rep.shape}")
         mesh_rep, _ = self.processor(
             mesh_rep, m2m_emb_expanded
         )  # (B, N_mesh, d_h)
