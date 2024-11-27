@@ -29,7 +29,8 @@ class BaseGraphModel(ARModel):
         self.num_mesh_nodes, _ = self.get_num_mesh()
         print(
             f"Loaded graph with {self.num_grid_nodes + self.num_mesh_nodes} "
-            f"nodes ({self.num_grid_nodes} grid, {self.num_mesh_nodes} mesh)"
+            f"nodes ({self.num_grid_nodes} grid, {self.num_mesh_nodes} mesh), "
+            f"input nodes {self.num_input_nodes}"
         )
 
         # grid_dim from data + static
@@ -51,6 +52,8 @@ class BaseGraphModel(ARModel):
             )
             self.boundary_embedder = self.grid_embedder
         else:
+            print("Using separate boundary embedder")
+            print(f"Boundary dim: {self.boundary_dim}")
             self.boundary_embedder = utils.make_mlp(
                 [self.boundary_dim] + self.mlp_blueprint_end
             )
@@ -111,7 +114,7 @@ class BaseGraphModel(ARModel):
         raise NotImplementedError("process_step not implemented")
 
     def predict_step(
-        self, prev_state, prev_prev_state, forcing, boundary_forcing, emb
+        self, prev_state, prev_prev_state, forcing, boundary_forcing, emb=None
     ):
         """
         Step state one step ahead using prediction model, X_{t-1}, X_t -> X_t+1
@@ -121,6 +124,8 @@ class BaseGraphModel(ARModel):
         boundary_forcing: (B, num_boundary_nodes, boundary_forcing_dim)
         """
         batch_size = prev_state.shape[0]
+        if emb is None:
+            emb = torch.zeros(prev_state.shape[0], 16, device=prev_state.device)
 
         # Create full grid node features of shape (B, num_grid_nodes, grid_dim)
         grid_features = torch.cat(
@@ -143,6 +148,9 @@ class BaseGraphModel(ARModel):
         )
 
         # Embed all features
+        print("grid_features", grid_features.shape)
+        print("boundary_features", boundary_features.shape)
+        print("emb", emb.shape)
         grid_emb = self.grid_embedder(grid_features, emb)  # (B, num_grid_nodes, d_h)
         boundary_emb = self.boundary_embedder(boundary_features, emb)
         # (B, num_boundary_nodes, d_h)

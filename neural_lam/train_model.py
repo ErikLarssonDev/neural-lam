@@ -10,7 +10,7 @@ import torch
 from lightning_fabric.utilities import seed
 
 # First-party
-from neural_lam import constants, utils
+from neural_lam import constants, utils, config
 from neural_lam.models.graph_efm import GraphEFM
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
@@ -86,18 +86,6 @@ def main(input_args=None):
         type=str,
         default=32,
         help="Numerical precision to use for model (32/16/bf16) (default: 32)",
-    )
-    parser.add_argument(
-        "--wandb_project",
-        type=str,
-        default="neural-lam_prob",
-        help="Wandb run name (default: 'neural-lam_prob')",
-    )
-    parser.add_argument(
-        "--wandb_run_name",
-        type=str,
-        default="",
-        help="Wandb run name (default: '')",
     )
 
     # Model architecture
@@ -307,8 +295,14 @@ def main(input_args=None):
     parser.add_argument(
         "--wandb_project",
         type=str,
-        default="neural_lam",
-        help="Wandb project name (default: neural_lam)",
+        default="neural-lam_prob",
+        help="Wandb run name (default: 'neural-lam_prob')",
+    )
+    parser.add_argument(
+        "--wandb_run_name",
+        type=str,
+        default="",
+        help="Wandb run name (default: '')",
     )
     parser.add_argument(
         "--val_steps_to_log",
@@ -391,6 +385,8 @@ def main(input_args=None):
         )  # Allows using Tensor Cores on A100s
     else:
         device_name = "cpu"
+    
+    device_name="cpu" # TODO: Remove this line, only for debugging
 
     # Load model parameters Use new args for model
     model_class = MODELS[args.model]

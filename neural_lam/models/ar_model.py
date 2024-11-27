@@ -63,19 +63,25 @@ class ARModel(pl.LightningModule):
             self.num_grid_nodes,
             grid_static_dim,
         ) = self.grid_static_features.shape  # 63784 = 268x238
+        print(f"self.num_grid_nodes: {self.num_grid_nodes}")
+        print(f"grid_static_dim: {grid_static_dim}")
+        print(f"self.grid_static_features: {self.grid_static_features.shape}")
         num_states = 3 if args.model == "diffusion" else 2
         (
             self.num_boundary_nodes,
             boundary_static_dim,  # TODO Will need for computation below
         ) = self.boundary_static_features.shape
         self.num_input_nodes = self.num_grid_nodes + self.num_boundary_nodes
+
+        print(f"self.num_boundary_nodes: {self.num_boundary_nodes}")
+        print(f"self.num_input_nodes: {self.num_input_nodes}")
         self.grid_dim = (
             num_states * self.config_loader.num_data_vars()
             + grid_static_dim
             + self.config_loader.dataset.num_forcing_features
         )
-        self.boundary_dim = self.grid_dim  # TODO Compute separately
-
+        self.boundary_dim = self.grid_dim # - self.config_loader.num_data_vars() # TODO Compute separately
+    
         # Instantiate loss function
         self.loss = metrics.get_metric(args.loss)
 

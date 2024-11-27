@@ -90,6 +90,12 @@ def main(input_args=None):
     ), f"Unknown archetype: {args.archetype}"
     archetype_create_func = WMG_ARCHETYPES[args.archetype]
 
+    print(f"Creating graph with archetype: {args.archetype}")
+    print(f"Using mesh node distance: {args.mesh_node_distance}")
+    print(f"decode mask sum: {np.sum(decode_mask)}")
+    print(f"decode mask shape: {decode_mask.shape[0]}")
+    print(f"border nodes: {decode_mask.shape[0] - np.sum(decode_mask)}")
+
     create_kwargs = {
         "coords": coords,
         "mesh_node_distance": args.mesh_node_distance,

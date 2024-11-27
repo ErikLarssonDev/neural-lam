@@ -55,6 +55,8 @@ def main():
         (grid_xy, geopotential, grid_border_mask), dim=1
     )  # (N_grid, 4)
 
+    print(f"Grid features shape: {grid_features.shape}")
+
     torch.save(grid_features, os.path.join(static_dir_path, "grid_features.pt"))
 
 

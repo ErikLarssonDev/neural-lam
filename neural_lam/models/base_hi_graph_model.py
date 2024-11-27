@@ -84,6 +84,9 @@ class BaseHiGraphModel(BaseGraphModel):
             ]
         )
 
+        print(f"self.mesh_up_edge_index: {[edge_index.shape for edge_index in self.mesh_up_edge_index]}")
+        print(f"self.mesh_down_edge_index: {[edge_index.shape for edge_index in self.mesh_down_edge_index]}")
+
         # Read out GNNs
         self.mesh_read_gnns = nn.ModuleList(
             [
@@ -108,6 +111,8 @@ class BaseHiGraphModel(BaseGraphModel):
         num_mesh_nodes_ignore = (
             num_mesh_nodes - self.mesh_static_features[0].shape[0]
         )
+        print(f"Number of mesh nodes: {num_mesh_nodes}")
+        print(f"Number of mesh nodes to ignore: {num_mesh_nodes_ignore}")
         return num_mesh_nodes, num_mesh_nodes_ignore
 
     def embedd_mesh_nodes(self, emb):
@@ -172,6 +177,12 @@ class BaseHiGraphModel(BaseGraphModel):
                 level_l
             ]  # (B, num_mesh_nodes[l], d_h)
             edge_rep = mesh_up_rep[level_l - 1]
+
+            print(f"level_l: {level_l}")
+            print(f"send_node_rep: {send_node_rep.shape}")
+            print(f"rec_node_rep: {rec_node_rep.shape}")
+            print(f"edge_rep: {edge_rep.shape}")
+            print(f"emb: {emb.shape}")
 
             # Apply GNN
             new_node_rep, new_edge_rep = gnn(

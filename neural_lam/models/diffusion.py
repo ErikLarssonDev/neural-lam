@@ -45,7 +45,7 @@ class Diffusion(ARModel):
         
         elif args.diffusion_model == 'graph_fm':
             self.model = GraphFM(args)
-        elif args.diffusion_model == 'edm':
+        elif args.diffusion_model == 'edm': # Not supported with new boundary forcing format
             self.model = EDMPrecond(img_resolution=256, in_channels=self.input_dim, out_channels=self.output_dim, model_type='SongUNet')
         else:
             raise ValueError(f"Diffusion model {args.diffusion_model} not recognized")
@@ -104,7 +104,7 @@ class Diffusion(ARModel):
         
         return next_state, None
 
-    def predict_step_train(self, prev_state, prev_prev_state, forcing, boundary_forcing=None):
+    def predict_step_train(self, prev_state, prev_prev_state, forcing, true_state, boundary_forcing=None):
         """
         Predict weather state one time step ahead
         X_{t-1}, X_t -> X_t+1
@@ -129,7 +129,7 @@ class Diffusion(ARModel):
         sigma_max_rho = self.sigma_max ** rho_inv
         sigma_min_rho = self.sigma_min ** rho_inv
         sigma = (sigma_max_rho + rnd_uniform * (sigma_min_rho - sigma_max_rho)) ** self.rho
-        y = prev_state[:, 0, :, :] # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
+        y = true_state # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
 
         # Make y residual if needed
         if self.pred_residual:
@@ -197,7 +197,7 @@ class Diffusion(ARModel):
             return prediction, pred_std
 
 
-    def unroll_prediction_train(self, init_states, forcing, boundary_forcing):
+    def unroll_prediction_train(self, init_states, forcing, true_states, boundary_forcing):
         """
         Roll out prediction taking multiple autoregressive steps with model
         init_states: (B, 2, num_grid_nodes, d_f)
@@ -214,9 +214,10 @@ class Diffusion(ARModel):
         for i in range(pred_steps):
             forcing = forcing[:, i]
             border_state = boundary_forcing[:, i]
+            true_state = true_states[:, i]
 
             pred_state, pred_std, weight = self.predict_step_train(
-                prev_state, prev_prev_state, forcing, border_state
+                prev_state, prev_prev_state, forcing, true_state, border_state
             )
             # state: (B, num_grid_nodes, d_f)
             # pred_std: (B, num_grid_nodes, d_f) or None
@@ -259,14 +260,17 @@ class Diffusion(ARModel):
         forcing_features: (B, pred_steps, num_grid_nodes, d_forcing),
             where index 0 corresponds to index 1 of init_states
         """
-        (
-            init_states,
-            target_states,
-            forcing_features,
-        ) = batch
+        (init_states, target_states, forcing, boundary_forcing) = batch
+
+        print(f"init_states: {init_states.shape}")
+        print(f"target_states: {target_states.shape}")
+        print(f"forcing: {forcing.shape}")
+        print(f"boundary_forcing: {boundary_forcing.shape}")
+        print(f"self.boundary_dim: {self.boundary_dim}")
+        print(f"self.grid_dim: {self.grid_dim}")
 
         prediction, pred_std, weight = self.unroll_prediction_train(
-            init_states, forcing_features, target_states
+            init_states, forcing, target_states, boundary_forcing
         )  # (B, pred_steps, num_grid_nodes, d_f)
         # prediction: (B, pred_steps, num_grid_nodes, d_f)
         # pred_std: (B, pred_steps, num_grid_nodes, d_f) or (d_f,)
@@ -813,14 +817,18 @@ class Diffusion(ARModel):
         c_in = 1 / (self.sigma_data ** 2 + sigma ** 2).sqrt()
         c_noise = sigma.log() / 4
       
-        F_x = self.model_forward((c_in * x).to(dtype), c_noise.flatten(), class_labels=class_labels, boundary_forcing=None, **model_kwargs)
+        F_x = self.model_forward((c_in * x).to(dtype), c_noise.flatten(), class_labels=class_labels, boundary_forcing=boundary_forcing, **model_kwargs)
         assert F_x.dtype == dtype
         D_x = c_skip * x + c_out * F_x.to(torch.float32)
         return D_x
     
-    def model_forward(self, x, noise_labels, class_labels, boundary_forcing=None):
+    def model_forward(self, x, noise_labels, class_labels, boundary_forcing):
         # Mapping.
         emb = self.map_noise(noise_labels).unsqueeze(1).expand(x.shape[0], 1, -1)
+
+        print(f"x: {x.shape}")
+        print(f"class_labels: {class_labels.shape}")
+        print(f"boundary_forcing: {boundary_forcing.shape}")
         next_state, _ = self.model.predict_step(x, class_labels[:, :, :len(constants.USED_PARAMS)*2], class_labels[:, :, len(constants.USED_PARAMS)*2:], boundary_forcing, emb)
 
         return next_state
