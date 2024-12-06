@@ -36,7 +36,7 @@ class Diffusion(ARModel):
         self.rho = 7
         self.use_fp16 = False
         self.sampler = args.sampler
-
+    
         if args.diffusion_model != 'edm':
             self.map_noise = NoiseEmbedding()
 
@@ -53,6 +53,10 @@ class Diffusion(ARModel):
         self.available_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.pred_residual = args.pred_residual # Whether to predict the residual instead of the next state
         self.diffusion_model = args.diffusion_model
+        
+        self.lr = args.lr
+        self.weight_decay = args.weight_decay
+        self.lr_scheduler = args.lr_scheduler
 
         # Add lists for val and test errors of ensemble prediction
         # self.val_metrics.update(
@@ -69,8 +73,22 @@ class Diffusion(ARModel):
                 "spread_squared": [],
             }
         )
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        if self.lr_scheduler == "cosine": # Cosine annealing
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.trainer.estimated_stepping_batches, eta_min=0) # self.trainer.estimated_stepping_batches, self.trainer.max_epochs
+            return {
+                'optimizer': optimizer,
+                'lr_scheduler': {
+                    'scheduler': scheduler,
+                    'interval': 'epoch',  # Can also be 'step' for finer control
+                    'frequency': 1,
+                }
+            }
+        else:
+            return {'optimizer': optimizer}
 
-    def predict_step(self, prev_state, prev_prev_state, forcing, boundary_forcing=None):
+    def predict_step(self, prev_state, prev_prev_state, forcing, boundary_forcing):
         """
         Predict weather state one time step ahead
         X_{t-1}, X_t -> X_t+1
@@ -85,7 +103,6 @@ class Diffusion(ARModel):
         pred_std: None or (B, N_grid, d_state), predicted standard-deviations
                     (pred_std can be ignored by just returning None)
         """
-
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1) # (B, N_grid, d_input)
         latents = torch.randn_like(input_grid[:, :, :self.output_dim]).to(self.available_device)
 
@@ -104,7 +121,7 @@ class Diffusion(ARModel):
         
         return next_state, None
 
-    def predict_step_train(self, prev_state, prev_prev_state, forcing, true_state, boundary_forcing=None):
+    def predict_step_train(self, prev_state, prev_prev_state, forcing, true_state, boundary_forcing):
         """
         Predict weather state one time step ahead
         X_{t-1}, X_t -> X_t+1
@@ -119,8 +136,6 @@ class Diffusion(ARModel):
         pred_std: None or (B, N_grid, d_state), predicted standard-deviations
                     (pred_std can be ignored by just returning None)
         """
-
-        # Reshape 1d grid to 2d image
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
 
         # Sample from F inverse
@@ -150,7 +165,7 @@ class Diffusion(ARModel):
         
         return next_state, None, weight
     
-    def unroll_prediction(self, init_states, forcing, boundary_forcing):
+    def unroll_prediction(self, init_states, forcing_features, boundary_forcing):
             """
             Roll out prediction taking multiple autoregressive steps with model
             init_states: (B, 2, num_grid_nodes, d_f)
@@ -161,21 +176,19 @@ class Diffusion(ARModel):
             prev_state = init_states[:, 1]
             prediction_list = []
             pred_std_list = []
-            pred_steps = forcing.shape[1]
+            pred_steps = forcing_features.shape[1]
 
             for i in range(pred_steps):
-                forcing = forcing[:, i]
+                forcing = forcing_features[:, i]
                 border_state = boundary_forcing[:, i]
-
                 pred_state, pred_std = self.predict_step(
                     prev_state, prev_prev_state, forcing, border_state
                 )
                 # state: (B, num_grid_nodes, d_f)
                 # pred_std: (B, num_grid_nodes, d_f) or None
-
+        
                 new_state = pred_state
         
-
                 prediction_list.append(new_state)
                 if self.output_std:
                     pred_std_list.append(pred_std)
@@ -197,7 +210,7 @@ class Diffusion(ARModel):
             return prediction, pred_std
 
 
-    def unroll_prediction_train(self, init_states, forcing, true_states, boundary_forcing):
+    def unroll_prediction_train(self, init_states, forcing_features, true_states, boundary_forcing):
         """
         Roll out prediction taking multiple autoregressive steps with model
         init_states: (B, 2, num_grid_nodes, d_f)
@@ -208,11 +221,11 @@ class Diffusion(ARModel):
         prev_state = init_states[:, 1]
         prediction_list = []
         pred_std_list = []
-        pred_steps = forcing.shape[1]
+        pred_steps = forcing_features.shape[1]
         weight_list = []
 
         for i in range(pred_steps):
-            forcing = forcing[:, i]
+            forcing = forcing_features[:, i]
             border_state = boundary_forcing[:, i]
             true_state = true_states[:, i]
 
@@ -261,14 +274,6 @@ class Diffusion(ARModel):
             where index 0 corresponds to index 1 of init_states
         """
         (init_states, target_states, forcing, boundary_forcing) = batch
-
-        print(f"init_states: {init_states.shape}")
-        print(f"target_states: {target_states.shape}")
-        print(f"forcing: {forcing.shape}")
-        print(f"boundary_forcing: {boundary_forcing.shape}")
-        print(f"self.boundary_dim: {self.boundary_dim}")
-        print(f"self.grid_dim: {self.grid_dim}")
-
         prediction, pred_std, weight = self.unroll_prediction_train(
             init_states, forcing, target_states, boundary_forcing
         )  # (B, pred_steps, num_grid_nodes, d_f)
@@ -297,29 +302,29 @@ class Diffusion(ARModel):
         )  # mean over unrolled times and batch
 
         # Optionally sample trajectories and compute CRPS loss
-        init_states, target_states, forcing_features = batch
-        if self.crps_weight > 0:
-            # Sample trajectories using prior
-            pred_traj_means, pred_traj_stds = self.sample_trajectories(
-                init_states,
-                forcing_features,
-                target_states,
-                2,
-            )
-            # (B, S=2, pred_steps, num_grid_nodes, d_f), always 2 samples
+        # if self.crps_weight > 0:
+        #     init_states, target_states, forcing, boundary_forcing = batch
+        #     # Sample trajectories using prior
+        #     pred_traj_means, pred_traj_stds = self.sample_trajectories(
+        #         init_states,
+        #         forcing_features,
+        #         target_states,
+        #         2,
+        #     )
+        #     # (B, S=2, pred_steps, num_grid_nodes, d_f), always 2 samples
 
-            # Compute CRPS
-            crps_estimate = metrics.crps_ens(
-                pred_traj_means,
-                target_states,
-                pred_traj_stds,
-                # mask=self.interior_mask_bool,
-            )  # (B, pred_steps)
-            crps_loss = torch.mean(crps_estimate)
+        #     # Compute CRPS
+        #     crps_estimate = metrics.crps_ens(
+        #         pred_traj_means,
+        #         target_states,
+        #         pred_traj_stds,
+        #         # mask=self.interior_mask_bool,
+        #     )  # (B, pred_steps)
+        #     crps_loss = torch.mean(crps_estimate)
 
-            # Add onto loss
-            batch_loss = batch_loss + self.crps_weight * crps_loss
-            log_dict["crps_loss"] = crps_loss
+        #     # Add onto loss
+        #     batch_loss = batch_loss + self.crps_weight * crps_loss
+        #     log_dict["crps_loss"] = crps_loss
 
 
         log_dict = {"train_loss": batch_loss, "train_mse": batch_mse}
@@ -333,7 +338,7 @@ class Diffusion(ARModel):
         self,
         init_states,
         forcing_features,
-        true_states,
+        boundary_forcing,
         num_traj,
         use_encoder=False,
     ):
@@ -356,7 +361,7 @@ class Diffusion(ARModel):
             unroll_func(
                 init_states,
                 forcing_features,
-                true_states,
+                boundary_forcing,
             )
             for _ in range(num_traj)
         ]
@@ -380,12 +385,13 @@ class Diffusion(ARModel):
         """
         Plot ensemble forecast + mean and std
         """
-        init_states, target_states, forcing_features = batch
+        init_states, target_states, forcing_features, boundary_forcing = batch
+        border = boundary_forcing[..., :len(constants.USED_PARAMS)]
 
         trajectories, _ = self.sample_trajectories(
             init_states,
             forcing_features,
-            target_states,
+            boundary_forcing,
             self.ensemble_size,
         )
         # (B, S, pred_steps, num_grid_nodes, d_f)
@@ -393,7 +399,7 @@ class Diffusion(ARModel):
         # Rescale to original data scale
         traj_rescaled = trajectories * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
         target_rescaled = target_states * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
-
+        border_rescaled = border * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
         # Compute mean and std of ensemble
         ens_mean = torch.mean(
             traj_rescaled, dim=1
@@ -403,9 +409,10 @@ class Diffusion(ARModel):
         )  # (B, pred_steps, num_grid_nodes, d_f)
 
         # Iterate over the examples
-        for traj_slice, target_slice, ens_mean_slice, ens_std_slice in zip(
+        for traj_slice, target_slice, border_slice, ens_mean_slice, ens_std_slice in zip(
             traj_rescaled[:n_examples],
             target_rescaled[:n_examples],
+            border_rescaled[:n_examples, ..., :len(constants.USED_PARAMS)],
             ens_mean[:n_examples],
             ens_std[:n_examples],
         ):
@@ -433,11 +440,12 @@ class Diffusion(ARModel):
             var_vranges = list(zip(var_vmin, var_vmax))
 
             # Iterate over prediction horizon time steps
-            for t_i, (samples_t, target_t, ens_mean_t, ens_std_t) in enumerate(
+            for t_i, (samples_t, target_t, border_t, ens_mean_t, ens_std_t) in enumerate(
                 zip(
                     traj_slice.transpose(0, 1),
                     # (pred_steps, S, num_grid_nodes, d_f)
                     target_slice,
+                    border_slice,
                     ens_mean_slice,
                     ens_std_slice,
                 ),
@@ -449,11 +457,12 @@ class Diffusion(ARModel):
                     vis.plot_ensemble_prediction(
                         samples_t[:, :, var_i],
                         target_t[:, var_i],
+                        border_t[:, var_i],
                         ens_mean_t[:, var_i],
                         ens_std_t[:, var_i],
-                        self.interior_mask[:, 0],
+                        self.interior_mask,
                         title=f"{var_name} ({var_unit}), {time_title_part}",
-                        # vrange=var_vrange,
+                        vrange=var_vrange,
                     )
                     for var_i, (var_name, var_unit, var_vrange) in enumerate(
                         zip(
@@ -492,12 +501,12 @@ class Diffusion(ARModel):
         ens_mse_batch: (B, pred_steps, d_f)
         """
         # Compute and store metrics for ensemble forecast
-        init_states, target_states, forcing_features = batch
+        init_states, target_states, forcing_features, boundary_forcing = batch
 
         trajectories, traj_stds = self.sample_trajectories(
             init_states,
             forcing_features,
-            target_states,
+            boundary_forcing,
             self.ensemble_size,
         )
         # (B, S, pred_steps, num_grid_nodes, d_f)
@@ -688,7 +697,6 @@ class Diffusion(ARModel):
         step_indices = torch.arange(num_steps, dtype=torch.float64, device=latents.device)
         t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
         t_steps = torch.cat([self.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]) # t_N = 0
-        print(f"t_steps: {t_steps}")
 
         # Main sampling loop.
         x_next = latents * t_steps[0]
@@ -702,13 +710,13 @@ class Diffusion(ARModel):
             x_hat = x_cur + (t_hat ** 2 - t_cur ** 2).sqrt() * S_noise * randn_like(x_cur)
 
             # Euler step.
-            denoised = self.forward(x_hat, t_hat, class_labels)
+            denoised = self.forward(x_hat, t_hat, class_labels=class_labels, boundary_forcing=boundary_forcing)
             d_cur = (x_hat - denoised) / t_hat
             x_next = x_hat + (t_next - t_hat) * d_cur
 
             # Apply 2nd order correction.
             if i < num_steps - 1:
-                denoised = self.forward(x_next, t_next, class_labels)
+                denoised = self.forward(x_next, t_next, class_labels=class_labels, boundary_forcing=boundary_forcing)
                 d_prime = (x_next - denoised) / t_next
                 x_next = x_hat + (t_next - t_hat) * (0.5 * d_cur + 0.5 * d_prime)
 
@@ -729,7 +737,6 @@ class Diffusion(ARModel):
         step_indices = torch.arange(num_steps, dtype=torch.float32, device=latents.device)
         t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
         t_steps = torch.cat([self.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]) # t_N = 0
-        print(f"t_steps: {t_steps}")
 
         # Main sampling loop.
         x_next = latents * t_steps[0]
@@ -738,13 +745,13 @@ class Diffusion(ARModel):
             diff_steps.append(x_cur)
 
             # Euler step.
-            denoised = self.forward(x_cur, t_cur, class_labels)
+            denoised = self.forward(x_cur, t_cur, class_labels=class_labels, boundary_forcing=boundary_forcing)
             d_cur = (x_cur - denoised) / t_cur      
             x_next = x_cur + (t_next - t_cur) * d_cur
 
             # Apply 2nd order correction.
             if i < num_steps - 1:
-                denoised = self.forward(x_next, t_next, class_labels)
+                denoised = self.forward(x_next, t_next, class_labels=class_labels, boundary_forcing=boundary_forcing)
                 d_prime = (x_next - denoised) / t_next   
                 x_next = x_cur + (t_next - t_cur) * (0.5 * d_cur + 0.5 * d_prime)
 
@@ -763,7 +770,6 @@ class Diffusion(ARModel):
         device = latents.device
         time_steps = torch.arange(0, num_steps).to(device) / (num_steps - 1)
         sigmas = (sigma_max ** (1 / rho)+ time_steps * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
-        print(f"t_steps: {sigmas}")
 
         # batch_ones = torch.ones(1, 1).to(device)
 
@@ -784,7 +790,7 @@ class Diffusion(ARModel):
             sigma_hat = sigmas[i] * (gamma + 1)
             if gamma > 0:
                 x = x + (sigma_hat**2 - sigmas[i] ** 2) ** 0.5 * noise            
-            denoised = self.forward(x, sigma_hat, class_labels)
+            denoised = self.forward(x, sigma_hat, class_labels=class_labels, boundary_forcing=boundary_forcing)
 
             if i == len(sigmas) - 2:
                 # final Euler step
@@ -800,7 +806,7 @@ class Diffusion(ARModel):
                 sigma_mid = torch.exp(-lambda_mid)
 
                 u = sigma_mid / sigma_hat * x - (torch.exp(-r * h) - 1) * denoised
-                denoised_2 = self.forward(u, sigma_mid, class_labels)
+                denoised_2 = self.forward(u, sigma_mid, class_labels=class_labels, boundary_forcing=boundary_forcing)
                 D = (1 - 1 / (2 * r)) * denoised + 1 / (2 * r) * denoised_2
                 x = sigmas[i + 1] / sigma_hat * x - (torch.exp(-h) - 1) * D
 
@@ -825,10 +831,6 @@ class Diffusion(ARModel):
     def model_forward(self, x, noise_labels, class_labels, boundary_forcing):
         # Mapping.
         emb = self.map_noise(noise_labels).unsqueeze(1).expand(x.shape[0], 1, -1)
-
-        print(f"x: {x.shape}")
-        print(f"class_labels: {class_labels.shape}")
-        print(f"boundary_forcing: {boundary_forcing.shape}")
         next_state, _ = self.model.predict_step(x, class_labels[:, :, :len(constants.USED_PARAMS)*2], class_labels[:, :, len(constants.USED_PARAMS)*2:], boundary_forcing, emb)
 
         return next_state

@@ -148,9 +148,6 @@ class BaseGraphModel(ARModel):
         )
 
         # Embed all features
-        print("grid_features", grid_features.shape)
-        print("boundary_features", boundary_features.shape)
-        print("emb", emb.shape)
         grid_emb = self.grid_embedder(grid_features, emb)  # (B, num_grid_nodes, d_h)
         boundary_emb = self.boundary_embedder(boundary_features, emb)
         # (B, num_boundary_nodes, d_h)

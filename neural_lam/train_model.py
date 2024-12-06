@@ -8,6 +8,7 @@ from argparse import ArgumentParser
 import pytorch_lightning as pl
 import torch
 from lightning_fabric.utilities import seed
+from pytorch_lightning.callbacks import LearningRateMonitor
 
 # First-party
 from neural_lam import constants, utils, config
@@ -262,6 +263,17 @@ def main(input_args=None):
         action="store_true",
         help="If the model should predict residuals instead of absolute values",
     )
+    parser.add_argument(
+        "--weight_decay",
+        type=float,
+        default=0,
+        help="Weight decay for training. (default: 0)",
+    )
+    parser.add_argument(
+        "--lr_scheduler",
+        type=str,
+        help="Learning rate scheduler to use, supported (cosine), (default: None)",
+    )
 
     # Evaluation options
     parser.add_argument(
@@ -289,7 +301,6 @@ def main(input_args=None):
         help="If the diffusion steps should be saved, only one time step is saved",
     )
 
-    args = parser.parse_args()
 
     # Logger Settings
     parser.add_argument(
@@ -354,6 +365,7 @@ def main(input_args=None):
             subset=args.subset_ds,
             control_only=args.control_only,
             model_name=args.diffusion_model,
+            border_condition=args.border_condition,
         ),
         args.batch_size,
         shuffle=True,
@@ -362,15 +374,21 @@ def main(input_args=None):
     max_pred_length = (65 // args.step_length) - 2  # 19
     if args.plot_diffusion_steps:
         max_pred_length = 1
+    
+    if args.model == "diffusion":
+        max_pred_length_val = 1
+    else:
+        max_pred_length_val = max_pred_length
     val_loader = torch.utils.data.DataLoader(
         WeatherDataset(
             config_loader.dataset.name,
-            pred_length=max_pred_length,
+            pred_length=max_pred_length_val,
             split="val",
             subsample_step=args.step_length,
             subset=args.subset_ds,
             control_only=args.control_only,
             model_name=args.diffusion_model,
+            border_condition=args.border_condition,
         ),
         args.batch_size,
         shuffle=False,
@@ -385,8 +403,6 @@ def main(input_args=None):
         )  # Allows using Tensor Cores on A100s
     else:
         device_name = "cpu"
-    
-    device_name="cpu" # TODO: Remove this line, only for debugging
 
     # Load model parameters Use new args for model
     model_class = MODELS[args.model]
@@ -413,6 +429,7 @@ def main(input_args=None):
             save_last=True,
         )
     )
+    callbacks.append(LearningRateMonitor(logging_interval='epoch'))
     # Save checkpoints for minimum loss at specific lead times
     for unroll_time in constants.VAL_STEP_CHECKPOINTS:
         metric_name = f"val_loss_unroll{unroll_time}"
@@ -463,6 +480,7 @@ def main(input_args=None):
                     subsample_step=args.step_length,
                     subset=bool(args.subset_ds),
                     model_name=args.diffusion_model,
+                    border_condition=args.border_condition,
                 ),
                 args.batch_size,
                 shuffle=False,
