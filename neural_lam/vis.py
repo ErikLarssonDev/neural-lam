@@ -6,6 +6,8 @@ import torch
 
 # Local
 from . import utils
+from . import constants
+from . import config
 
 
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
@@ -114,7 +116,8 @@ def plot_error_map(errors, data_config, title=None, step_length=3):
 def plot_on_axis(
     ax,
     data,
-    data_config,
+    border_data=None,
+    data_config=None,
     obs_mask=None,
     vmin=None,
     vmax=None,
@@ -125,17 +128,28 @@ def plot_on_axis(
     """
     Plot weather state on given axis
     """
+    if data_config is None:
+        data_config = config.Config.from_file("/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/data_config.yaml")
     # Set up masking of border region
     if obs_mask is None:
         pixel_alpha = 1
+        data_grid = data.reshape(*data_config.grid_shape_state).cpu().numpy()
     else:
-        mask_reshaped = obs_mask.reshape(*data_config.grid_shape_state)
+        mask_reshaped = obs_mask.reshape(*data_config.full_grid_shape_state)
         pixel_alpha = (
             mask_reshaped.clamp(0.7, 1).cpu().numpy()
         )  # Faded border region
+        # Create a blank array for the full image
+        reconstructed_image = np.zeros(data_config.full_grid_shape_state[0] * data_config.full_grid_shape_state[1])
+
+        # Fill in the interior and boundary regions
+        reconstructed_image[obs_mask.cpu().numpy()] = data.cpu().numpy()
+        reconstructed_image[~obs_mask.cpu().numpy()] = border_data.cpu().numpy()
+
+        # Reshape to 2D for plotting
+        data_grid = reconstructed_image.reshape(*data_config.full_grid_shape_state)
 
     ax.coastlines()  # Add coastline outlines
-    data_grid = data.reshape(*data_config.grid_shape_state).cpu().numpy()
     im = ax.imshow(
         data_grid,
         origin="lower",
@@ -155,6 +169,7 @@ def plot_on_axis(
 def plot_prediction(
     pred,
     target,
+    border,
     data_config,
     obs_mask=None,
     title=None,
@@ -180,9 +195,9 @@ def plot_prediction(
     )
 
     # Plot pred and target
-    for ax, data in zip(axes, (target, pred)):
+    for ax, data, border_data in zip(axes, (target, pred), (border, border)):
         im = plot_on_axis(
-            ax, data, data_config, obs_mask, vmin, vmax, grid_limits=grid_limits
+            ax, data, border_data, data_config, obs_mask, vmin, vmax, grid_limits=grid_limits
         )
 
     # Ticks and labels
@@ -190,6 +205,92 @@ def plot_prediction(
     axes[1].set_title("Prediction", size=15)
     cbar = fig.colorbar(im, aspect=30)
     cbar.ax.tick_params(labelsize=10)
+
+    if title:
+        fig.suptitle(title, size=20)
+
+    return fig
+
+@matplotlib.rc_context(utils.fractional_plot_bundle(1))
+def plot_ensemble_prediction(
+    samples, target, border, ens_mean, ens_std, obs_mask, title=None, vrange=None
+):
+    """
+    Plot example predictions, ground truth, mean and std.-dev.
+    from ensemble forecast
+
+    samples: (S, N_grid,)
+    target: (N_grid,)
+    ens_mean: (N_grid,)
+    ens_std: (N_grid,)
+    obs_mask: (N_grid,)
+    (optional) title: title of plot
+    (optional) vrange: tuple of length with common min and max of values
+        (not for std.)
+    """
+    # Get common scale for values
+    if vrange is None:
+        vmin = min(vals.min().cpu().item() for vals in (samples, target))
+        vmax = max(vals.max().cpu().item() for vals in (samples, target))
+    else:
+        vmin, vmax = vrange
+
+    fig, axes = plt.subplots(
+        3,
+        3,
+        figsize=(15, 15),
+        subplot_kw={"projection": constants.LAMBERT_PROJ},
+    )
+    axes = axes.flatten()
+
+    # Plot target, ensemble mean and std.
+    gt_im = plot_on_axis(
+        axes[0],
+        target,
+        border,
+        obs_mask=obs_mask,
+        vmin=vmin,
+        vmax=vmax,
+        ax_title="Ground Truth",
+    )
+    plot_on_axis(
+        axes[1],
+        ens_mean,
+        vmin=vmin,
+        vmax=vmax,
+        ax_title="Ens. Mean",
+    )
+    std_im = plot_on_axis(
+        axes[2],
+        ens_std,
+        ax_title="Ens. Std."
+    )  # Own vrange
+
+    # Plot samples
+    for member_i, (ax, member) in enumerate(
+        zip(axes[3:], samples[:6]), start=1
+    ):
+        plot_on_axis(
+            ax,
+            member,
+            border,
+            obs_mask=obs_mask,
+            vmin=vmin,
+            vmax=vmax,
+            ax_title=f"Member {member_i}",
+        )
+
+    # Turn off unused axes
+    for ax in axes[(3 + samples.shape[0]) :]:
+        ax.axis("off")
+
+    # Add colorbars
+    values_cbar = fig.colorbar(
+        gt_im, ax=axes[:2], aspect=60, location="bottom", shrink=0.9
+    )
+    values_cbar.ax.tick_params(labelsize=10)
+    std_cbar = fig.colorbar(std_im, aspect=30, location="bottom", shrink=0.9)
+    std_cbar.ax.tick_params(labelsize=10)
 
     if title:
         fig.suptitle(title, size=20)
@@ -221,9 +322,9 @@ def plot_spatial_error(
         ax,
         error,
         data_config,
-        obs_mask,
-        vmin,
-        vmax,
+        obs_mask=obs_mask,
+        vmin=vmin,
+        vmax=vmax,
         cmap="OrRd",
         grid_limits=grid_limits,
     )

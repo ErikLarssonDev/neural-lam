@@ -32,9 +32,11 @@ class WeatherDataset(torch.utils.data.Dataset):
         standardize=True,
         subset=False,
         control_only=False,
+        border_condition=False,
         model_name="",
     ):
         super().__init__()
+        self.border_condition = border_condition
         
         assert split in ("train", "val", "test"), "Unknown dataset split"
         
@@ -164,7 +166,7 @@ class WeatherDataset(torch.utils.data.Dataset):
         boundary_forcing_sample = sample[:, self.boundary_mask]
         # (sample_len, N_boundary, d_features)
         sample = sample[:, self.interior_mask]
-
+      
         # Split up sample in init. states and target states
         init_states = sample[:2]  # (2, N_grid, d_features)
         target_states = sample[2:]  # (sample_length-2, N_grid, d_features)
@@ -286,12 +288,18 @@ class WeatherDataset(torch.utils.data.Dataset):
         # TODO: Add the option to condition on the boundary forcing for the next time step boundary_forcing_sample[2:],
         boundary_forcing = torch.cat(
             (
-                boundary_forcing_sample[1:-1],
-                boundary_forcing_sample[:-2],
+                boundary_forcing_sample[1:-1], # prev_state
+                boundary_forcing_sample[:-2], # prev_prev_state
                 boundary_forcing_forcing,
             ),
             dim=-1,
         )  # (sample_len-2, N_boundary, boundary_forcing_dim)
         # with boundary_forcing_dim = 2 x d_features + d_forcing
+
+        if self.border_condition:
+            boundary_forcing = torch.cat(
+                (boundary_forcing_sample[2:], # next_state
+                boundary_forcing), dim=-1
+            )
 
         return init_states, target_states, forcing, boundary_forcing

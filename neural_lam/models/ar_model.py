@@ -9,7 +9,7 @@ import torch
 import wandb
 
 # Local
-from .. import config, metrics, utils, vis
+from .. import config, metrics, utils, vis, constants
 
 
 class ARModel(pl.LightningModule):
@@ -63,9 +63,7 @@ class ARModel(pl.LightningModule):
             self.num_grid_nodes,
             grid_static_dim,
         ) = self.grid_static_features.shape  # 63784 = 268x238
-        print(f"self.num_grid_nodes: {self.num_grid_nodes}")
-        print(f"grid_static_dim: {grid_static_dim}")
-        print(f"self.grid_static_features: {self.grid_static_features.shape}")
+
         num_states = 3 if args.model == "diffusion" else 2
         (
             self.num_boundary_nodes,
@@ -73,14 +71,15 @@ class ARModel(pl.LightningModule):
         ) = self.boundary_static_features.shape
         self.num_input_nodes = self.num_grid_nodes + self.num_boundary_nodes
 
-        print(f"self.num_boundary_nodes: {self.num_boundary_nodes}")
-        print(f"self.num_input_nodes: {self.num_input_nodes}")
         self.grid_dim = (
             num_states * self.config_loader.num_data_vars()
             + grid_static_dim
             + self.config_loader.dataset.num_forcing_features
         )
-        self.boundary_dim = self.grid_dim # - self.config_loader.num_data_vars() # TODO Compute separately
+        if args.border_condition:
+            self.boundary_dim = self.grid_dim if args.model == "diffusion" else self.grid_dim + self.config_loader.num_data_vars()
+        else:
+            self.boundary_dim = self.grid_dim - self.config_loader.num_data_vars() if args.model == "diffusion" else self.grid_dim
     
         # Instantiate loss function
         self.loss = metrics.get_metric(args.loss)
@@ -363,14 +362,16 @@ class ARModel(pl.LightningModule):
             prediction, target = self.common_step(batch)
 
         target = batch[1]
+        border = batch[3][..., :len(constants.USED_PARAMS)]
 
         # Rescale to original data scale
         prediction_rescaled = prediction * self.data_std + self.data_mean
         target_rescaled = target * self.data_std + self.data_mean
+        border_rescaled = border * self.data_std + self.data_mean
 
         # Iterate over the examples
-        for pred_slice, target_slice in zip(
-            prediction_rescaled[:n_examples], target_rescaled[:n_examples]
+        for pred_slice, target_slice, border_slice in zip(
+            prediction_rescaled[:n_examples], target_rescaled[:n_examples], border_rescaled[:n_examples]
         ):
             # Each slice is (pred_steps, num_grid_nodes, d_f)
             self.plotted_examples += 1  # Increment already here
@@ -395,15 +396,17 @@ class ARModel(pl.LightningModule):
             var_vranges = list(zip(var_vmin, var_vmax))
 
             # Iterate over prediction horizon time steps
-            for t_i, (pred_t, target_t) in enumerate(
-                zip(pred_slice, target_slice), start=1
+            for t_i, (pred_t, target_t, border_t) in enumerate(
+                zip(pred_slice, target_slice, border_slice), start=1
             ):
                 # Create one figure per variable at this time step
                 var_figs = [
                     vis.plot_prediction(
                         pred_t[:, var_i],
                         target_t[:, var_i],
+                        border_t[:, var_i],
                         self.config_loader,
+                        self.interior_mask,
                         title=f"{var_name} ({var_unit}), "
                         f"t={t_i} ({self.step_length * t_i} h)",
                         vrange=var_vrange,
@@ -608,7 +611,7 @@ class ARModel(pl.LightningModule):
 
         if not self.restore_opt:
             opt = self.configure_optimizers()
-            checkpoint["optimizer_states"] = [opt.state_dict()]
+            checkpoint["optimizer_states"] = [opt["optimizer"].state_dict()]
 
     # def on_after_backward(self):
     #     """
