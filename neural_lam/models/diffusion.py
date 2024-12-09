@@ -76,6 +76,7 @@ class Diffusion(ARModel):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         if self.lr_scheduler == "cosine": # Cosine annealing
+            print("Using cosine annealing learning rate scheduler")
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.trainer.estimated_stepping_batches, eta_min=0) # self.trainer.estimated_stepping_batches, self.trainer.max_epochs
             return {
                 'optimizer': optimizer,
@@ -84,7 +85,7 @@ class Diffusion(ARModel):
                     'interval': 'epoch',  # Can also be 'step' for finer control
                     'frequency': 1,
                 }
-            }
+            } # Maybe have to return [optimizer, scheduler]
         else:
             return {'optimizer': optimizer}
 
