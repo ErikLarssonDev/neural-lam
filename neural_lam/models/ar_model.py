@@ -106,10 +106,20 @@ class ARModel(pl.LightningModule):
         self.spatial_loss_maps = []
 
     def configure_optimizers(self):
-        opt = torch.optim.AdamW(
-            self.parameters(), lr=self.args.lr, betas=(0.9, 0.95)
-        )
-        return opt
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, betas=(0.9, 0.95), weight_decay=self.weight_decay)
+        if self.lr_scheduler == "cosine": # Cosine annealing
+            print("Using cosine annealing learning rate scheduler")
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.trainer.estimated_stepping_batches, eta_min=0) # self.trainer.estimated_stepping_batches, self.trainer.max_epochs
+            return {
+                'optimizer': optimizer,
+                'lr_scheduler': {
+                    'scheduler': scheduler,
+                    'interval': 'epoch',  # Can also be 'step' for finer control
+                    'frequency': 1,
+                }
+            } # Maybe have to return [optimizer, scheduler]
+        else:
+            return {'optimizer': optimizer}
 
     @staticmethod
     def expand_to_batch(x, batch_size):

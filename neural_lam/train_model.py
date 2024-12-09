@@ -266,8 +266,8 @@ def main(input_args=None):
     parser.add_argument(
         "--weight_decay",
         type=float,
-        default=0,
-        help="Weight decay for training. (default: 0)",
+        default=0.01,
+        help="Weight decay for training. (default: 0.01)",
     )
     parser.add_argument(
         "--lr_scheduler",
