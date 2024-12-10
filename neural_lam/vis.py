@@ -257,6 +257,7 @@ def plot_ensemble_prediction(
         axes[1],
         ens_mean,
         border,
+        obs_mask=obs_mask,
         vmin=vmin,
         vmax=vmax,
         ax_title="Ens. Mean",
@@ -265,6 +266,7 @@ def plot_ensemble_prediction(
         axes[2],
         ens_std,
         border*0,
+        obs_mask=obs_mask,
         ax_title="Ens. Std."
     )  # Own vrange
 
