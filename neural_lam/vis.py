@@ -128,26 +128,26 @@ def plot_on_axis(
     """
     Plot weather state on given axis
     """
-    if data_config is None:
-        data_config = config.Config.from_file("/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/data_config.yaml")
+    # if data_config is None:
+    #     data_config = config.Config.from_file("/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/data_config.yaml")
     # Set up masking of border region
     if obs_mask is None:
         pixel_alpha = 1
-        data_grid = data.reshape(*data_config.grid_shape_state).cpu().numpy()
+        data_grid = data.reshape(*constants.GRID_SHAPE).cpu().numpy()
     else:
-        mask_reshaped = obs_mask.reshape(*data_config.full_grid_shape_state)
+        mask_reshaped = obs_mask.reshape(*constants.FULL_GRID_SHAPE)
         pixel_alpha = (
             mask_reshaped.clamp(0.7, 1).cpu().numpy()
         )  # Faded border region
         # Create a blank array for the full image
-        reconstructed_image = np.zeros(data_config.full_grid_shape_state[0] * data_config.full_grid_shape_state[1])
+        reconstructed_image = np.zeros(constants.FULL_GRID_SHAPE[0] * constants.FULL_GRID_SHAPE[1])
 
         # Fill in the interior and boundary regions
         reconstructed_image[obs_mask.cpu().numpy()] = data.cpu().numpy()
         reconstructed_image[~obs_mask.cpu().numpy()] = border_data.cpu().numpy()
 
         # Reshape to 2D for plotting
-        data_grid = reconstructed_image.reshape(*data_config.full_grid_shape_state)
+        data_grid = reconstructed_image.reshape(*constants.FULL_GRID_SHAPE)
 
     ax.coastlines()  # Add coastline outlines
     im = ax.imshow(
@@ -256,6 +256,7 @@ def plot_ensemble_prediction(
     plot_on_axis(
         axes[1],
         ens_mean,
+        border,
         vmin=vmin,
         vmax=vmax,
         ax_title="Ens. Mean",
@@ -263,6 +264,7 @@ def plot_ensemble_prediction(
     std_im = plot_on_axis(
         axes[2],
         ens_std,
+        border*0,
         ax_title="Ens. Std."
     )  # Own vrange
 
