@@ -105,6 +105,10 @@ class ARModel(pl.LightningModule):
         # For storing spatial loss maps during evaluation
         self.spatial_loss_maps = []
 
+        self.lr = args.lr
+        self.weight_decay = args.weight_decay
+        self.lr_scheduler = args.lr_scheduler
+
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, betas=(0.9, 0.95), weight_decay=self.weight_decay)
         if self.lr_scheduler == "cosine": # Cosine annealing
@@ -521,7 +525,10 @@ class ARModel(pl.LightningModule):
             )  # (N_eval, pred_steps, d_f)
 
             if self.trainer.is_global_zero:
+                print(f"metric_name: {metric_name}")
+                print(f"metric_tensor shape: {metric_tensor.shape}")
                 metric_tensor_averaged = torch.mean(metric_tensor, dim=0)
+                print(f"metric_tensor_averaged shape: {metric_tensor_averaged.shape}")
                 # (pred_steps, d_f)
 
                 # Take square root after averaging to change squared metrics

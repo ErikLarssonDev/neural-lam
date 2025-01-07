@@ -110,7 +110,7 @@ class BaseHiGraphModel(BaseGraphModel):
         )
         return num_mesh_nodes, num_mesh_nodes_ignore
 
-    def embedd_mesh_nodes(self, emb):
+    def embedd_mesh_nodes(self, emb=None):
         """
         Embed static mesh features
         This embeds only bottom level, rest is done at beginning of
@@ -119,7 +119,7 @@ class BaseHiGraphModel(BaseGraphModel):
         """
         return self.mesh_embedders[0](self.mesh_static_features[0], emb)
 
-    def process_step(self, mesh_rep, emb):
+    def process_step(self, mesh_rep, emb=None):
         """
         Process step of embedd-process-decode framework
         Processes the representation on the mesh, possible in multiple steps

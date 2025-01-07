@@ -261,6 +261,7 @@ def crps_ens(
     metric_val: One of (...,), (..., d_state), (..., N), (..., N, d_state),
     depending on reduction arguments.
     """
+
     num_ens = pred.shape[ens_dim]  # Number of ensemble members
     if num_ens == 1:
         # With one sample CRPS reduces to MAE
@@ -270,6 +271,7 @@ def crps_ens(
             None,
             mask=mask,
             average_grid=average_grid,
+            sum_vars=sum_vars,
         )
 
     if num_ens == 2:

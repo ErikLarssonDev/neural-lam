@@ -9,22 +9,21 @@ import pytorch_lightning as pl
 import torch
 from lightning_fabric.utilities import seed
 from pytorch_lightning.callbacks import LearningRateMonitor
+from pytorch_lightning.profilers import AdvancedProfiler
 
 # First-party
 from neural_lam import constants, utils, config
+from neural_lam.weather_dataset import WeatherDataset
 from neural_lam.models.graph_efm import GraphEFM
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.diffusion import Diffusion
-from neural_lam.models.swin_u_trans_2 import SwinUTrans2
-from neural_lam.weather_dataset import WeatherDataset
 
 MODELS = {
     "graphcast": GraphCast,
     "graph_fm": GraphFM,
     "graph_efm": GraphEFM,
     "diffusion": Diffusion,
-    "swin_u2": SwinUTrans2,
 }
 
 
@@ -133,13 +132,13 @@ def main(input_args=None):
     parser.add_argument(
         "--encoder_processor_layers",
         type=int,
-        default=2,
+        default=1,
         help="Number of on-mesh GNN layers in encoder GNN (default: 2)",
     )
     parser.add_argument(
         "--prior_processor_layers",
         type=int,
-        default=2,
+        default=1,
         help="Number of on-mesh GNN layers in prior GNN (default: 2)",
     )
     parser.add_argument(
@@ -180,7 +179,7 @@ def main(input_args=None):
     parser.add_argument(
         "--vertical_propnets",
         type=int,
-        default=0,
+        default=0, # TODO: Change to 1 as it is used in the paper
         help="If PropagationNets should be used for all vertical message "
         "passing (g2m, m2g, up in hierarchy), in deterministic models."
         "(default: 0 (no))",
@@ -273,6 +272,12 @@ def main(input_args=None):
         "--lr_scheduler",
         type=str,
         help="Learning rate scheduler to use, supported (cosine), (default: None)",
+    )
+    parser.add_argument(
+        "--sigma_min",
+        type=float,
+        default=0.02,
+        help="Sigma min for training. (default: 0.02)",
     )
 
     # Evaluation options
@@ -375,10 +380,11 @@ def main(input_args=None):
     if args.plot_diffusion_steps:
         max_pred_length = 1
     
-    if args.model == "diffusion":
+    if args.model == "diffusion" and args.eval is None:
         max_pred_length_val = 1
     else:
         max_pred_length_val = max_pred_length
+
     val_loader = torch.utils.data.DataLoader(
         WeatherDataset(
             config_loader.dataset.name,
@@ -431,16 +437,16 @@ def main(input_args=None):
     )
     callbacks.append(LearningRateMonitor(logging_interval='epoch'))
     # Save checkpoints for minimum loss at specific lead times
-    for unroll_time in constants.VAL_STEP_CHECKPOINTS:
-        metric_name = f"val_loss_unroll{unroll_time}"
-        callbacks.append(
-            pl.callbacks.ModelCheckpoint(
-                dirpath=f"saved_models/{run_name}",
-                filename=f"min_{metric_name}",
-                monitor=metric_name,
-                mode="min",
-            )
-        )
+    # for unroll_time in constants.VAL_STEP_CHECKPOINTS:
+    #     metric_name = f"val_loss_unroll{unroll_time}"
+    #     callbacks.append(
+    #         pl.callbacks.ModelCheckpoint(
+    #             dirpath=f"saved_models/{run_name}",
+    #             filename=f"min_{metric_name}",
+    #             monitor=metric_name,
+    #             mode="min",
+    #         )
+    #     )
     logger = pl.loggers.WandbLogger(
         project=args.wandb_project, name=run_name, config=args
     )
@@ -449,6 +455,9 @@ def main(input_args=None):
     # If doing pure autoencoder training (kl_beta = 0), the prior network is not
     # used at all in producing the loss. This is desired, but DDP complains.
     strategy = "ddp" if args.kl_beta > 0 else "ddp_find_unused_parameters_true"
+
+
+    profiler = AdvancedProfiler(dirpath=".", filename="perf_logs") # Profiler for performance logging
 
     trainer = pl.Trainer(
         max_epochs=args.epochs,
@@ -460,6 +469,7 @@ def main(input_args=None):
         callbacks=callbacks,
         check_val_every_n_epoch=args.val_interval,
         precision=args.precision,
+        profiler="simple",
     )
 
     # Only init once, on rank 0 only
@@ -485,6 +495,8 @@ def main(input_args=None):
                 args.batch_size,
                 shuffle=False,
                 num_workers=args.n_workers,
+                pin_memory=True,
+                persistent_workers=True,
             )
     
         print(f"Running evaluation on {args.eval}")
@@ -494,7 +506,7 @@ def main(input_args=None):
         trainer.fit(
             model=model,
             train_dataloaders=train_loader,
-            val_dataloaders=val_loader,
+            # val_dataloaders=val_loader, # No validation during training for diffusion model
             ckpt_path=args.load,
         )
 
