@@ -10,6 +10,7 @@ sweeps
 test_*.sh
 output/
 .vscode
+neural_lam/lam_plotting/lam_eval
 *slurm*
 
 ### Python ###
