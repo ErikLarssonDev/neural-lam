@@ -1,5 +1,6 @@
 # Third-party
 import torch
+import time
 
 # First-party
 from neural_lam import utils
@@ -123,9 +124,10 @@ class BaseGraphModel(ARModel):
         forcing: (B, num_grid_nodes, forcing_dim)
         boundary_forcing: (B, num_boundary_nodes, boundary_forcing_dim)
         """
+        # start_time = time.time()
         batch_size = prev_state.shape[0]
         if emb is None:
-            emb = torch.zeros(prev_state.shape[0], 16, device=prev_state.device)
+            emb = torch.zeros(prev_state.shape[0], 16)
 
         # Create full grid node features of shape (B, num_grid_nodes, grid_dim)
         grid_features = torch.cat(
@@ -199,6 +201,8 @@ class BaseGraphModel(ARModel):
         else:
             pred_delta_mean = net_output
             pred_std = None
+
+        # print(f"Prediction Graph_FM step took {time.time() - start_time:.2f}s")
 
         return pred_delta_mean, pred_std
         # # Rescale with one-step difference statistics

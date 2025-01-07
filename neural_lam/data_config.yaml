@@ -55,7 +55,7 @@ dataset:
     - z_isobaricInhPa_1000_instant
     - z_isobaricInhPa_500_instant
   num_forcing_features: 16
-grid_shape_state: [248, 218] # Using the smaller grid for now, not plotting the border, TODO: Fix so that it is possible to plot the border
+grid_shape_state: [248, 218] # Using the smaller grid for now, not plotting the border
 full_grid_shape_state: [268, 238]
 # grid_shape_state: [268, 238]
 projection:

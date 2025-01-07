@@ -84,7 +84,7 @@ class GraphFM(BaseHiGraphModel):
         mesh_down_rep,
         down_gnns,
         same_gnns,
-        emb,
+        emb=None,
     ):
         """
         Run down-part of vertical processing, sequentially alternating between
@@ -123,7 +123,7 @@ class GraphFM(BaseHiGraphModel):
         return mesh_rep_levels, mesh_same_rep, mesh_down_rep
 
     def mesh_up_step(
-        self, mesh_rep_levels, mesh_same_rep, mesh_up_rep, up_gnns, same_gnns, emb
+        self, mesh_rep_levels, mesh_same_rep, mesh_up_rep, up_gnns, same_gnns, emb=None
     ):
         """
         Run up-part of vertical processing, sequentially alternating between
@@ -162,7 +162,7 @@ class GraphFM(BaseHiGraphModel):
         return mesh_rep_levels, mesh_same_rep, mesh_up_rep
 
     def hi_processor_step(
-        self, mesh_rep_levels, mesh_same_rep, mesh_up_rep, mesh_down_rep, emb
+        self, mesh_rep_levels, mesh_same_rep, mesh_up_rep, mesh_down_rep, emb=None
     ):
         """
         Internal processor step of hierarchical graph models.

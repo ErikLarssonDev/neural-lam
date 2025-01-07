@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -J ddpm_BORDER_GRAPH_FM_400e
+#SBATCH -J processor_layers
 #SBATCH -t 3-00:00:00
-#SBATCH --gpus=1 -C "thin"
+#SBATCH --gpus=1 -C "fat"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=erila85@liu.se
 #
@@ -18,7 +18,7 @@ PYTHON_SCRIPT_PATH="neural_lam.train_model"
 
 MODEL="diffusion" # N_O, WNO2d, diffusion
 DIFFUSION_MODEL="--diffusion_model graph_fm --graph hierarchical"
-RUN_NAME="--wandb_run_name ddpm_BORDER_GRAPH_FM_400e"
+RUN_NAME="--wandb_run_name processor_layers"
 
 # Paths to saved models
 PATH_TO_MODEL="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diff_graph_fm_hier-diffusion-4x64-09_16_13-7088/last.ckpt"
@@ -38,17 +38,46 @@ BORDER_GRAPH_FM="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/
 BORDER_GRAPH_FM_300e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_border_condition_300e-diffusion-6x128-12_06_07-7658/last.ckpt"
 COSINE_BORDER_GRAPH_FM_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/cosine_graph_fm_border_condition_400e-diffusion-6x128-12_09_07-5373/last.ckpt"
 BORDER_GRAPH_FM_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_border_condition_400e-diffusion-6x128-12_09_07-5907/last.ckpt"
+BORDER_GRAPH_FM_500e_sigma_0002="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/BORDER_GRAPH_FM_500e_sigma_0002-diffusion-6x128-12_12_16-6574/last.ckpt"
 
 # Execute Python script with arguments
-python3 neural_lam/train_model.py "--model" $MODEL $DIFFUSION_MODEL "--n_workers" 16 $RUN_NAME --batch_size 4 --val_interval 10 --pred_residual --border_condition --load $BORDER_GRAPH_FM_400e --eval test --subset_ds --sampler ddpm # --lr 0.00001 --epochs 400 --load $BORDER_GRAPH_FM_300e --lr_scheduler cosine #   # --eval test --sampler heun # --plot_diffusion_steps
+python3 neural_lam/train_model.py "--model" $MODEL $DIFFUSION_MODEL --n_workers 16 $RUN_NAME --batch_size 12 --val_interval 10 --pred_residual --border_condition --epochs 200 --vertical_propnets 1 --processor_layers 1 # --lr_scheduler cosine 
 
-# python3 neural_lam/train_model.py --model diffusion --diffusion_model graph_fm --graph hierarchical --pred_residual --batch_size 10 --border_condition --subset_ds --eval test --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_border_condition_400e-diffusion-6x128-12_09_07-5907/last.ckpt
+# Eval
+# "thin" batch size 8
+# "fat" batch size 16
+# N batch size 128
+# python3 neural_lam/train_model.py "--model" $MODEL $DIFFUSION_MODEL --n_workers 16 $RUN_NAME --batch_size 18 --val_interval 10 --pred_residual --border_condition --load $BORDER_GRAPH_FM_400e --eval val --n_example_pred 0 # --sigma_min 0.0002 # --sampler heun # --plot_diffusion_steps
+
+
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model graph_fm --graph hierarchical --pred_residual --batch_size 4 --border_condition --eval test --n_example_pred 0 --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_border_condition_400e-diffusion-6x128-12_09_07-5907/last.ckpt
 # python3 train_model.py --model diffusion --diffusion_model edm --pred_residual --batch_size 4 --wandb_run_name std_1_loss_diff_edm_no_border --val_interval 10 --n_workers 16 # --eval val --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/loss_diff_edm_no_border-diffusion-4x64-10_15_10-5635/last.ckpt
 # python3 neural_lam/train_model.py --model graph_efm --graph hierarchical --pred_residual --batch_size 10 --border_condition --subset_ds --eval test 
 # Sanity check 1: 10 min
 # Sanity check 2: 
 # Batch time training: 0.5 s / batch => 6 min / epoch
 # Batch time validation: train * 19 * 39 = 19 * 39 * 0.5 s = 6 min => 169 * 6 min = 17 h / epoch, estimated 27 h for 1 epochs and 10 min per batch.
+
+# Val size = 673 samples
+# Test size = 2687 samples
+# "thin" node 8 samples per batch => 86 batches
+# "fat" node 16 samples per batch => 43 batches
+# node (8 gpus) 128 samples per batch => 6 batches
+
+# Diffussion model
+# 2 s per forward pass => 80 s per ensemble member => 25 min per 19 step rollout
+# 5 ensembles => 125 min (2h) per 19 step rollout
+# 100 ensembles => 40 (h) per 19 step rollout
+
+# Joel's model
+# Test size 336 samples?
+# 1.4s per ensemble member => 100 ensemble members => 140 s (2.3 min) per 19 step rollout
+# 0.073 per forward pass?
+
+# Max time 72 h
+# Eval val - 48 h, batch size 10 "thin" node
+# Eval test - 144 h, batch size 10 on "thin" node
+# Eval test - 72 h batch size 10 on "fat" node
 
 ############################################################################################################
 # Bash script to create a graph
