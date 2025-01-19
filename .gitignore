@@ -5,6 +5,7 @@ saved_models
 lightning_logs
 data
 graphs
+gifs
 *.sif
 sweeps
 test_*.sh
