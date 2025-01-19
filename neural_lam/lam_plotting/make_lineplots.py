@@ -44,14 +44,37 @@ elif config == "lam":
         "r_65", "t_2", "t_65", "t_500", "t_850", "u_65", "u_850", "v_65",
         "v_850", "wvint_0", "z_1000", "z_500",]
 
-    model_lookup["det_ms"] = ("GraphCast*", "#00B9E7", ":")
-    model_lookup["det_hi"] = ("Graph-FM", "#8981d3", "-.")
-    model_lookup["prob_ms"] = ("Graph-EFM (ms)", "#ff6442", "--")
+    # model_lookup["det_ms"] = ("GraphCast*", "#00B9E7", ":")
+    # model_lookup["det_hi"] = ("Graph-FM", "#8981d3", "-.")
+    # model_lookup["prob_ms"] = ("Graph-EFM (ms)", "#ff6442", "--")
     model_lookup["prob_hi"] = ("Graph-EFM", "#17c7d2", "-")
-    model_lookup["diff_hi"] = ("Graph-Diff", "#e75cd9", "-")
+    # model_lookup["diff_hi"] = ("Graph-Diff", "#ff6442", "-")
+    # model_lookup["diff_hi_2x64_val_5_ens"] = ("Graph-Diff-2x64-val5-ens", "#8981d3", "-")
+    # model_lookup["diff_hi_2x128_val_5_ens"] = ("Graph-Diff-2x128-val5-ens", "#8981d3", "--")
+    # model_lookup["edm_600_val_5"] = ("edm_600_val_5", "#17c7d2", "--")
+    # model_lookup["edm_600_val_25"] = ("edm_600_val_25", "#17c7d2", ":")
+    # model_lookup["edm_800_val_5"] = ("edm_800_val_5", "#17c7d2", "-.")
+    # model_lookup["edm_800_val_25"] = ("edm_800_val_25", "#ff4500", ":")
+    # model_lookup["edm_equal_1000_val_5"] = ("edm_equal_1000_val_5", "#003f5c", ":")
+    # model_lookup["edm_1000_val_5"] = ("edm_1000_val_5", "#2f4b7c", ":")
+    model_lookup["edm_1200_val_5"] = ("edm_1200_val_5", "#665191", "-") 
+    model_lookup["edm_1200_test_5"] = ("edm_1200_test_5", "#a05195", "-.") 
+    model_lookup["edm_1600_val_5"] = ("edm_1600_val_5", "#d45087", ":")
 
-    model_lookup["gc_swa"] = ("GraphCast*+SWA", "#e75cd9",
-            (0, (3, 1, 1, 1, 1, 1)))
+
+# Hex values for plot colors
+#003f5c
+#2f4b7c
+#665191
+#a05195
+#d45087
+#f95d6a
+#ff7c43
+#ffa600
+
+
+    # model_lookup["gc_swa"] = ("GraphCast*+SWA", "#e75cd9",
+    #         (0, (3, 1, 1, 1, 1, 1)))
 
     model_lookup["optimal"] = ("Calibrated", grey_col, "-.")
 
@@ -229,6 +252,6 @@ plot_error_lines(
     line_width=0.8,
     unitless_metrics=["spskr",],
     step_length=step_length,
-    separate_legend=True,
+    separate_legend=True, 
     **kwargs
 )
