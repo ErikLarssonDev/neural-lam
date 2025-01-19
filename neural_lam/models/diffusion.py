@@ -14,7 +14,7 @@ from neural_lam import constants, metrics, utils, vis
 
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
-from neural_lam.models.edm_networks import EDMPrecond
+from neural_lam.models.edm_networks_2 import EDMPrecond
 
 class Diffusion(ARModel):
     """
@@ -25,20 +25,34 @@ class Diffusion(ARModel):
 
         # Some dimensionalities that can be useful to have stored
         self.border_condition = args.border_condition
-        self.input_dim = 3*constants.GRID_STATE_DIM + constants.GRID_FORCING_DIM + constants.BATCH_STATIC_FEATURE_DIM
-        self.output_dim = constants.GRID_STATE_DIM
-
         self.ensemble_size = args.ensemble_size
         self.sigma_min = args.sigma_min
         self.sigma_max = 88
         self.sigma_data = 1
         self.rho = 7
         self.sampler = args.sampler
+        self.noise_aug_prob = args.noise_aug_prob # Probability of augmenting with noise [0, 1]
 
-        self.map_noise = NoiseEmbedding()
+        if args.diffusion_model != 'edm':
+            self.map_noise = NoiseEmbedding()
             
         if args.diffusion_model == 'graph_fm':
             self.model = GraphFM(args)
+        elif args.diffusion_model == 'edm':
+            self.model = EDMPrecond(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
+                                    in_channels=self.grid_dim,
+                                    out_channels=self.grid_output_dim,
+                                    model_type='SongUNet',
+                                    embedding_type=args.noise_embedding,
+                                    obs_mask=self.interior_mask,
+                                    sigma_data=self.sigma_data,
+                                    sigma_min=self.sigma_min,
+                                    sigma_max=self.sigma_max,
+                                    resample_filter=args.resample_filter,
+                                    channel_mult=args.channel_mult,
+                                    encoder_type=args.encoder_type,
+                                    attn_resolutions=args.attn_resolutions,
+                                    )
         else:
             raise ValueError(f"Diffusion model {args.diffusion_model} not recognized")
             
@@ -69,7 +83,7 @@ class Diffusion(ARModel):
                     (pred_std can be ignored by just returning None)
         """
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1) # (B, N_grid, d_input)
-        latents = torch.randn_like(input_grid[:, :, :self.output_dim]) # (B, N_grid, d_state)
+        latents = torch.randn_like(input_grid[:, :, :self.grid_output_dim]) # (B, N_grid, d_state)
 
         # Run through sampler
         if self.sampler == "heun":
@@ -101,7 +115,6 @@ class Diffusion(ARModel):
         pred_std: None or (B, N_grid, d_state), predicted standard-deviations
                     (pred_std can be ignored by just returning None)
         """
-        input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
 
         # Sample from F inverse
         rnd_uniform = torch.rand([prev_state.shape[0], 1, 1], device=prev_state.device)
@@ -110,6 +123,15 @@ class Diffusion(ARModel):
         sigma_min_rho = self.sigma_min ** rho_inv
         sigma = (sigma_max_rho + rnd_uniform * (sigma_min_rho - sigma_max_rho)) ** self.rho
         y = true_state # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
+
+        # Noise augmentation
+        if torch.rand(1) < self.noise_aug_prob:
+            rnd_uniform_aug = torch.empty([prev_state.shape[0], 1, 1], device=prev_state.device).uniform_(0.9, 1) # Previously 0.75, 1
+            sigma_aug = (sigma_max_rho + rnd_uniform_aug * (sigma_min_rho - sigma_max_rho)) ** self.rho
+            prev_state += torch.randn_like(prev_state) * sigma_aug
+            prev_prev_state += torch.randn_like(prev_prev_state) * sigma_aug
+      
+        input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
 
         # Make y residual if needed
         if self.pred_residual:
@@ -146,15 +168,9 @@ class Diffusion(ARModel):
             for i in range(pred_steps):
                 forcing = forcing_features[:, i]
                 border_state = boundary_forcing[:, i]
-                start_time = time.time()
                 pred_state, pred_std = self.predict_step(
                     prev_state, prev_prev_state, forcing, border_state
                 )
-                print("")
-                print(f"Time taken for prediction step {i}: {time.time()-start_time}")
-                print("")
-                # state: (B, num_grid_nodes, d_f)
-                # pred_std: (B, num_grid_nodes, d_f) or None
         
                 new_state = pred_state
         
@@ -170,60 +186,14 @@ class Diffusion(ARModel):
                 prediction_list, dim=1
             )  # (B, pred_steps, num_grid_nodes, d_f)
             if self.output_std:
-                pred_std = torch.stack(
-                    pred_std_list, dim=1
-                )  # (B, pred_steps, num_grid_nodes, d_f)
+                # pred_std = torch.stack(
+                #     pred_std_list, dim=1
+                # )  # (B, pred_steps, num_grid_nodes, d_f)
+                pred_std = torch.tensor(1, device=init_states.device) # Using the same weights for all variables
             else:
                 pred_std = self.per_var_std  # (d_f,)
 
             return prediction, pred_std
-
-            # Preallocate tensors for predictions and standard deviations
-            # predictions = torch.empty(
-            #     (init_states.size(0), pred_steps, init_states.size(2), init_states.size(3)),
-            #     device=init_states.device
-            # )  # Shape: (B, pred_steps, num_grid_nodes, d_f)
-
-            # if self.output_std:
-            #     pred_stds = torch.empty_like(predictions)  # Same shape as predictions
-            # else:
-            #     pred_stds = None
-
-            # # Initialize previous states
-            # prev_prev_state = init_states[:, 0]  # Shape: (B, num_grid_nodes, d_f)
-            # prev_state = init_states[:, 1]  # Shape: (B, num_grid_nodes, d_f)
-
-            # for i in range(pred_steps):
-            #     forcing = forcing_features[:, i]  # Shape: (B, num_grid_nodes, d_static_f)
-            #     border_state = boundary_forcing[:, i]  # Shape: (B, num_grid_nodes, d_f)
-
-            #     start_time = time.time()
-                
-            #     # Predict next state
-            #     pred_state, pred_std = self.predict_step(
-            #         prev_state, prev_prev_state, forcing, border_state
-            #     )
-
-            #     print("")
-            #     print(f"Time taken for prediction step {i}: {time.time() - start_time}")
-            #     print("")
-
-            #     # Update preallocated tensors
-            #     predictions[:, i] = pred_state  # Assign predicted state at step i
-            #     if self.output_std:
-            #         pred_stds[:, i] = pred_std  # Assign predicted std at step i
-
-            #     # Update conditioning states
-            #     prev_prev_state = prev_state
-            #     prev_state = pred_state
-
-            # # Return results
-            # if self.output_std:
-            #     pred_std = pred_stds  # (B, pred_steps, num_grid_nodes, d_f)
-            # else:
-            #     pred_std = self.per_var_std  # (d_f,)
-
-            # return predictions, pred_std
 
     def unroll_prediction_train(self, init_states, forcing_features, true_states, boundary_forcing):
         """
@@ -277,6 +247,7 @@ class Diffusion(ARModel):
             # pred_std = self.per_var_std  # (d_f,)
         else:
             pred_std = self.per_var_std  # (d_f,)
+            # pred_std = 1 # Testing equal weights
 
         return prediction, pred_std, weight
 
@@ -375,33 +346,6 @@ class Diffusion(ARModel):
         # start_time = time.time()
         # batch_size = init_states.shape[0]  # Number of batches (B)
         # traj_list = []
-
-        # for b in range(batch_size):  # Iterate over batches
-        #     print(f"Processing batch {b + 1}/{batch_size}...")
-
-        #     start_time = time.time()
-
-        #     # Expand the batch to include the trajectory dimension
-        #     expanded_init_states = init_states[b].unsqueeze(0).repeat(num_traj, *([1] * (init_states.ndim - 1)))
-        #     expanded_forcing_features = forcing_features[b].unsqueeze(0).repeat(num_traj, *([1] * (forcing_features.ndim - 1)))
-        #     expanded_boundary_forcing = (
-        #         boundary_forcing[b].unsqueeze(0).repeat(num_traj, *([1] * (boundary_forcing.ndim - 1)))
-        #         if boundary_forcing is not None
-        #         else None
-        #     )
-
-        #     # Compute all trajectories in a single batch operation
-        #     traj_batch = unroll_func(
-        #         expanded_init_states,
-        #         expanded_forcing_features,
-        #         expanded_boundary_forcing,
-        #     )
-
-        #     traj_list.append(traj_batch)
-
-        #     end_time = time.time()
-        #     elapsed_time = end_time - start_time
-        #     print(f"Batch {b + 1} completed in {elapsed_time:.2f} seconds")
         
         # traj_list = [
         #     unroll_func(
@@ -414,8 +358,8 @@ class Diffusion(ARModel):
 
         traj_list = []
         for i in range(num_traj):
-            print(f"Starting trajectory {i + 1}/{num_traj}...")
-            start_time = time.time()
+            # print(f"Starting trajectory {i + 1}/{num_traj}...")
+            # start_time = time.time()
             
             traj = unroll_func(
                 init_states,
@@ -423,38 +367,10 @@ class Diffusion(ARModel):
                 boundary_forcing,
             )
             
-            end_time = time.time()
-            elapsed_time = end_time - start_time
-            print(f"Trajectory {i + 1} completed in {elapsed_time:.2f} seconds")
+            # end_time = time.time()
+            # elapsed_time = end_time - start_time
+            # print(f"Trajectory {i + 1} completed in {elapsed_time:.2f} seconds")
             traj_list.append(traj)
-        print("")
-        print(f"Time taken for sampling trajectories: {time.time()-start_time}")
-        print("")
-        # Example: Known shape of each trajectory
-        # B, pred_steps, num_grid_nodes, d_f = init_states.shape[0], forcing_features.shape[1], init_states.shape[2], init_states.shape[3]
-        # traj_tensor = torch.empty((num_traj, B, pred_steps, num_grid_nodes, d_f), device=init_states.device)
-
-        # for i in range(num_traj):
-        #     print(f"Starting trajectory {i + 1}/{num_traj}...")
-        #     start_time = time.time()
-            
-        #     traj = unroll_func(
-        #         init_states,
-        #         forcing_features,
-        #         boundary_forcing,
-        #     )
-            
-        #     end_time = time.time()
-        #     elapsed_time = end_time - start_time
-        #     print(f"Trajectory {i + 1} completed in {elapsed_time:.2f} seconds")
-            
-        #     # Directly assign to the preallocated tensor
-        #     traj_tensor[i] = traj
-
-        # print("")
-        # print(f"Time taken for sampling trajectories: {time.time() - start_time}")
-        # print("")
-
 
         # List of tuples, each containing
         # mean: (B, pred_steps, num_grid_nodes, d_f) and
@@ -468,7 +384,7 @@ class Diffusion(ARModel):
                 [pred_pair[1] for pred_pair in traj_list], dim=1
             )
         else:
-            traj_stds = self.per_var_std[constants.USED_PARAMS]
+            traj_stds = self.per_var_std[constants.USED_PARAMS] # TODO: Check if this is correct, self.per_var_std = self.step_diff_std / torch.sqrt(self.param_weights)
         
         return traj_means, traj_stds
     
@@ -789,48 +705,8 @@ class Diffusion(ARModel):
         num_steps=20, sigma_min=0.03, sigma_max=80, rho=7,
         S_churn=2.5, S_min=0.75, S_max=80, S_noise=1.05,
     ):
-        diff_steps = []
+        # diff_steps = []
 
-        # Adjust noise levels based on what's supported by the network.
-        sigma_min = max(sigma_min, self.sigma_min)
-        sigma_max = min(sigma_max, self.sigma_max)
-
-        # Time step discretization.
-        step_indices = torch.arange(num_steps)
-        t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
-        t_steps = torch.cat([self.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]) # t_N = 0
-
-        # Main sampling loop.
-        x_next = latents * t_steps[0]
-        for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
-            x_cur = x_next
-            diff_steps.append(x_cur)
-
-            # Increase noise temporarily.
-            gamma = min(S_churn / num_steps, np.sqrt(2) - 1) if S_min <= t_cur <= S_max else 0
-            t_hat = self.round_sigma(t_cur + gamma * t_cur)
-            x_hat = x_cur + (t_hat ** 2 - t_cur ** 2).sqrt() * S_noise * randn_like(x_cur)
-
-            # Euler step.
-            denoised = self.forward(x_hat, t_hat, class_labels=class_labels, boundary_forcing=boundary_forcing)
-            d_cur = (x_hat - denoised) / t_hat
-            x_next = x_hat + (t_next - t_hat) * d_cur
-
-            # Apply 2nd order correction.
-            if i < num_steps - 1:
-                denoised = self.forward(x_next, t_next, class_labels=class_labels, boundary_forcing=boundary_forcing)
-                d_prime = (x_next - denoised) / t_next
-                x_next = x_hat + (t_next - t_hat) * (0.5 * d_cur + 0.5 * d_prime)
-
-        return x_next, diff_steps
-
-    #----------------------------------------------------------------------------
-    # Proposed Heun sampler (Algorithm 1).
-    def heun_sampler(
-        self, latents, class_labels=None, boundary_forcing=None, randn_like=torch.randn_like,
-        num_steps=20, sigma_min=0.03, sigma_max=80, rho=7,
-    ):
-        diff_steps = []
         # Adjust noise levels based on what's supported by the network.
         sigma_min = max(sigma_min, self.sigma_min)
         sigma_max = min(sigma_max, self.sigma_max)
@@ -844,12 +720,56 @@ class Diffusion(ARModel):
         x_next = latents * t_steps[0]
         for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
             x_cur = x_next
-            diff_steps.append(x_cur)
+            # diff_steps.append(x_cur)
+
+            # Increase noise temporarily.
+            gamma = min(S_churn / num_steps, np.sqrt(2) - 1) if S_min <= t_cur <= S_max else 0
+            t_hat = torch.as_tensor(t_cur + gamma * t_cur, device=latents.device)
+            x_hat = x_cur + (t_hat ** 2 - t_cur ** 2).sqrt() * S_noise * randn_like(x_cur, device=latents.device)
 
             # Euler step.
-            # start_time = time.time()
+            denoised = self.forward(x_hat, t_hat, class_labels=class_labels, boundary_forcing=boundary_forcing)
+            d_cur = (x_hat - denoised) / t_hat
+            x_next = x_hat + (t_next - t_hat) * d_cur
+
+            # Apply 2nd order correction.
+            if i < num_steps - 1:
+                denoised = self.forward(x_next, t_next, class_labels=class_labels, boundary_forcing=boundary_forcing)
+                d_prime = (x_next - denoised) / t_next
+                x_next = x_hat + (t_next - t_hat) * (0.5 * d_cur + 0.5 * d_prime)
+
+        return x_next, None
+
+    #----------------------------------------------------------------------------
+    # Proposed Heun sampler (Algorithm 1).
+    def heun_sampler(
+        self, latents, class_labels=None, boundary_forcing=None, randn_like=torch.randn_like,
+        num_steps=20, sigma_min=0.03, sigma_max=80, rho=7,
+    ):
+
+
+        # Adjust noise levels based on what's supported by the network.
+        sigma_min = max(sigma_min, self.sigma_min)
+        sigma_max = min(sigma_max, self.sigma_max)
+
+        # Time step discretization.
+        step_indices = torch.arange(num_steps)
+        t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
+        t_steps = torch.cat([torch.as_tensor(t_steps, device=latents.device), torch.zeros_like(t_steps[:1], device=latents.device)]) # t_N = 0
+
+        # Main sampling loop.
+        x_next = latents * t_steps[0]
+        for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
+            x_cur = x_next
+
+            # Euler step.
+            # start = torch.cuda.Event(enable_timing=True)
+            # end = torch.cuda.Event(enable_timing=True)
+            # start.record()
             denoised = self.forward(x_cur, t_cur, class_labels=class_labels, boundary_forcing=boundary_forcing)
-            # print(f"Time taken for forward pass: {time.time()-start_time}")
+            # end.record()
+            # torch.cuda.synchronize()
+            # print(f"Model inference {start.elapsed_time(end)/1000}s")
 
             d_cur = (x_cur - denoised) / t_cur      
             x_next = x_cur + (t_next - t_cur) * d_cur
@@ -860,7 +780,7 @@ class Diffusion(ARModel):
                 d_prime = (x_next - denoised) / t_next   
                 x_next = x_cur + (t_next - t_cur) * (0.5 * d_cur + 0.5 * d_prime)
 
-        return x_next, diff_steps
+        return x_next, None
 
 #----------------------------------------------------------------------------
 
@@ -870,7 +790,7 @@ class Diffusion(ARModel):
         num_steps=20, sigma_min=0.03, sigma_max=80, rho=7,
         S_churn=2.5, S_min=0.75, S_max=80, S_noise=1.05, r=0.5,
     ):
-        diff_steps = []
+        # diff_steps = []
 
         time_steps = torch.arange(0, num_steps) / (num_steps - 1)
         sigmas = (sigma_max ** (1 / rho)+ time_steps * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
@@ -881,7 +801,7 @@ class Diffusion(ARModel):
         x = sigmas[0] * latents
 
         for i in range(len(sigmas) - 1):
-            diff_steps.append(x)
+            # diff_steps.append(x)
             # stochastic churn from Karras et al. (Alg. 2)
             gamma = (
                 min(S_churn / num_steps, math.sqrt(2) - 1)
@@ -914,11 +834,19 @@ class Diffusion(ARModel):
                 D = (1 - 1 / (2 * r)) * denoised + 1 / (2 * r) * denoised_2
                 x = sigmas[i + 1] / sigma_hat * x - (torch.exp(-h) - 1) * D
 
-        return x, diff_steps
+        return x, None
         
 
-    def forward(self, x, sigma, class_labels=None, boundary_forcing=None, force_fp32=False, **model_kwargs):               
-        x = x
+    def forward(self, x, sigma, class_labels=None, boundary_forcing=None, force_fp32=False, **model_kwargs):
+        # start = torch.cuda.Event(enable_timing=True)
+        # end = torch.cuda.Event(enable_timing=True)
+        # start.record()
+        if self.diffusion_model == "edm":
+            return self.model(x, sigma, class_labels=class_labels, boundary_forcing=boundary_forcing, **model_kwargs)
+        # end.record()
+        # torch.cuda.synchronize()
+        # print(f"EDM inference {start.elapsed_time(end)/1000}s")
+
         sigma = sigma.reshape(-1, 1, 1)
 
         c_skip = self.sigma_data ** 2 / (sigma ** 2 + self.sigma_data ** 2)
@@ -933,8 +861,14 @@ class Diffusion(ARModel):
     def model_forward(self, x, noise_labels, class_labels, boundary_forcing):
         # Mapping.
         emb = self.map_noise(noise_labels).unsqueeze(1).expand(x.shape[0], 1, -1)
+        # start = torch.cuda.Event(enable_timing=True)
+        # end = torch.cuda.Event(enable_timing=True)
+        # start.record()
 
         next_state, _ = self.model.predict_step(x, class_labels[:, :, :len(constants.USED_PARAMS)*2], class_labels[:, :, len(constants.USED_PARAMS)*2:], boundary_forcing, emb)
+        # end.record()
+        # torch.cuda.synchronize()
+        # print(f"GraphFM inference {start.elapsed_time(end)/1000}s")
 
         return next_state
     
