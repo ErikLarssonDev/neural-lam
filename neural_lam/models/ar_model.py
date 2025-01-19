@@ -525,10 +525,7 @@ class ARModel(pl.LightningModule):
             )  # (N_eval, pred_steps, d_f)
 
             if self.trainer.is_global_zero:
-                print(f"metric_name: {metric_name}")
-                print(f"metric_tensor shape: {metric_tensor.shape}")
                 metric_tensor_averaged = torch.mean(metric_tensor, dim=0)
-                print(f"metric_tensor_averaged shape: {metric_tensor_averaged.shape}")
                 # (pred_steps, d_f)
 
                 # Take square root after averaging to change squared metrics

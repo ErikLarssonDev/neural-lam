@@ -26,6 +26,9 @@ MODELS = {
     "diffusion": Diffusion,
 }
 
+def list_of_ints(arg):
+    return list(map(int, arg.split(',')))
+
 
 def main(input_args=None):
     """
@@ -280,6 +283,47 @@ def main(input_args=None):
         help="Sigma min for training. (default: 0.02)",
     )
 
+    # EDM Options
+    # resample_filter=args.resample_filter,
+    parser.add_argument(
+        "--resample_filter",
+        type=list_of_ints,
+        default="1,1",
+        help="Resample filter for edm model (default: 1,1 or 1,3,3,1)",
+    )
+    # channel_mult=args.channel_mult,
+    parser.add_argument(
+        "--channel_mult",
+        type=list_of_ints,
+        default="1,2,2,2",
+        help="Channel multiplier for edm model (depth and width of UNET) (default: 1,2,2,2)",
+    )
+
+    # encoder_type=args.encoder_type,
+    parser.add_argument(
+        "--encoder_type",
+        type=str,
+        default="standard",
+        help="Type of encoder to use in edm model (standard/residual/skip)"
+        "(default: 'standard')",
+    )
+
+    # attn_resolutions=args.attn_resolutions
+    parser.add_argument(
+        "--attn_resolutions",
+        type=list_of_ints,
+        default="1",
+        help="Resolutions to apply attention to in edm model (default: '1')",
+    )
+
+    parser.add_argument(
+        "--noise_embedding",
+        type=str,
+        default="fourier",
+        help="Type of encoder to use in edm model (positional/fourier)"
+        "(default: 'fourier')",
+    )
+
     # Evaluation options
     parser.add_argument(
         "--eval",
@@ -305,6 +349,12 @@ def main(input_args=None):
         action="store_true",
         help="If the diffusion steps should be saved, only one time step is saved",
     )
+    parser.add_argument(
+        "--noise_aug_prob",
+        type=float,
+        default=0,
+        help="Probability of noise augmentation for training (default: 0)",
+    )
 
 
     # Logger Settings
@@ -312,7 +362,7 @@ def main(input_args=None):
         "--wandb_project",
         type=str,
         default="neural-lam_prob",
-        help="Wandb run name (default: 'neural-lam_prob')",
+        help="Wandb run project (default: 'neural-lam_prob')",
     )
     parser.add_argument(
         "--wandb_run_name",
@@ -457,7 +507,7 @@ def main(input_args=None):
     strategy = "ddp" if args.kl_beta > 0 else "ddp_find_unused_parameters_true"
 
 
-    profiler = AdvancedProfiler(dirpath=".", filename="perf_logs") # Profiler for performance logging
+    # profiler = AdvancedProfiler(dirpath=".", filename="perf_logs") # Profiler for performance logging
 
     trainer = pl.Trainer(
         max_epochs=args.epochs,
@@ -479,6 +529,9 @@ def main(input_args=None):
         )  # Do after wandb.init
 
     if args.eval:
+        # if args.diffusion_model == "edm":
+        #     model = torch.compile(model)
+
         if args.eval == "val":
             eval_loader = val_loader
         else:  # Test

@@ -1,7 +1,8 @@
 #!/bin/bash
-#SBATCH -J processor_layers
-#SBATCH -t 3-00:00:00
-#SBATCH --gpus=1 -C "fat"
+#SBATCH -J EDM_RES_1200e
+#SBATCH -t 0-05:00:00
+#SBATCH --gpus=8
+#SBATCH -C "fat"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=erila85@liu.se
 #
@@ -13,35 +14,57 @@ wandb online
 cd /proj/berzelius-2022-164/users/x_erila/neural-lam
 git switch prob-model-boundary
 
-# Path to your Python script
-PYTHON_SCRIPT_PATH="neural_lam.train_model"
-
-MODEL="diffusion" # N_O, WNO2d, diffusion
-DIFFUSION_MODEL="--diffusion_model graph_fm --graph hierarchical"
-RUN_NAME="--wandb_run_name processor_layers"
+# Standard arguments
+MODEL="--model diffusion"
+DIFFUSION_MODEL="--diffusion_model graph_fm --graph hierarchical-3"
+RUN_NAME="--wandb_run_name EDM_RES_1200e"
 
 # Paths to saved models
-PATH_TO_MODEL="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diff_graph_fm_hier-diffusion-4x64-09_16_13-7088/last.ckpt"
-DIFFUSION_MODEL_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diff_graph_fm_hier_400e-diffusion-4x64-09_23_09-3756/last.ckpt"
-DIFFUSION_GRAPH_FM_CON_NORM_200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diff_con_layer_norm_res-diffusion-4x64-10_03_10-5623/last.ckpt"
-LOSS_DIFF_GRAPH_CON_NORM_RES="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/loss_res_graph_fm_con_norm_no_border-diffusion-4x64-10_15_11-6256/last.ckpt"
-LOSS_DIFF_EDM_CON_NORM_RES="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/loss_diff_edm_no_border-diffusion-4x64-10_15_10-5635/last.ckpt"
-NORM_LOSS_DIFF_GRAPH_CON_NORM_RES="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/norm_res-diffusion-4x64-10_29_14-5875/last.ckpt"
-NORM_LOSS_DIFF_EDM="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/edm_res-diffusion-6x128-10_31_09-3448/last.ckpt"
-NORM_LOSS_STATE_EDM="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/edm_state-diffusion-6x128-10_31_09-9003/last.ckpt"
-NORM_LOSS_RES_GRAPH_FM="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm-diffusion-6x128-10_31_09-8082/last.ckpt"
-NORM_LOSS_STATE_GRAPH_FM="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_state-diffusion-6x128-10_31_09-1230/last.ckpt"
-NORM_LOSS_RES_GRAPH_FM_SIGMA_002="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_sigmamin_0.002-diffusion-6x128-11_07_11-2917/last.ckpt"
-NORM_LOSS_RES_GRAPH_FM_SIGMA_0002="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_sigmamin_0.0002-diffusion-6x128-11_07_11-8652/last.ckpt"
-NORM_LOSS_RES_GRAPH_FM_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_sigmamin_0.0002-diffusion-6x128-11_08_10-2170/last.ckpt"
-BORDER_GRAPH_FM="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_border_condition-diffusion-6x128-12_02_14-8805/last.ckpt"
-BORDER_GRAPH_FM_300e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_border_condition_300e-diffusion-6x128-12_06_07-7658/last.ckpt"
-COSINE_BORDER_GRAPH_FM_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/cosine_graph_fm_border_condition_400e-diffusion-6x128-12_09_07-5373/last.ckpt"
 BORDER_GRAPH_FM_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_border_condition_400e-diffusion-6x128-12_09_07-5907/last.ckpt"
 BORDER_GRAPH_FM_500e_sigma_0002="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/BORDER_GRAPH_FM_500e_sigma_0002-diffusion-6x128-12_12_16-6574/last.ckpt"
+level_3_200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diff_128x2-diffusion-2x128-01_08_16-3450/last.ckpt"
+level_3_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/3_level-diffusion-2x128-01_09_13-1229/last.ckpt" # Maybe 0298 will be better
+level_3_64_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/3_level-diffusion-2x64-01_09_13-0555/last.ckpt"
+EDM_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diffusion-6x128-01_09_16-5035/last.ckpt"
+
+level_3_600e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_128_600e-diffusion-2x128-01_10_09-8022/last.ckpt"
+level_3_64_600e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_128_600e-diffusion-2x64-01_10_09-3224/last.ckpt"
+EDM_600e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diffusion-6x128-01_10_09-8192/last.ckpt"
+EDM_800e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diffusion-6x128-01_10_18-1813/last.ckpt"
+EDM_1000e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/edm_1000e-diffusion-6x128-01_13_11-7178/last.ckpt"
+EDM_EQUAL_1000e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/edm_equal-diffusion-6x128-01_13_10-4867/last.ckpt"
+EDM_LARGE_600e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_large-diffusion-6x128-01_12_17-5739/last.ckpt"
+EDM_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1200e-diffusion-6x128-01_14_08-9197/last.ckpt"
+EDM_1600e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1600e-diffusion-6x128-01_17_00-4121/last.ckpt"
+
+EDM_1800e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1800e-diffusion-6x128-01_17_21-0168/last.ckpt"
+EDM_RES_1000e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_RESIDUAL_1000e-diffusion-6x128-01_17_14-1630/last.ckpt"
+EDM_NOISE_1800e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/NOISE_EDM_1800e-diffusion-6x128-01_17_21-7249/last.ckpt"
+
+EDM_1400e_NOISE="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1400e_NOISE-diffusion-6x128-01_18_11-3482/last.ckpt"
+EDM_1400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1400e-diffusion-6x128-01_18_11-5436/last.ckpt"
+EDM_2000e_NOISE="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_NOISE_2000e-diffusion-6x128-01_18_09-9304/last.ckpt"
+
 
 # Execute Python script with arguments
-python3 neural_lam/train_model.py "--model" $MODEL $DIFFUSION_MODEL --n_workers 16 $RUN_NAME --batch_size 12 --val_interval 10 --pred_residual --border_condition --epochs 200 --vertical_propnets 1 --processor_layers 1 # --lr_scheduler cosine 
+# Train
+# python3 neural_lam/train_model.py $MODEL $DIFFUSION_MODEL $RUN_NAME --n_workers 16 --pred_residual --border_condition --vertical_propnets 1 --batch_size 12  --processor_layers 2 --hidden_dim 128 --epochs 800 --load $level_3_600e --lr 0.0001
+python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 1200 --batch_size 12 --load $EDM_RES_1000e --lr 0.00001 --encoder_type residual # --noise_aug_prob 0.5
+
+# Test
+# python3 neural_lam/train_model.py $MODEL $DIFFUSION_MODEL $RUN_NAME --n_workers 2 --pred_residual --border_condition --vertical_propnets 1 --batch_size 18  --processor_layers 2 --hidden_dim 128 --eval val --n_example_pred 0 --ensemble_size 5 --load $level_3_600e
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME --n_workers 2 --pred_residual --border_condition --eval val --n_example_pred 1 --batch_size 8 --ensemble_size 5 --load $EDM_2000e_NOISE 
+
+# Trial train
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --graph hierarchical-3 --n_workers 16 --pred_residual --border_condition --vertical_propnets 1 --batch_size 12  --processor_layers 2 --hidden_dim 128
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --n_workers 16 --pred_residual --border_condition --resample_filter [1,3,3,1] --channel_mult [2, 2, 2, 2] --encoder_type standard --attn_resolutions [134, 68, 34, 18]
+
+# Trial test
+# Batch size 18 for GraphFM
+# Batch size (56 max but 32 more stable) for EDM
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model graph_fm --graph hierarchical-3 --n_workers 2 --pred_residual --border_condition --vertical_propnets 1 --eval test --n_example_pred 0 --batch_size 18 --processor_layers 2 --hidden_dim 128
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --n_workers 2 --pred_residual --border_condition --eval test --n_example_pred 0 --batch_size 4 --ensemble_size 5 --sampler edm
+
 
 # Eval
 # "thin" batch size 8
@@ -49,8 +72,9 @@ python3 neural_lam/train_model.py "--model" $MODEL $DIFFUSION_MODEL --n_workers 
 # N batch size 128
 # python3 neural_lam/train_model.py "--model" $MODEL $DIFFUSION_MODEL --n_workers 16 $RUN_NAME --batch_size 18 --val_interval 10 --pred_residual --border_condition --load $BORDER_GRAPH_FM_400e --eval val --n_example_pred 0 # --sigma_min 0.0002 # --sampler heun # --plot_diffusion_steps
 
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model graph_fm --graph hierarchical-3 --pred_residual --border_condition --eval test --n_example_pred 0 --batch_size 18 --vertical_propnets 1 --processor_layers 1 --n_workers 16
 
-# python3 neural_lam/train_model.py --model diffusion --diffusion_model graph_fm --graph hierarchical --pred_residual --batch_size 4 --border_condition --eval test --n_example_pred 0 --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_border_condition_400e-diffusion-6x128-12_09_07-5907/last.ckpt
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model graph_fm --graph hierarchical --pred_residual --border_condition --eval test --n_example_pred 0 --batch_size 18 --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_border_condition_400e-diffusion-6x128-12_09_07-5907/last.ckpt 
 # python3 train_model.py --model diffusion --diffusion_model edm --pred_residual --batch_size 4 --wandb_run_name std_1_loss_diff_edm_no_border --val_interval 10 --n_workers 16 # --eval val --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/loss_diff_edm_no_border-diffusion-4x64-10_15_10-5635/last.ckpt
 # python3 neural_lam/train_model.py --model graph_efm --graph hierarchical --pred_residual --batch_size 10 --border_condition --subset_ds --eval test 
 # Sanity check 1: 10 min
@@ -58,7 +82,7 @@ python3 neural_lam/train_model.py "--model" $MODEL $DIFFUSION_MODEL --n_workers 
 # Batch time training: 0.5 s / batch => 6 min / epoch
 # Batch time validation: train * 19 * 39 = 19 * 39 * 0.5 s = 6 min => 169 * 6 min = 17 h / epoch, estimated 27 h for 1 epochs and 10 min per batch.
 
-# Val size = 673 samples
+# Val size = 673 samples (ca 1/3 of test data)
 # Test size = 2687 samples
 # "thin" node 8 samples per batch => 86 batches
 # "fat" node 16 samples per batch => 43 batches

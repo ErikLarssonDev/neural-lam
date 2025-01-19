@@ -300,7 +300,7 @@ class ConditionalLayerNorm(nn.Module):
         return self.layer_norm(x) * scale + offset
 
 class MLP(nn.Module):
-    def __init__(self, blueprint, layer_norm):
+    def __init__(self, blueprint, layer_norm, noise_level_dim=16):
         super(MLP, self).__init__()
         hidden_layers = len(blueprint) - 2
         assert hidden_layers >= 0, "Invalid MLP blueprint"
@@ -317,7 +317,7 @@ class MLP(nn.Module):
         if layer_norm:
             # self.layer_norm = (nn.LayerNorm(blueprint[-1]))
             # self.affine = nn.Linear(16, blueprint[-1]) # 16 is the embedding size of the noise vector
-            self.layer_norm = ConditionalLayerNorm(blueprint[-1])
+            self.layer_norm = ConditionalLayerNorm(blueprint[-1], noise_level_dim)
         else:
             self.layer_norm = None
 
@@ -328,7 +328,7 @@ class MLP(nn.Module):
             x = self.layer_norm(x, emb)
         return x
     
-def make_mlp(blueprint, layer_norm=True):
+def make_mlp(blueprint, layer_norm=True, noise_level_dim=16):
     """
     Create MLP from list blueprint, with
     input dimensionality: blueprint[0]
@@ -352,7 +352,7 @@ def make_mlp(blueprint, layer_norm=True):
     # if layer_norm:
     #     layers.append(nn.LayerNorm(blueprint[-1]))
 
-    return MLP(blueprint, layer_norm) # nn.Sequential(*layers)
+    return MLP(blueprint, layer_norm, noise_level_dim) # nn.Sequential(*layers)
 
 
 def fractional_plot_bundle(fraction):

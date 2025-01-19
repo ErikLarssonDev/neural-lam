@@ -155,6 +155,7 @@ class BaseGraphModel(ARModel):
         # (B, num_boundary_nodes, d_h)
         g2m_emb = self.g2m_embedder(self.g2m_features, emb)  # (M_g2m, d_h)
         m2g_emb = self.m2g_embedder(self.m2g_features, emb)  # (M_m2g, d_h)
+
         mesh_emb = self.embedd_mesh_nodes(emb)
 
         # Merge interior and boundary emb into input embedding
