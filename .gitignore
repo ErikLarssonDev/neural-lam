@@ -5,14 +5,13 @@ saved_models
 lightning_logs
 data
 graphs
-gifs
 *.sif
 sweeps
 test_*.sh
-output/
 .vscode
-neural_lam/lam_plotting/lam_eval
 *slurm*
+.DS_Store
+*DS_Store
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
