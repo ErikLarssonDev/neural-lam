@@ -8,12 +8,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xa
 from tueplots import figsizes
+import torch
 
 # First-party
 from neural_lam import constants, utils
 
 PLOT_DIR_NAME = "line_plots"
 
+# Load static features for grid/data
+static_data_dict = utils.load_static_data("meps")
 
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
 def plot_error_lines(
@@ -35,6 +38,10 @@ def plot_error_lines(
     """
     model_order_index = {m: i for i, m in enumerate(model_lookup.keys())}
 
+    var_names = np.concatenate([var_names, np.array(["Mean"])])
+    var_units = np.concatenate([var_units, np.array([""])])
+
+
     # Load all data
     error_file_paths = {
         metric_name: glob.glob(
@@ -49,13 +56,15 @@ def plot_error_lines(
         if file_paths:  # Only for metrics that exist
             # Some files with this error exists
             err_array_dict = {}
-
+ 
+                                            
             for file_path in file_paths:
                 base_file_name = os.path.basename(file_path)
                 model_name = "_".join(base_file_name.split("_")[:-1])
 
                 err_array = np.genfromtxt(file_path, delimiter=",")
-                err_array_dict[model_name] = err_array
+                mean_error = np.mean(err_array / static_data_dict["data_std"].numpy(), axis=1, keepdims=True)
+                err_array_dict[model_name] = np.concatenate([err_array, mean_error], axis=1)
 
             error_arrays[metric_name] = err_array_dict
 
@@ -108,6 +117,7 @@ def plot_error_lines(
             # These are set arbitrarily
             fig, ax = plt.subplots(figsize=(tue_width / 3, 0.8 * tue_height))
 
+
             # Add error curves from metric_arrays
             model_curves = {}
             for model_name, errors in metric_arrays.items():
@@ -115,7 +125,7 @@ def plot_error_lines(
                     errors[:, var_i],
                     default_lead_times,
                 )
-
+               
             # Add error curves from xa_results
             for model_name, res_xds in xa_results.items():
                 if var_name in res_xds:
@@ -189,6 +199,7 @@ def plot_error_lines(
             # Style figure
             if not separate_legend:
                 ax.legend(handlelength=1.5, loc="lower right", ncol=2, columnspacing=0.6)
+            # ax.set_title(f"{var_name}")
             ax.set_xticks(xticks)
             ax.set_xticklabels(xtick_labels)
             ax.set_xlabel("Lead time (Days)")
