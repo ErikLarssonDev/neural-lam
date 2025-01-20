@@ -12,6 +12,8 @@ test_*.sh
 *slurm*
 .DS_Store
 *DS_Store
+gifs
+lam_eval
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
