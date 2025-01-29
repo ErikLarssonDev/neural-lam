@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH -J EDM_2000e
-#SBATCH -t 0-05:00:00
+#SBATCH -J EDM_ddpm_sampler_1200e
+#SBATCH -t 3-00:00:00
 #SBATCH --gpus=8
 #SBATCH -C "fat"
 #SBATCH --mail-type=ALL
@@ -17,7 +17,7 @@ git switch prob-model-boundary
 # Standard arguments
 MODEL="--model diffusion"
 DIFFUSION_MODEL="--diffusion_model graph_fm --graph hierarchical-3"
-RUN_NAME="--wandb_run_name EDM_2000e"
+RUN_NAME="--wandb_run_name EDM_ddpm_sampler_1200e"
 
 # Paths to saved models
 BORDER_GRAPH_FM_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_border_condition_400e-diffusion-6x128-12_09_07-5907/last.ckpt"
@@ -34,7 +34,7 @@ EDM_800e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diffusi
 EDM_1000e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/edm_1000e-diffusion-6x128-01_13_11-7178/last.ckpt"
 EDM_EQUAL_1000e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/edm_equal-diffusion-6x128-01_13_10-4867/last.ckpt"
 EDM_LARGE_600e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_large-diffusion-6x128-01_12_17-5739/last.ckpt"
-EDM_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1200e-diffusion-6x128-01_14_08-9197/last.ckpt"
+EDM_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1200e-diffusion-6x128-01_14_08-9197/last.ckpt" # Best model
 EDM_1600e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1600e-diffusion-6x128-01_17_00-4121/last.ckpt"
 
 EDM_1800e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1800e-diffusion-6x128-01_17_21-0168/last.ckpt"
@@ -47,15 +47,18 @@ EDM_2000e_NOISE="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/
 
 EDM_RES_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_RES_1200e-diffusion-6x128-01_19_08-7897/last.ckpt"
 
+EDM_RES_1400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_RES_1400e-diffusion-6x128-01_19_16-9474/last.ckpt"
+EDM_2000e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_2000e-diffusion-6x128-01_19_16-8718/last.ckpt"
+
 
 # Execute Python script with arguments
 # Train
 # python3 neural_lam/train_model.py $MODEL $DIFFUSION_MODEL $RUN_NAME --n_workers 16 --pred_residual --border_condition --vertical_propnets 1 --batch_size 12  --processor_layers 2 --hidden_dim 128 --epochs 800 --load $level_3_600e --lr 0.0001
-python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 2000 --batch_size 12 --load $EDM_1800e --lr 0.0000001 # --encoder_type residual # --noise_aug_prob 0.5
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 2000 --batch_size 12 --load $EDM_1800e --lr 0.0000001 # --encoder_type residual # --noise_aug_prob 0.5
 
 # Test
 # python3 neural_lam/train_model.py $MODEL $DIFFUSION_MODEL $RUN_NAME --n_workers 2 --pred_residual --border_condition --vertical_propnets 1 --batch_size 18  --processor_layers 2 --hidden_dim 128 --eval val --n_example_pred 0 --ensemble_size 5 --load $level_3_600e
-# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME --n_workers 2 --pred_residual --border_condition --eval val --n_example_pred 1 --batch_size 8 --ensemble_size 5 --load $EDM_RES_1200e --encoder_type residual
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME --n_workers 2 --pred_residual --border_condition --eval val --n_example_pred 1 --batch_size 8 --ensemble_size 5 --load $EDM_1200e --sampler ddpm # --encoder_type residual
 
 # Trial train
 # python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --graph hierarchical-3 --n_workers 16 --pred_residual --border_condition --vertical_propnets 1 --batch_size 12  --processor_layers 2 --hidden_dim 128
@@ -65,7 +68,7 @@ python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_N
 # Batch size 18 for GraphFM
 # Batch size (56 max but 32 more stable) for EDM
 # python3 neural_lam/train_model.py --model diffusion --diffusion_model graph_fm --graph hierarchical-3 --n_workers 2 --pred_residual --border_condition --vertical_propnets 1 --eval test --n_example_pred 0 --batch_size 18 --processor_layers 2 --hidden_dim 128
-# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --n_workers 2 --pred_residual --border_condition --eval test --n_example_pred 0 --batch_size 4 --ensemble_size 5 --sampler edm
+python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --n_workers 2 --pred_residual --border_condition --eval test --n_example_pred 1 --batch_size 1 --subset_ds --ensemble_size 25 --sampler heun --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1200e-diffusion-6x128-01_14_08-9197/last.ckpt
 
 
 # Eval

@@ -8,6 +8,7 @@ import wandb
 import copy
 import math 
 import time
+import os
 
 from neural_lam.models.ar_model import ARModel
 from neural_lam import constants, metrics, utils, vis
@@ -288,32 +289,6 @@ class Diffusion(ARModel):
             )
         )  # mean over unrolled times and batch
 
-        # Optionally sample trajectories and compute CRPS loss
-        # if self.crps_weight > 0:
-        #     init_states, target_states, forcing, boundary_forcing = batch
-        #     # Sample trajectories using prior
-        #     pred_traj_means, pred_traj_stds = self.sample_trajectories(
-        #         init_states,
-        #         forcing_features,
-        #         target_states,
-        #         2,
-        #     )
-        #     # (B, S=2, pred_steps, num_grid_nodes, d_f), always 2 samples
-
-        #     # Compute CRPS
-        #     crps_estimate = metrics.crps_ens(
-        #         pred_traj_means,
-        #         target_states,
-        #         pred_traj_stds,
-        #         # mask=self.interior_mask_bool,
-        #     )  # (B, pred_steps)
-        #     crps_loss = torch.mean(crps_estimate)
-
-        #     # Add onto loss
-        #     batch_loss = batch_loss + self.crps_weight * crps_loss
-        #     log_dict["crps_loss"] = crps_loss
-
-
         log_dict = {"train_loss": batch_loss, "train_mse": batch_mse}
         self.log_dict(
             log_dict, prog_bar=True, on_step=True, on_epoch=True, sync_dist=True
@@ -428,7 +403,25 @@ class Diffusion(ARModel):
         ):
             # traj_slice is (S, pred_steps, num_grid_nodes, d_f)
             # others are (pred_steps, num_grid_nodes, d_f)
+
             self.plotted_examples += 1  # Increment already here
+
+            # Save slices to wandb
+            os.makedirs("output", exist_ok=True)
+
+            # Save slices to files
+            torch.save(ens_mean_slice, f"output/example_ens_mean_{self.plotted_examples}.pt")
+            torch.save(ens_std_slice, f"output/example_ens_std_{self.plotted_examples}.pt")
+            torch.save(traj_slice, f"output/example_ens_members_{self.plotted_examples}.pt")
+            torch.save(target_slice, f"output/example_target_{self.plotted_examples}.pt")
+            torch.save(border_slice, f"output/example_border_{self.plotted_examples}.pt")
+
+            # Save files to wandb
+            wandb.save(f"output/example_ens_mean_{self.plotted_examples}.pt")
+            wandb.save(f"output/example_ens_std_{self.plotted_examples}.pt")
+            wandb.save(f"output/example_ens_members_{self.plotted_examples}.pt")
+            wandb.save(f"output/example_target_{self.plotted_examples}.pt")
+            wandb.save(f"output/example_border_{self.plotted_examples}.pt")
 
             # Note: min and max values can not be in ensemble mean
             var_vmin = (
@@ -761,7 +754,7 @@ class Diffusion(ARModel):
         x_next = latents * t_steps[0]
         for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
             x_cur = x_next
-
+            # print(f"Sampler step {i+1}/{num_steps}")
             # Euler step.
             # start = torch.cuda.Event(enable_timing=True)
             # end = torch.cuda.Event(enable_timing=True)
