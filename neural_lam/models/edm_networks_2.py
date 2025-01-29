@@ -408,6 +408,8 @@ class SongUNet(torch.nn.Module):
         resample_filter     = [1,1],        # Resampling filter: [1,1] for DDPM++, [1,3,3,1] for NCSN++. TODO: Test to change to [1,3,3,1]
         hidden_layers       = 1,            # Number of hidden layers in the grid encoding MLPs.
         obs_mask            = None,            # Masking of the observation grid.
+        shared_grid_embedder = False,       # Whether to share the grid embedder between the interior and the boundary.
+        boundary_channels   = None,         # Number of channels in the boundary grid. If None, defaults to in_channels.
     ):
         assert embedding_type in ['fourier', 'positional']
         assert encoder_type in ['standard', 'skip', 'residual']
@@ -427,6 +429,7 @@ class SongUNet(torch.nn.Module):
         )
         self.obs_mask = obs_mask
         self.config_loader = config.Config.from_file('neural_lam/data_config.yaml')
+        self.shared_grid_embedder = shared_grid_embedder
 
         # Load static features for grid/data
         static_data_dict = utils.load_static_data(
@@ -449,15 +452,24 @@ class SongUNet(torch.nn.Module):
         self.map_layer0 = Linear(in_features=noise_channels, out_features=emb_channels, **init)
         self.map_layer1 = Linear(in_features=emb_channels, out_features=emb_channels, **init)
 
+
+
         # Feature embedders for grid
-        self.mlp_blueprint_end = [model_channels] * (hidden_layers + 1) # TODO: Make sure that hidden_layers gets passed correctly
+        self.mlp_blueprint_end = [model_channels] * (hidden_layers + 1) 
         self.grid_embedder = utils.make_mlp(
-            [in_channels] + self.mlp_blueprint_end, noise_level_dim=emb_channels # TODO: Make this dynamic
+            [in_channels] + self.mlp_blueprint_end, noise_level_dim=emb_channels 
         )
-        # Separate embedder for boundary nodes
-        self.boundary_embedder = utils.make_mlp(
-            [in_channels] + self.mlp_blueprint_end, noise_level_dim=emb_channels # TODO: Make this dynamic
-        )
+
+        # Optional separate embedder for boundary nodes
+        if self.shared_grid_embedder:
+            print("Using shared boundary embedder")
+            self.boundary_embedder = self.grid_embedder
+        else:
+            print("Using separate boundary embedder")
+            boundary_channels = in_channels if boundary_channels is None else boundary_channels
+            self.boundary_embedder = utils.make_mlp(
+                [boundary_channels] + self.mlp_blueprint_end, noise_level_dim=emb_channels
+            )
 
         # Encoder.
         self.enc = torch.nn.ModuleDict()
@@ -546,11 +558,20 @@ class SongUNet(torch.nn.Module):
 
         # Embedd the input tensor
         batch_size = class_labels.shape[0]
+
+        # Separate interior and boundary nodes if we have a shared embedder and denoise the whole area for the last 17 channels
+        if self.shared_grid_embedder:
+            x_interior = x[:, self.interior_mask, :]
+            x_boundary = x[:, ~self.interior_mask, :]
+            boundary_input = torch.cat((x_boundary, boundary_forcing), dim=-1)
+        else:
+            x_interior = x
+            boundary_input = boundary_forcing
     
         # Create full grid node features of shape (B, num_grid_nodes, grid_dim)
         grid_features = torch.cat(
             (
-                x,
+                x_interior,
                 class_labels,
                 self.expand_to_batch(self.grid_static_features, batch_size),
             ),
@@ -561,7 +582,7 @@ class SongUNet(torch.nn.Module):
         # (B, num_boundary_nodes, boundary_dim)
         boundary_features = torch.cat(
             (
-                boundary_forcing,
+                boundary_input,
                 self.expand_to_batch(self.boundary_static_features, batch_size),
             ),
             dim=-1,
@@ -625,6 +646,10 @@ class SongUNet(torch.nn.Module):
 
         # Reshape back to nodes
         aux = aux.permute(0, 2, 3, 1).contiguous().flatten(1, 2)
+
+        if self.shared_grid_embedder:
+            return aux
+
         aux = aux[:, self.interior_mask, :] 
 
         return aux

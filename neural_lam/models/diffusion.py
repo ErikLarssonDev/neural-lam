@@ -40,6 +40,8 @@ class Diffusion(ARModel):
         if args.diffusion_model == 'graph_fm':
             self.model = GraphFM(args)
         elif args.diffusion_model == 'edm':
+            print(f"Grid dim: {self.grid_dim}")
+            print(f"Boundary dim: {self.boundary_dim}")
             self.model = EDMPrecond(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
                                     in_channels=self.grid_dim,
                                     out_channels=self.grid_output_dim,
@@ -53,12 +55,15 @@ class Diffusion(ARModel):
                                     channel_mult=args.channel_mult,
                                     encoder_type=args.encoder_type,
                                     attn_resolutions=args.attn_resolutions,
+                                    shared_grid_embedder=args.shared_grid_embedder,
+                                    boundary_channels=self.boundary_dim
                                     )
         else:
             raise ValueError(f"Diffusion model {args.diffusion_model} not recognized")
             
         self.pred_residual = args.pred_residual # Whether to predict the residual instead of the next state
         self.diffusion_model = args.diffusion_model
+        self.shared_grid_embedder = args.shared_grid_embedder
 
         self.test_metrics = {
                                 "ens_mae": [],
@@ -84,15 +89,27 @@ class Diffusion(ARModel):
                     (pred_std can be ignored by just returning None)
         """
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1) # (B, N_grid, d_input)
-        latents = torch.randn_like(input_grid[:, :, :self.grid_output_dim]) # (B, N_grid, d_state)
+        
 
+        if self.shared_grid_embedder:
+            latents = torch.randn((input_grid.shape[0], constants.FULL_GRID_SHAPE[0] * constants.FULL_GRID_SHAPE[1], len(constants.USED_PARAMS)), device=prev_state.device)
+            boundary_input = boundary_forcing[..., len(constants.USED_PARAMS):] 
+        else:
+            latents = torch.randn_like(input_grid[:, :, :self.grid_output_dim]) # (B, N_grid, d_state)
+            boundary_input = boundary_forcing
+    
         # Run through sampler
         if self.sampler == "heun":
-            next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
+            prediction, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_input, sigma_min=self.sigma_min*1.5)
         elif self.sampler == "edm":
-            next_state, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
+            prediction, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_input, sigma_min=self.sigma_min*1.5)
         elif self.sampler == "ddpm":
-            next_state, diff_states = self.ddpm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
+            prediction, diff_states = self.ddpm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_input, sigma_min=self.sigma_min*1.5)
+
+        if self.shared_grid_embedder:
+            next_state = prediction[:, self.interior_mask, :]
+        else:
+            next_state = prediction
 
         # Add residual if needed
         if self.pred_residual:
@@ -139,15 +156,34 @@ class Diffusion(ARModel):
             y = y - prev_state
             y = (y - self.step_diff_mean[constants.USED_PARAMS]) / self.step_diff_std[constants.USED_PARAMS] # Normalize residual
 
-        n = torch.randn_like(y) * sigma    
-        noisy_input = y+n
+        if self.shared_grid_embedder:
+            next_step_boundary = boundary_forcing[..., :len(constants.USED_PARAMS)]
+            if self.pred_residual:
+                next_step_boundary = next_step_boundary - boundary_forcing[..., len(constants.USED_PARAMS):len(constants.USED_PARAMS)*2] # Compute residual
+                next_step_boundary = (next_step_boundary - self.step_diff_mean[constants.USED_PARAMS]) / self.step_diff_std[constants.USED_PARAMS] # Normalize residual
 
-        next_state = self.forward(noisy_input, sigma, input_grid, boundary_forcing) # Shape (B, d_state, N_x, N_y)
+            noisy_input = torch.zeros((true_state.shape[0], constants.FULL_GRID_SHAPE[0] * constants.FULL_GRID_SHAPE[1], true_state.shape[2]), device=true_state.device)
 
-        # Add residual if needed
-        if self.pred_residual:
-            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
-            next_state = prev_state + next_state
+            # Fill in the interior and boundary regions
+            noisy_input[:, self.interior_mask, :] = y + torch.randn_like(y) * sigma
+            noisy_input[:, ~self.interior_mask, :] = next_step_boundary + torch.rand_like(next_step_boundary) * sigma
+            boundary_input = boundary_forcing[..., len(constants.USED_PARAMS):] # Boundary without the next time step
+        else:
+            noisy_input = y + torch.randn_like(y) * sigma 
+            boundary_input = boundary_forcing 
+
+        next_state = self.forward(noisy_input, sigma, input_grid, boundary_input) # Shape (B, d_state, N_x, N_y)
+
+        if self.shared_grid_embedder:
+            if self.pred_residual:
+                next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
+                next_state[:, self.interior_mask, :] = prev_state + next_state[:, self.interior_mask, :]
+                next_state[:, ~self.interior_mask, :] = boundary_forcing[..., len(constants.USED_PARAMS):len(constants.USED_PARAMS)*2] + next_state[:, ~self.interior_mask, :]
+        else:
+            # Add residual if needed
+            if self.pred_residual:
+                next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
+                next_state = prev_state + next_state
 
         weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
         
@@ -231,7 +267,10 @@ class Diffusion(ARModel):
 
             # Update conditioning states
             prev_prev_state = prev_state
-            prev_state = new_state
+            if self.shared_grid_embedder:
+                prev_state = new_state[:, self.interior_mask, :]
+            else:
+                prev_state = new_state
 
         prediction = torch.stack(
             prediction_list, dim=1
@@ -268,7 +307,15 @@ class Diffusion(ARModel):
         # prediction: (B, pred_steps, num_grid_nodes, d_f)
         # pred_std: (B, pred_steps, num_grid_nodes, d_f) or (d_f,)
 
-        return prediction, target_states, pred_std, weight
+        # If shared grid embedder add boundary to true state
+        if self.shared_grid_embedder:
+            target = torch.zeros_like(prediction)
+            target[:, :, self.interior_mask, :] = target_states
+            target[:, :, ~self.interior_mask, :] = boundary_forcing[..., :len(constants.USED_PARAMS)]
+        else:
+            target = target_states
+
+        return prediction, target, pred_std, weight
 
     def training_step(self, batch):
         """
@@ -397,7 +444,7 @@ class Diffusion(ARModel):
         for traj_slice, target_slice, border_slice, ens_mean_slice, ens_std_slice in zip(
             traj_rescaled[:n_examples],
             target_rescaled[:n_examples],
-            border_rescaled[:n_examples, ..., :len(constants.USED_PARAMS)],
+            border_rescaled[:n_examples, ..., :len(constants.USED_PARAMS)], # TODO: This will be an issue if we don't condition on future border. Then previous border will be used.
             ens_mean[:n_examples],
             ens_std[:n_examples],
         ):
