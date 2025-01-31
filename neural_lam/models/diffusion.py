@@ -785,7 +785,7 @@ class Diffusion(ARModel):
     ):
         # diff_steps = []
 
-        time_steps = torch.arange(0, num_steps) / (num_steps - 1)
+        time_steps = torch.arange(0, num_steps, device=latents.device) / (num_steps - 1)
         sigmas = (sigma_max ** (1 / rho)+ time_steps * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
 
         # batch_ones = torch.ones(1, 1).to(device)
@@ -802,7 +802,7 @@ class Diffusion(ARModel):
                 else 0.0
             )
             # noise inflation from Karras et al. (Alg. 2)
-            noise = S_noise * randn_like(latents)
+            noise = S_noise * randn_like(latents, device=latents.device)
 
             sigma_hat = sigmas[i] * (gamma + 1)
             if gamma > 0:
