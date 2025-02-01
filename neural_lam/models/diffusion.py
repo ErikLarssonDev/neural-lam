@@ -409,19 +409,19 @@ class Diffusion(ARModel):
             # Save slices to wandb
             os.makedirs("output", exist_ok=True)
 
-            # Save slices to files
-            torch.save(ens_mean_slice, f"output/example_ens_mean_{self.plotted_examples}.pt")
-            torch.save(ens_std_slice, f"output/example_ens_std_{self.plotted_examples}.pt")
-            torch.save(traj_slice, f"output/example_ens_members_{self.plotted_examples}.pt")
-            torch.save(target_slice, f"output/example_target_{self.plotted_examples}.pt")
-            torch.save(border_slice, f"output/example_border_{self.plotted_examples}.pt")
+            # Save slices to files TODO: Fix so that only one batch is saved
+            # torch.save(ens_mean_slice, f"output/example_ens_mean_{self.plotted_examples}.pt")
+            # torch.save(ens_std_slice, f"output/example_ens_std_{self.plotted_examples}.pt")
+            # torch.save(traj_slice, f"output/example_ens_members_{self.plotted_examples}.pt")
+            # torch.save(target_slice, f"output/example_target_{self.plotted_examples}.pt")
+            # torch.save(border_slice, f"output/example_border_{self.plotted_examples}.pt")
 
-            # Save files to wandb
-            wandb.save(f"output/example_ens_mean_{self.plotted_examples}.pt")
-            wandb.save(f"output/example_ens_std_{self.plotted_examples}.pt")
-            wandb.save(f"output/example_ens_members_{self.plotted_examples}.pt")
-            wandb.save(f"output/example_target_{self.plotted_examples}.pt")
-            wandb.save(f"output/example_border_{self.plotted_examples}.pt")
+            # # Save files to wandb
+            # wandb.save(f"output/example_ens_mean_{self.plotted_examples}.pt")
+            # wandb.save(f"output/example_ens_std_{self.plotted_examples}.pt")
+            # wandb.save(f"output/example_ens_members_{self.plotted_examples}.pt")
+            # wandb.save(f"output/example_target_{self.plotted_examples}.pt")
+            # wandb.save(f"output/example_border_{self.plotted_examples}.pt")
 
             # Note: min and max values can not be in ensemble mean
             var_vmin = (
