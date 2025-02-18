@@ -16,7 +16,7 @@ from neural_lam import constants, utils
 PLOT_DIR_NAME = "line_plots"
 
 # Load static features for grid/data
-static_data_dict = utils.load_static_data("meps")
+static_data_dict = utils.load_static_data("meps_example")
 
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
 def plot_error_lines(
@@ -37,6 +37,7 @@ def plot_error_lines(
     Make lineplots with metrics from files stored in given directory.
     """
     model_order_index = {m: i for i, m in enumerate(model_lookup.keys())}
+    print(f"Model order: {model_order_index}")
 
     var_names = np.concatenate([var_names, np.array(["Mean"])])
     var_units = np.concatenate([var_units, np.array([""])])
@@ -56,7 +57,6 @@ def plot_error_lines(
         if file_paths:  # Only for metrics that exist
             # Some files with this error exists
             err_array_dict = {}
- 
                                             
             for file_path in file_paths:
                 base_file_name = os.path.basename(file_path)
@@ -117,7 +117,6 @@ def plot_error_lines(
             # These are set arbitrarily
             fig, ax = plt.subplots(figsize=(tue_width / 3, 0.8 * tue_height))
 
-
             # Add error curves from metric_arrays
             model_curves = {}
             for model_name, errors in metric_arrays.items():
@@ -167,8 +166,10 @@ def plot_error_lines(
             # Plot all curves
             lines = []
             for model_name in sorted(
-                model_curves, key=(lambda m: model_order_index[m])
+                (m for m in model_curves if m in model_order_index), 
+                key=lambda m: model_order_index[m]
             ):
+
                 errors, lead_times = model_curves[model_name]
 
                 # model dict lookup
@@ -218,7 +219,7 @@ def plot_error_lines(
                     offset = ax.yaxis.get_major_formatter().get_offset()
                     yaxis_label = (
                         yaxis_label
-                        + f" ({offset}{' ' if offset else ''}{unit})"
+                        # + f" ({offset}{' ' if offset else ''}{unit})"
                     )
                 ax.set_ylabel(yaxis_label)
 
@@ -256,7 +257,8 @@ def plot_error_lines(
                     fancybox=None,
                     shadow=False,
                     ncol=min(legend_cols, legend_entries),
-                    mode="expand",
+                    # mode="expand",
+                    loc="center"
                 )
                 legend_ax.axis("off")
 
