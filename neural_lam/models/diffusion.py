@@ -318,19 +318,6 @@ class Diffusion(ARModel):
         """
         unroll_func = self.unroll_prediction
 
-        # start_time = time.time()
-        # batch_size = init_states.shape[0]  # Number of batches (B)
-        # traj_list = []
-        
-        # traj_list = [
-        #     unroll_func(
-        #         init_states,
-        #         forcing_features,
-        #         boundary_forcing,
-        #     )
-        #     for _ in range(num_traj)
-        # ]
-
         traj_list = []
         for i in range(num_traj):
             # print(f"Starting trajectory {i + 1}/{num_traj}...")
@@ -342,9 +329,6 @@ class Diffusion(ARModel):
                 boundary_forcing,
             )
             
-            # end_time = time.time()
-            # elapsed_time = end_time - start_time
-            # print(f"Trajectory {i + 1} completed in {elapsed_time:.2f} seconds")
             traj_list.append(traj)
 
         # List of tuples, each containing
