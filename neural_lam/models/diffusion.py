@@ -288,32 +288,6 @@ class Diffusion(ARModel):
             )
         )  # mean over unrolled times and batch
 
-        # Optionally sample trajectories and compute CRPS loss
-        # if self.crps_weight > 0:
-        #     init_states, target_states, forcing, boundary_forcing = batch
-        #     # Sample trajectories using prior
-        #     pred_traj_means, pred_traj_stds = self.sample_trajectories(
-        #         init_states,
-        #         forcing_features,
-        #         target_states,
-        #         2,
-        #     )
-        #     # (B, S=2, pred_steps, num_grid_nodes, d_f), always 2 samples
-
-        #     # Compute CRPS
-        #     crps_estimate = metrics.crps_ens(
-        #         pred_traj_means,
-        #         target_states,
-        #         pred_traj_stds,
-        #         # mask=self.interior_mask_bool,
-        #     )  # (B, pred_steps)
-        #     crps_loss = torch.mean(crps_estimate)
-
-        #     # Add onto loss
-        #     batch_loss = batch_loss + self.crps_weight * crps_loss
-        #     log_dict["crps_loss"] = crps_loss
-
-
         log_dict = {"train_loss": batch_loss, "train_mse": batch_mse}
         self.log_dict(
             log_dict, prog_bar=True, on_step=True, on_epoch=True, sync_dist=True
@@ -343,19 +317,6 @@ class Diffusion(ARModel):
         """
         unroll_func = self.unroll_prediction
 
-        # start_time = time.time()
-        # batch_size = init_states.shape[0]  # Number of batches (B)
-        # traj_list = []
-        
-        # traj_list = [
-        #     unroll_func(
-        #         init_states,
-        #         forcing_features,
-        #         boundary_forcing,
-        #     )
-        #     for _ in range(num_traj)
-        # ]
-
         traj_list = []
         for i in range(num_traj):
             # print(f"Starting trajectory {i + 1}/{num_traj}...")
@@ -367,9 +328,6 @@ class Diffusion(ARModel):
                 boundary_forcing,
             )
             
-            # end_time = time.time()
-            # elapsed_time = end_time - start_time
-            # print(f"Trajectory {i + 1} completed in {elapsed_time:.2f} seconds")
             traj_list.append(traj)
 
         # List of tuples, each containing

@@ -43,23 +43,33 @@ elif config == "lam":
     kwargs["var_names"] = ["pres_0g", "pres_0s", "nlwrs_0", "nswrs_0", "r_2",
         "r_65", "t_2", "t_65", "t_500", "t_850", "u_65", "u_850", "v_65",
         "v_850", "wvint_0", "z_1000", "z_500",]
+    # kwargs["plot_ylabel"] = True # Only for Run where I want to plot the mean metrics.
+    
+    metric_lookup["rmse"] = "RMSE"
+    metric_lookup["crps"] = "CRPS"
+    metric_lookup["spskr"] = "SSR"
 
-    # model_lookup["det_ms"] = ("GraphCast*", "#00B9E7", ":")
-    # model_lookup["det_hi"] = ("Graph-FM", "#8981d3", "-.")
-    # model_lookup["prob_ms"] = ("Graph-EFM (ms)", "#ff6442", "--")
-    model_lookup["prob_hi"] = ("Graph-EFM", "#17c7d2", "-")
-    # model_lookup["diff_hi"] = ("Graph-Diff", "#ff6442", "-")
-    # model_lookup["diff_hi_2x64_val_5_ens"] = ("Graph-Diff-2x64-val5-ens", "#8981d3", "-")
-    # model_lookup["diff_hi_2x128_val_5_ens"] = ("Graph-Diff-2x128-val5-ens", "#8981d3", "--")
-    # model_lookup["edm_600_val_5"] = ("edm_600_val_5", "#17c7d2", "--")
-    # model_lookup["edm_600_val_25"] = ("edm_600_val_25", "#17c7d2", ":")
-    # model_lookup["edm_800_val_5"] = ("edm_800_val_5", "#17c7d2", "-.")
-    # model_lookup["edm_800_val_25"] = ("edm_800_val_25", "#ff4500", ":")
-    # model_lookup["edm_equal_1000_val_5"] = ("edm_equal_1000_val_5", "#003f5c", ":")
-    # model_lookup["edm_1000_val_5"] = ("edm_1000_val_5", "#2f4b7c", ":")
-    model_lookup["edm_1200_val_5"] = ("edm_1200_val_5", "#665191", "-") 
-    model_lookup["edm_1200_test_5"] = ("edm_1200_test_5", "#a05195", "-.") 
-    model_lookup["edm_1600_val_5"] = ("edm_1600_val_5", "#d45087", ":")
+    # Deterministic models
+    # model_lookup["det_ms"] = ("GraphCast*", "#00B9E7", ":") 
+    # model_lookup["det_hi"] = ("Graph-FM", "#8981d3", "-.") 
+
+    # Probabilistic models
+    # model_lookup["prob_ms"] = ("Graph-EFM (ms) (100 ens.)", "#003f5c", "-") # 100 ensemble members
+    # model_lookup["gc_swa"] = ("GraphCast*+SWA (100 ens.)", "#2f4b7c", (0, (3, 1, 1, 1, 1, 1))) # 100 ensemble members
+    # model_lookup["prob_hi"] = ("Graph-EFM (100 ens.)", "#665191", "--") # 100 ensemble members
+    model_lookup["prob_hi_25"] = ("Graph-EFM (25 ens.)", "#0968af", "-.") # 25 ensemble members
+    model_lookup["5"] = ("Graph-EFM (5 ens.)", "#00b9e7", "--") # 5 ensemble members
+    # model_lookup["10"] = ("Graph-EFM (10 ens.)", "#8981d3", "-") # 10 ensemble members
+    # model_lookup["25"] = ("Graph-EFM (25 ens.)", "#ff6442", ":") # 20 ensemble members
+
+    # #000000 - No border :
+    # #008744 - Shared encoder .
+    model_lookup["no_border"] = ("Diffusion-LAM (5 ens. no border)", "#000000", ":") 
+    # model_lookup["shared"] = ("Diffusion-LAM (5 ens. shared encoder)", "#008744", "-") 
+    model_lookup["edm_1200_test_5"] = ("Diffusion-LAM (5 ens.)", "#ee9923", "--")
+    model_lookup["edm_1200_test_25"] = ("Diffusion-LAM (25 ens.)", "#d6002d", "-") 
+
+    kwargs["legend_cols"] = 3 # len(model_lookup)+1 # Add one for "Calibrated for SSR"
 
 
 # Hex values for plot colors
@@ -73,8 +83,7 @@ elif config == "lam":
 #ffa600
 
 
-    # model_lookup["gc_swa"] = ("GraphCast*+SWA", "#e75cd9",
-    #         (0, (3, 1, 1, 1, 1, 1)))
+
 
     model_lookup["optimal"] = ("Calibrated", grey_col, "-.")
 
@@ -82,10 +91,6 @@ elif config == "lam":
         "z_500": (7, 18),
         "wvint_0": (7, 18),
     }
-
-    metric_lookup["rmse"] = "RMSE"
-    metric_lookup["crps"] = "CRPS"
-    metric_lookup["spskr"] = "Spread/Skill"
 
 elif config == "ens_size_global":
     metric_path = "/home/joel/probwp_paper_eval/ens_size_global"

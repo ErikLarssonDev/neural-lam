@@ -551,7 +551,7 @@ class SongUNet(torch.nn.Module):
         grid_features = torch.cat(
             (
                 x,
-                class_labels,
+                class_labels, # prev, prev_prev, forcing
                 self.expand_to_batch(self.grid_static_features, batch_size),
             ),
             dim=-1,
@@ -559,6 +559,12 @@ class SongUNet(torch.nn.Module):
 
         # Create full boundary node features of shape
         # (B, num_boundary_nodes, boundary_dim)
+
+        # True
+        # Prev
+        # Prev_prev
+        # Forcing
+        # Static
         boundary_features = torch.cat(
             (
                 boundary_forcing,

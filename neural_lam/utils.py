@@ -364,7 +364,7 @@ def fractional_plot_bundle(fraction):
     # but will at least not raise an error.
     # Alternatively, use unicode raised numbers.
     usetex = True if shutil.which("latex") else False
-    bundle = bundles.neurips2023(usetex=usetex, family="serif")
+    bundle = bundles.neurips2023(usetex=False, family="serif")
     bundle.update(figsizes.neurips2023())
     original_figsize = bundle["figure.figsize"]
     bundle["figure.figsize"] = (
