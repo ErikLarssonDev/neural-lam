@@ -17,6 +17,7 @@ lam_eval
 plots
 samples
 predictions
+output/
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
