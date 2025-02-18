@@ -365,33 +365,14 @@ class Diffusion(ARModel):
         """
         unroll_func = self.unroll_prediction
 
-        # start_time = time.time()
-        # batch_size = init_states.shape[0]  # Number of batches (B)
-        # traj_list = []
-        
-        # traj_list = [
-        #     unroll_func(
-        #         init_states,
-        #         forcing_features,
-        #         boundary_forcing,
-        #     )
-        #     for _ in range(num_traj)
-        # ]
-
         traj_list = []
-        for i in range(num_traj):
-            # print(f"Starting trajectory {i + 1}/{num_traj}...")
-            # start_time = time.time()
-            
+        for i in range(num_traj):          
             traj = unroll_func(
                 init_states,
                 forcing_features,
                 boundary_forcing,
             )
             
-            # end_time = time.time()
-            # elapsed_time = end_time - start_time
-            # print(f"Trajectory {i + 1} completed in {elapsed_time:.2f} seconds")
             traj_list.append(traj)
 
         # List of tuples, each containing
@@ -406,7 +387,7 @@ class Diffusion(ARModel):
                 [pred_pair[1] for pred_pair in traj_list], dim=1
             )
         else:
-            traj_stds = self.per_var_std[constants.USED_PARAMS] # TODO: Check if this is correct, self.per_var_std = self.step_diff_std / torch.sqrt(self.param_weights)
+            traj_stds = self.per_var_std[constants.USED_PARAMS]
         
         return traj_means, traj_stds
     
@@ -432,6 +413,7 @@ class Diffusion(ARModel):
         traj_rescaled = trajectories * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
         target_rescaled = target_states * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
         border_rescaled = border * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+
         # Compute mean and std of ensemble
         ens_mean = torch.mean(
             traj_rescaled, dim=1
@@ -456,19 +438,22 @@ class Diffusion(ARModel):
             # Save slices to wandb
             os.makedirs("output", exist_ok=True)
 
-            # Save slices to files
-            torch.save(ens_mean_slice, f"output/example_ens_mean_{self.plotted_examples}.pt")
-            torch.save(ens_std_slice, f"output/example_ens_std_{self.plotted_examples}.pt")
-            torch.save(traj_slice, f"output/example_ens_members_{self.plotted_examples}.pt")
-            torch.save(target_slice, f"output/example_target_{self.plotted_examples}.pt")
-            torch.save(border_slice, f"output/example_border_{self.plotted_examples}.pt")
-
-            # Save files to wandb
-            wandb.save(f"output/example_ens_mean_{self.plotted_examples}.pt")
-            wandb.save(f"output/example_ens_std_{self.plotted_examples}.pt")
-            wandb.save(f"output/example_ens_members_{self.plotted_examples}.pt")
-            wandb.save(f"output/example_target_{self.plotted_examples}.pt")
-            wandb.save(f"output/example_border_{self.plotted_examples}.pt")
+            if self.save_output:
+                # Save slices to files
+                # TODO: Check that we only save one example and not the whole batch
+                torch.save(ens_mean_slice[0], f"output/example_ens_mean_{self.plotted_examples}.pt")
+                torch.save(ens_std_slice[0], f"output/example_ens_std_{self.plotted_examples}.pt")
+                torch.save(traj_slice[0], f"output/example_ens_members_{self.plotted_examples}.pt")
+                torch.save(target_slice[0], f"output/example_target_{self.plotted_examples}.pt")
+                torch.save(border_slice[0], f"output/example_border_{self.plotted_examples}.pt")
+            
+                if self.save_output_wandb:
+                    # Save files to wandb
+                    wandb.save(f"output/example_ens_mean_{self.plotted_examples}.pt")
+                    wandb.save(f"output/example_ens_std_{self.plotted_examples}.pt")
+                    wandb.save(f"output/example_ens_members_{self.plotted_examples}.pt")
+                    wandb.save(f"output/example_target_{self.plotted_examples}.pt")
+                    wandb.save(f"output/example_border_{self.plotted_examples}.pt")
 
             # Note: min and max values can not be in ensemble mean
             var_vmin = (
@@ -801,15 +786,8 @@ class Diffusion(ARModel):
         x_next = latents * t_steps[0]
         for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
             x_cur = x_next
-            # print(f"Sampler step {i+1}/{num_steps}")
-            # Euler step.
-            # start = torch.cuda.Event(enable_timing=True)
-            # end = torch.cuda.Event(enable_timing=True)
-            # start.record()
+
             denoised = self.forward(x_cur, t_cur, class_labels=class_labels, boundary_forcing=boundary_forcing)
-            # end.record()
-            # torch.cuda.synchronize()
-            # print(f"Model inference {start.elapsed_time(end)/1000}s")
 
             d_cur = (x_cur - denoised) / t_cur      
             x_next = x_cur + (t_next - t_cur) * d_cur
@@ -835,13 +813,10 @@ class Diffusion(ARModel):
         time_steps = torch.arange(0, num_steps) / (num_steps - 1)
         sigmas = (sigma_max ** (1 / rho)+ time_steps * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
 
-        # batch_ones = torch.ones(1, 1).to(device)
-
         # initialize noise
         x = sigmas[0] * latents
 
         for i in range(len(sigmas) - 1):
-            # diff_steps.append(x)
             # stochastic churn from Karras et al. (Alg. 2)
             gamma = (
                 min(S_churn / num_steps, math.sqrt(2) - 1)
@@ -878,14 +853,8 @@ class Diffusion(ARModel):
         
 
     def forward(self, x, sigma, class_labels=None, boundary_forcing=None, force_fp32=False, **model_kwargs):
-        # start = torch.cuda.Event(enable_timing=True)
-        # end = torch.cuda.Event(enable_timing=True)
-        # start.record()
         if self.diffusion_model == "edm":
             return self.model(x, sigma, class_labels=class_labels, boundary_forcing=boundary_forcing, **model_kwargs)
-        # end.record()
-        # torch.cuda.synchronize()
-        # print(f"EDM inference {start.elapsed_time(end)/1000}s")
 
         sigma = sigma.reshape(-1, 1, 1)
 
@@ -901,14 +870,8 @@ class Diffusion(ARModel):
     def model_forward(self, x, noise_labels, class_labels, boundary_forcing):
         # Mapping.
         emb = self.map_noise(noise_labels).unsqueeze(1).expand(x.shape[0], 1, -1)
-        # start = torch.cuda.Event(enable_timing=True)
-        # end = torch.cuda.Event(enable_timing=True)
-        # start.record()
 
         next_state, _ = self.model.predict_step(x, class_labels[:, :, :len(constants.USED_PARAMS)*2], class_labels[:, :, len(constants.USED_PARAMS)*2:], boundary_forcing, emb)
-        # end.record()
-        # torch.cuda.synchronize()
-        # print(f"GraphFM inference {start.elapsed_time(end)/1000}s")
 
         return next_state
     
