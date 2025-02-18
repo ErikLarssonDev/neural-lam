@@ -168,7 +168,7 @@ class WeatherDataset(torch.utils.data.Dataset):
         sample = sample[:, self.interior_mask]
       
         # Split up sample in init. states and target states
-        init_states = sample[:2]  # (2, N_grid, d_features)
+        init_states = sample[:2]  # (2, N_grid, d_features), prev_prev, prev
         target_states = sample[2:]  # (sample_length-2, N_grid, d_features)
 
         # === Forcing features ===
