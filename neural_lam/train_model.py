@@ -345,6 +345,12 @@ def main(input_args=None):
         help="Number of ensemble members during evaluation (default: 5)",
     )
     parser.add_argument(
+        "--sampler_steps",
+        type=int,
+        default=20,
+        help="Number of sampling steps during inference (default: 20)",
+    )
+    parser.add_argument(
         "--plot_diffusion_steps",
         action="store_true",
         help="If the diffusion steps should be saved, only one time step is saved",

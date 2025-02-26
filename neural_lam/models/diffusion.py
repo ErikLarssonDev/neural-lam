@@ -35,6 +35,7 @@ class Diffusion(ARModel):
         self.noise_aug_prob = args.noise_aug_prob # Probability of augmenting with noise [0, 1]
         self.save_output = args.save_output
         self.save_output_wandb = args.save_output_wandb
+        self.sampler_steps = args.sampler_steps
 
         if args.diffusion_model != 'edm':
             self.map_noise = NoiseEmbedding()
@@ -92,7 +93,7 @@ class Diffusion(ARModel):
         if self.sampler == "heun":
             next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
         elif self.sampler == "edm":
-            next_state, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
+            next_state, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5, num_steps=self.sampler_steps)
         elif self.sampler == "ddpm":
             next_state, diff_states = self.ddpm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
 
