@@ -598,16 +598,8 @@ class SongUNet(torch.nn.Module):
                 aux = torch.nn.functional.pad(aux, [0, 0, 2, 2], mode='replicate')
                 aux = block(aux)
             elif 'aux_skip' in name:
-                print("Skip connection")
-                print(f"X shape: {x.shape}")
-                print(f"Aux shape: {aux.shape}")
-                print(f"Block shape: {block(aux).shape}")
                 x = skips[-1] = x + block(aux)
             elif 'aux_residual' in name: # TODO Fix so that residual connection works
-                print("Residual connection")
-                print(f"X shape: {x.shape}")
-                print(f"Aux shape: {aux.shape}")
-                print(f"Block shape: {block(aux).shape}")
                 x = skips[-1] = aux = (x + block(aux)) / np.sqrt(2)
             else:
                 x = block(x, emb) if isinstance(block, UNetBlock) else block(x)
