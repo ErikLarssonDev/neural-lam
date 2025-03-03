@@ -8,3 +8,4 @@ import neural_lam.vis
 
 # Local
 from .weather_dataset import WeatherDataset
+from .downscaling_dataset import DownscalingDataset

@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -J edm_sampler_1_1200e
-#SBATCH -t 3-00:00:00
-#SBATCH --gpus=8
+#SBATCH -J downscaling
+#SBATCH -t 1-00:00:00
+#SBATCH --gpus=4
 #SBATCH -C "fat"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=erila85@liu.se
@@ -12,12 +12,12 @@ mamba activate BZ31
 wandb online
 
 cd /proj/berzelius-2022-164/users/x_erila/neural-lam
-git switch prob-model-boundary
+git switch downscaling
 
 # Standard arguments
 MODEL="--model diffusion"
 DIFFUSION_MODEL="--diffusion_model graph_fm --graph hierarchical-3"
-RUN_NAME="--wandb_run_name edm_sampler_1_1200e"
+RUN_NAME="--wandb_run_name downscaling"
 
 # Paths to saved models
 BORDER_GRAPH_FM_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_border_condition_400e-diffusion-6x128-12_09_07-5907/last.ckpt"
@@ -54,15 +54,15 @@ EDM_2000e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_20
 # Execute Python script with arguments
 # Train
 # python3 neural_lam/train_model.py $MODEL $DIFFUSION_MODEL $RUN_NAME --n_workers 16 --pred_residual --border_condition --vertical_propnets 1 --batch_size 12  --processor_layers 2 --hidden_dim 128 --epochs 800 --load $level_3_600e --lr 0.0001
-# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 2000 --batch_size 12 --load $EDM_1800e --lr 0.0000001 # --encoder_type residual # --noise_aug_prob 0.5
+python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 600 --batch_size 12 # --load $EDM_1800e --lr 0.0000001 # --encoder_type residual # --noise_aug_prob 0.5
 
 # Test
 # python3 neural_lam/train_model.py $MODEL $DIFFUSION_MODEL $RUN_NAME --n_workers 2 --pred_residual --border_condition --vertical_propnets 1 --batch_size 18  --processor_layers 2 --hidden_dim 128 --eval val --n_example_pred 0 --ensemble_size 5 --load $level_3_600e
-python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME --n_workers 2 --pred_residual --border_condition --eval val --n_example_pred 1 --batch_size 8 --ensemble_size 5 --load $EDM_1200e --sampler edm --sampler_steps 1 # --encoder_type residual
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME --n_workers 2 --pred_residual --border_condition --eval val --n_example_pred 1 --batch_size 8 --ensemble_size 5 --load $EDM_1200e --sampler edm # --encoder_type residual
 
 # Trial train
 # python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --graph hierarchical-3 --n_workers 16 --pred_residual --border_condition --vertical_propnets 1 --batch_size 12  --processor_layers 2 --hidden_dim 128
-# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --n_workers 16 --pred_residual --border_condition --resample_filter [1,3,3,1] --channel_mult [2, 2, 2, 2] --encoder_type standard --attn_resolutions [134, 68, 34, 18]
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --n_workers 16 --pred_residual --border_condition --batch_size 12 --epochs 600
 
 # Trial test
 # Batch size 18 for GraphFM

@@ -14,6 +14,7 @@ from pytorch_lightning.profilers import AdvancedProfiler
 # First-party
 from neural_lam import constants, utils, config
 from neural_lam.weather_dataset import WeatherDataset
+from neural_lam.downscaling_dataset import DownscalingDataset
 from neural_lam.models.graph_efm import GraphEFM
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
@@ -372,8 +373,8 @@ def main(input_args=None):
     parser.add_argument(
         "--wandb_project",
         type=str,
-        default="neural-lam_prob",
-        help="Wandb run project (default: 'neural-lam_prob')",
+        default="neural-lam-downscaling",
+        help="Wandb run project (default: 'neural-lam-downscaling')",
     )
     parser.add_argument(
         "--wandb_run_name",
@@ -429,39 +430,23 @@ def main(input_args=None):
 
     # Load data
     train_loader = torch.utils.data.DataLoader(
-        WeatherDataset(
+        DownscalingDataset(
             config_loader.dataset.name,
-            pred_length=args.ar_steps,
             split="train",
-            subsample_step=args.step_length,
             subset=args.subset_ds,
             control_only=args.control_only,
-            model_name=args.diffusion_model,
-            border_condition=args.border_condition,
         ),
         args.batch_size,
         shuffle=True,
         num_workers=args.n_workers,
     )
-    max_pred_length = (65 // args.step_length) - 2  # 19
-    if args.plot_diffusion_steps:
-        max_pred_length = 1
-    
-    if args.model == "diffusion" and args.eval is None:
-        max_pred_length_val = 1
-    else:
-        max_pred_length_val = max_pred_length
 
     val_loader = torch.utils.data.DataLoader(
-        WeatherDataset(
+        DownscalingDataset(
             config_loader.dataset.name,
-            pred_length=max_pred_length_val,
             split="val",
-            subsample_step=args.step_length,
             subset=args.subset_ds,
             control_only=args.control_only,
-            model_name=args.diffusion_model,
-            border_condition=args.border_condition,
         ),
         args.batch_size,
         shuffle=False,
@@ -553,14 +538,11 @@ def main(input_args=None):
             eval_loader = val_loader
         else:  # Test
             eval_loader = torch.utils.data.DataLoader(
-                WeatherDataset(
+                DownscalingDataset(
                     config_loader.dataset.name,
-                    pred_length=max_pred_length,
                     split="test",
                     subsample_step=args.step_length,
                     subset=bool(args.subset_ds),
-                    model_name=args.diffusion_model,
-                    border_condition=args.border_condition,
                 ),
                 args.batch_size,
                 shuffle=False,
