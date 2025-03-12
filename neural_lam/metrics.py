@@ -70,6 +70,7 @@ def wmse(pred, target, pred_std, mask=None, average_grid=True, sum_vars=True, **
     metric_val: One of (...,), (..., d_state), (..., N), (..., N, d_state),
     depending on reduction arguments.
     """
+
     entry_mse = torch.nn.functional.mse_loss(
         pred, target, reduction="none"
     )  # (..., N, d_state)

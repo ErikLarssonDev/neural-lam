@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J downscaling
+#SBATCH -J baseline_downscaling_1200e
 #SBATCH -t 1-00:00:00
 #SBATCH --gpus=4
 #SBATCH -C "fat"
@@ -16,49 +16,23 @@ git switch downscaling
 
 # Standard arguments
 MODEL="--model diffusion"
-DIFFUSION_MODEL="--diffusion_model graph_fm --graph hierarchical-3"
-RUN_NAME="--wandb_run_name downscaling"
+# DIFFUSION_MODEL="--diffusion_model graph_fm --graph hierarchical-3"
+RUN_NAME="--wandb_run_name baseline_downscaling_1200e"
 
 # Paths to saved models
-BORDER_GRAPH_FM_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_border_condition_400e-diffusion-6x128-12_09_07-5907/last.ckpt"
-BORDER_GRAPH_FM_500e_sigma_0002="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/BORDER_GRAPH_FM_500e_sigma_0002-diffusion-6x128-12_12_16-6574/last.ckpt"
-level_3_200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diff_128x2-diffusion-2x128-01_08_16-3450/last.ckpt"
-level_3_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/3_level-diffusion-2x128-01_09_13-1229/last.ckpt" # Maybe 0298 will be better
-level_3_64_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/3_level-diffusion-2x64-01_09_13-0555/last.ckpt"
-EDM_400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diffusion-6x128-01_09_16-5035/last.ckpt"
-
-level_3_600e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_128_600e-diffusion-2x128-01_10_09-8022/last.ckpt"
-level_3_64_600e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/graph_fm_128_600e-diffusion-2x64-01_10_09-3224/last.ckpt"
-EDM_600e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diffusion-6x128-01_10_09-8192/last.ckpt"
-EDM_800e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/diffusion-6x128-01_10_18-1813/last.ckpt"
-EDM_1000e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/edm_1000e-diffusion-6x128-01_13_11-7178/last.ckpt"
-EDM_EQUAL_1000e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/edm_equal-diffusion-6x128-01_13_10-4867/last.ckpt"
-EDM_LARGE_600e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_large-diffusion-6x128-01_12_17-5739/last.ckpt"
-EDM_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1200e-diffusion-6x128-01_14_08-9197/last.ckpt" # Best model
-EDM_1600e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1600e-diffusion-6x128-01_17_00-4121/last.ckpt"
-
-EDM_1800e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1800e-diffusion-6x128-01_17_21-0168/last.ckpt"
-EDM_RES_1000e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_RESIDUAL_1000e-diffusion-6x128-01_17_14-1630/last.ckpt"
-EDM_NOISE_1800e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/NOISE_EDM_1800e-diffusion-6x128-01_17_21-7249/last.ckpt"
-
-EDM_1400e_NOISE="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1400e_NOISE-diffusion-6x128-01_18_11-3482/last.ckpt"
-EDM_1400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1400e-diffusion-6x128-01_18_11-5436/last.ckpt"
-EDM_2000e_NOISE="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_NOISE_2000e-diffusion-6x128-01_18_09-9304/last.ckpt"
-
-EDM_RES_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_RES_1200e-diffusion-6x128-01_19_08-7897/last.ckpt"
-
-EDM_RES_1400e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_RES_1400e-diffusion-6x128-01_19_16-9474/last.ckpt"
-EDM_2000e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_2000e-diffusion-6x128-01_19_16-8718/last.ckpt"
-
+EDM_200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/downscaling-diffusion-6x128-03_04_10-3876/last.ckpt"
+EDM_600e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/baseline_downscaling_600e-diffusion-6x128-03_05_18-0610/last.ckpt"
+EDM_1000e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/baseline_downscaling_1000e-diffusion-6x128-03_06_09-0704/last.ckpt"
+EDM_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/baseline_downscaling_1200e-diffusion-6x128-03_07_15-9081/last.ckpt"
 
 # Execute Python script with arguments
 # Train
 # python3 neural_lam/train_model.py $MODEL $DIFFUSION_MODEL $RUN_NAME --n_workers 16 --pred_residual --border_condition --vertical_propnets 1 --batch_size 12  --processor_layers 2 --hidden_dim 128 --epochs 800 --load $level_3_600e --lr 0.0001
-python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 600 --batch_size 12 # --load $EDM_1800e --lr 0.0000001 # --encoder_type residual # --noise_aug_prob 0.5
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME  --n_workers 16 --pred_residual --epochs 1200 --batch_size 12 --lr 0.00001 --load $EDM_1000e # --lr 0.0000001 # --encoder_type residual # --noise_aug_prob 0.5
 
 # Test
 # python3 neural_lam/train_model.py $MODEL $DIFFUSION_MODEL $RUN_NAME --n_workers 2 --pred_residual --border_condition --vertical_propnets 1 --batch_size 18  --processor_layers 2 --hidden_dim 128 --eval val --n_example_pred 0 --ensemble_size 5 --load $level_3_600e
-# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME --n_workers 2 --pred_residual --border_condition --eval val --n_example_pred 1 --batch_size 8 --ensemble_size 5 --load $EDM_1200e --sampler edm # --encoder_type residual
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME --n_workers 2 --pred_residual --eval val --n_example_pred 1 --batch_size 8 --ensemble_size 5 --load $EDM_1200e --sampler edm # --encoder_type residual
 
 # Trial train
 # python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --graph hierarchical-3 --n_workers 16 --pred_residual --border_condition --vertical_propnets 1 --batch_size 12  --processor_layers 2 --hidden_dim 128
@@ -67,8 +41,7 @@ python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_N
 # Trial test
 # Batch size 18 for GraphFM
 # Batch size (56 max but 32 more stable) for EDM
-# python3 neural_lam/train_model.py --model diffusion --diffusion_model graph_fm --graph hierarchical-3 --n_workers 2 --pred_residual --border_condition --vertical_propnets 1 --eval test --n_example_pred 0 --batch_size 18 --processor_layers 2 --hidden_dim 128
-# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --n_workers 2 --pred_residual --border_condition --eval test --n_example_pred 1 --batch_size 1 --subset_ds --ensemble_size 2 --sampler ddpm --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1200e-diffusion-6x128-01_14_08-9197/last.ckpt
+python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --n_workers 2 --pred_residual --eval test --n_example_pred 1 --batch_size 4 --subset_ds --ensemble_size 5 --sampler edm --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/baseline_downscaling_1200e-diffusion-6x128-03_07_15-9081/last.ckpt
 
 
 # Eval

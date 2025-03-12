@@ -25,7 +25,6 @@ class Diffusion(ARModel):
         super().__init__(args)
 
         # Some dimensionalities that can be useful to have stored
-        self.border_condition = args.border_condition
         self.ensemble_size = args.ensemble_size
         self.sigma_min = args.sigma_min
         self.sigma_max = 88
@@ -96,7 +95,7 @@ class Diffusion(ARModel):
             next_state = (next_state * self.step_diff_std[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1)) + self.step_diff_mean[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1) # Unormalize residual
             next_state = LQ + next_state
         
-        return next_state, None
+        return next_state.permute(0, 2, 3, 1).flatten(1, 2), None
 
     def predict_step_train(self, LQ, HQ):
         """
@@ -105,7 +104,7 @@ class Diffusion(ARModel):
         HQ: (B, d_f, X, Y)
 
         Returns:
-        downscaled_state: (B, d_f, X, Y)
+        downscaled_state: (B, N_grid, d_state)
         pred_std: None 
         """
 
@@ -135,7 +134,7 @@ class Diffusion(ARModel):
 
         weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
         
-        return next_state, None, weight
+        return next_state.permute(0, 2, 3, 1).flatten(1, 2), None, weight
     
     def unroll_prediction(self, LQ):
             """
@@ -151,8 +150,6 @@ class Diffusion(ARModel):
             pred_steps = 1
 
             for i in range(pred_steps):
-                # forcing = forcing_features[:, i]
-                # border_state = boundary_forcing[:, i]
                 pred_state, pred_std = self.predict_step(LQ)
         
                 prediction_list.append(pred_state)
@@ -163,20 +160,22 @@ class Diffusion(ARModel):
                 prediction_list, dim=1
             ) 
             if self.output_std:
-                # pred_std = torch.stack(
-                #     pred_std_list, dim=1
-                # )  # (B, pred_steps, num_grid_nodes, d_f)
                 pred_std = torch.tensor(1, device=LQ.device) # Using the same weights for all variables
             else:
-                pred_std = self.per_var_std.view(1, len(constants.USED_PARAMS), 1, 1)  # (d_f,)
+                pred_std = self.per_var_std
 
             return prediction, pred_std
 
     def unroll_prediction_train(self, LQ, HQ):
         """
         Roll out prediction taking multiple autoregressive steps with model
-        LQ: (B, d_f, X, Y, d_f)
-        HQ: (B, d_f, X, Y, d_f)
+        LQ: (B, d_f, X, Y)
+        HQ: (B, d_f, X, Y)
+
+        Returns:
+        prediction: (B, pred_steps, N_grid, d_f)
+        pred_std: (B, pred_steps, d_f)
+        weight: (B, pred_steps) ?
         """
         prediction_list = []
         pred_std_list = []
@@ -204,12 +203,12 @@ class Diffusion(ARModel):
         )  # (B, pred_steps, num_grid_nodes, d_f)
 
         if self.output_std:
-            pred_std = torch.stack(
-                pred_std_list, dim=1
-            )  # (B, pred_steps, num_grid_nodes, d_f)
-            # pred_std = self.per_var_std  # (d_f,)
+            # pred_std = torch.stack(
+            #     pred_std_list, dim=1
+            # )  # (B, pred_steps, num_grid_nodes, d_f)
+            pred_std = torch.tensor(1, device=LQ.device) # Using the same weights for all variables
         else:
-            pred_std = self.per_var_std.view(1, len(constants.USED_PARAMS), 1, 1)   # (d_f,)
+            pred_std = self.per_var_std # (d_f,)
             # pred_std = 1 # Testing equal weights
 
         return prediction, pred_std, weight
@@ -218,15 +217,23 @@ class Diffusion(ARModel):
         """
         Predict on single batch
         batch consists of:
-        LQ: (B, d_f, X, Y, d_f)
+        LQ: (B, grid, d_f)
         HQ: (B, d_f, X, Y, d_f)
+
+        Returns:
+        prediction: (B, pred_steps, N_grid, d_f)
+        target: (B, pred_steps, N_grid, d_f)
+        pred_std: (B, pred_steps, d_f)
+        weight: (B, pred_steps) ?
         """
         LQ, HQ = batch["LQ"], batch["HQ"]
         prediction, pred_std, weight = self.unroll_prediction_train(
             LQ, HQ
         )
 
-        return prediction, HQ, pred_std, weight
+        target = HQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1) # (B, pred_steps, N_grid, d_f)
+
+        return prediction, target, pred_std, weight
 
     def training_step(self, batch):
         """
@@ -237,13 +244,13 @@ class Diffusion(ARModel):
         # Compute loss
         batch_loss = torch.mean(
             self.loss(
-                prediction, target, pred_std, weight=weight # mask=self.interior_mask_bool
+                prediction, target, pred_std, weight=weight
             )
         )  # mean over unrolled times and batch
 
         batch_mse = torch.mean(
             metrics.mse(
-                prediction, target, pred_std, # mask=self.interior_mask_bool
+                prediction, target, pred_std
             )
         )  # mean over unrolled times and batch
 
@@ -297,7 +304,7 @@ class Diffusion(ARModel):
         """
         Plot ensemble forecast + mean and std
         """
-        LQ, target_states = batch["LQ"], batch["HQ"]
+        LQ, HQ = batch["LQ"], batch["HQ"]
         if prediction is None:
             print(f"Sampling new trajectories for plotting!")
             trajectories, _ = self.sample_trajectories(
@@ -308,14 +315,7 @@ class Diffusion(ARModel):
             trajectories = prediction
         # (B, S, pred_steps, num_grid_nodes, d_f)
 
-        trajectories = trajectories.permute(0, 1, 2, 4, 5, 3).contiguous().flatten(3, 4),
-        target_states = target_states.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1),
-
-        print(f"Trajectories shape: {trajectories.shape}")
-        print(f"Target shape: {target_states.shape}")
-        print(f"constants.USED_PARAMS: {constants.USED_PARAMS}")
-        print(f"self.data_std: {self.data_std[constants.USED_PARAMS]}")
-        print(f"self.data_std: {self.data_mean[constants.USED_PARAMS]}")
+        target_states = HQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1)
 
         # Rescale to original data scale
         traj_rescaled = trajectories * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
@@ -330,7 +330,7 @@ class Diffusion(ARModel):
         )  # (B, pred_steps, num_grid_nodes, d_f)
 
         # Iterate over the examples
-        for traj_slice, target_slice, border_slice, ens_mean_slice, ens_std_slice in zip(
+        for traj_slice, target_slice, ens_mean_slice, ens_std_slice in zip(
             traj_rescaled[:n_examples],
             target_rescaled[:n_examples],
             ens_mean[:n_examples],
@@ -351,7 +351,6 @@ class Diffusion(ARModel):
                 torch.save(ens_std_slice[0], f"output/example_ens_std_{self.plotted_examples}.pt")
                 torch.save(traj_slice[0], f"output/example_ens_members_{self.plotted_examples}.pt")
                 torch.save(target_slice[0], f"output/example_target_{self.plotted_examples}.pt")
-                torch.save(border_slice[0], f"output/example_border_{self.plotted_examples}.pt")
 
                 # Save files to wandb
                 if self.save_output_wandb:
@@ -359,7 +358,6 @@ class Diffusion(ARModel):
                     wandb.save(f"output/example_ens_std_{self.plotted_examples}.pt")
                     wandb.save(f"output/example_ens_members_{self.plotted_examples}.pt")
                     wandb.save(f"output/example_target_{self.plotted_examples}.pt")
-                    wandb.save(f"output/example_border_{self.plotted_examples}.pt")
 
             # Note: min and max values can not be in ensemble mean
             var_vmin = (
@@ -381,12 +379,11 @@ class Diffusion(ARModel):
             var_vranges = list(zip(var_vmin, var_vmax))
 
             # Iterate over prediction horizon time steps
-            for t_i, (samples_t, target_t, border_t, ens_mean_t, ens_std_t) in enumerate(
+            for t_i, (samples_t, target_t, ens_mean_t, ens_std_t) in enumerate(
                 zip(
                     traj_slice.transpose(0, 1),
                     # (pred_steps, S, num_grid_nodes, d_f)
                     target_slice,
-                    border_slice,
                     ens_mean_slice,
                     ens_std_slice,
                 ),
@@ -398,10 +395,8 @@ class Diffusion(ARModel):
                     vis.plot_ensemble_prediction(
                         samples_t[:, :, var_i],
                         target_t[:, var_i],
-                        border_t[:, var_i],
                         ens_mean_t[:, var_i],
                         ens_std_t[:, var_i],
-                        self.interior_mask,
                         title=f"{var_name} ({var_unit}), {time_title_part}",
                         vrange=var_vrange,
                     )
@@ -442,7 +437,9 @@ class Diffusion(ARModel):
         ens_mse_batch: (B, d_f)
         """
         # Compute and store metrics for ensemble forecast
-        LQ, target_states= batch["LQ"], batch["HQ"]
+        LQ, HQ = batch["LQ"], batch["HQ"]
+
+        target_states = HQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1) # (B, pred_steps, d_f)
 
         trajectories, traj_stds = self.sample_trajectories(
             LQ,
@@ -453,18 +450,17 @@ class Diffusion(ARModel):
             trajectories,
             target_states,
             traj_stds,
-            # mask=self.interior_mask_bool,
             sum_vars=False,
         )
 
         ens_mean = torch.mean(
             trajectories, dim=1
         )  # (B, pred_steps, num_grid_nodes, d_f)
+
         ens_mse_batch = metrics.mse(
             ens_mean,
             target_states,
             None,
-            # mask=self.interior_mask_bool,
             sum_vars=False,
         ) 
 
@@ -481,36 +477,6 @@ class Diffusion(ARModel):
         Run validation on single batch
         """
         print("No validation step implemented!")
-        # super().validation_step(batch, *args)
-        # prediction, target, pred_std, weight = self.common_step_train(batch)
-
-        # time_step_loss = torch.mean(
-        #     self.loss(
-        #         prediction, target, pred_std, weight=weight # mask=self.interior_mask_bool
-        #     ),
-        #     dim=0,
-        # )  # (time_steps-1)
-        # mean_loss = torch.mean(time_step_loss)
-
-        # # Log loss per time step forward and mean
-        # val_log_dict = {
-        #     f"val_loss_unroll{step}": time_step_loss[step - 1]
-        #     for step in constants.VAL_STEP_LOG_ERRORS # ONLY LOGGING FOR 1 STEP since logging diffusion steps for all steps is too much and not that informative
-        # }
-        # val_log_dict["val_mean_loss"] = mean_loss
-        # self.log_dict(
-        #     val_log_dict, on_step=False, on_epoch=True, sync_dist=True
-        # )
-
-        # # Store MSEs
-        # entry_mses = metrics.mse(
-        #     prediction,
-        #     target,
-        #     pred_std,
-        #     # mask=self.interior_mask_bool,
-        #     sum_vars=False,
-        # )  # (B, pred_steps, d_f)
-        # self.val_metrics["mse"].append(entry_mses)
 
     def log_spsk_ratio(self, metric_vals, prefix):
         """
@@ -582,14 +548,11 @@ class Diffusion(ARModel):
             sum_vars=False,
         )  # (B, pred_steps, d_f)
         self.test_metrics["ens_mae"].append(ens_maes)
-        print("Computing CRPS")
-        print(f"trajectories: {trajectories.shape}")
-        print(f"target_states: {target_states.shape}")
+
         crps_batch = metrics.crps_ens( # CRPS want the shape [B, n_ens, pred_steps, dim, d_f]
-            trajectories.permute(0, 1, 2, 4, 5, 3).contiguous().flatten(3, 4),
-            target_states.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1),
-            traj_stds.squeeze(), # d_f
-            # mask=self.interior_mask_bool,
+            trajectories,
+            target_states,
+            traj_stds, # d_f
             sum_vars=False,
         )  # (B, pred_steps, d_f)
         self.test_metrics["crps_ens"].append(crps_batch)

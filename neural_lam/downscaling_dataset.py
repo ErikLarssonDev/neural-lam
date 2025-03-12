@@ -51,7 +51,7 @@ class DownscalingDataset(torch.utils.data.Dataset):
         # Now on form "yyymmddhh_mbrXXX"
 
         if subset:
-            self.sample_names = self.sample_names[:50]  # Limit to 50 samples
+            self.sample_names = self.sample_names[:4]  # Limit to 50 samples, changed to 1 sample for testing
 
         self.sample_length = pred_length # 2 init states # Changed sample length to 1 since we only want to sample the current step.
         self.subsample_step = subsample_step

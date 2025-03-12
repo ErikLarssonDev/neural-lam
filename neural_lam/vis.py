@@ -116,9 +116,6 @@ def plot_error_map(errors, data_config, title=None, step_length=3):
 def plot_on_axis(
     ax,
     data,
-    border_data=None,
-    data_config=None,
-    obs_mask=None,
     vmin=None,
     vmax=None,
     ax_title=None,
@@ -131,29 +128,11 @@ def plot_on_axis(
     # if data_config is None:
     #     data_config = config.Config.from_file("/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/data_config.yaml")
     # Set up masking of border region
-    if obs_mask is None:
-        pixel_alpha = 1
-        data_grid = data.reshape(*constants.GRID_SHAPE).cpu().numpy()
-    else:
-        mask_reshaped = obs_mask.reshape(*constants.FULL_GRID_SHAPE)
-        pixel_alpha = (
-            mask_reshaped.clamp(0.7, 1).cpu().numpy()
-        )  # Faded border region
-        # Create a blank array for the full image
-        reconstructed_image = np.zeros(constants.FULL_GRID_SHAPE[0] * constants.FULL_GRID_SHAPE[1])
-
-        # Fill in the interior and boundary regions
-        reconstructed_image[obs_mask.cpu().numpy()] = data.cpu().numpy()
-        reconstructed_image[~obs_mask.cpu().numpy()] = border_data.cpu().numpy()
-
-        # Reshape to 2D for plotting
-        data_grid = reconstructed_image.reshape(*constants.FULL_GRID_SHAPE)
 
     ax.coastlines()  # Add coastline outlines
     im = ax.imshow(
-        data_grid,
+        data.reshape(*constants.FULL_GRID_SHAPE).cpu().numpy(),
         origin="lower",
-        alpha=pixel_alpha,
         vmin=vmin,
         vmax=vmax,
         cmap=cmap,
@@ -213,7 +192,7 @@ def plot_prediction(
 
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
 def plot_ensemble_prediction(
-    samples, target, border, ens_mean, ens_std, obs_mask, title=None, vrange=None
+    samples, target, ens_mean, ens_std, title=None, vrange=None
 ):
     """
     Plot example predictions, ground truth, mean and std.-dev.
@@ -247,8 +226,6 @@ def plot_ensemble_prediction(
     gt_im = plot_on_axis(
         axes[0],
         target,
-        border,
-        obs_mask=obs_mask,
         vmin=vmin,
         vmax=vmax,
         ax_title="Ground Truth",
@@ -256,8 +233,6 @@ def plot_ensemble_prediction(
     plot_on_axis(
         axes[1],
         ens_mean,
-        border,
-        obs_mask=obs_mask,
         vmin=vmin,
         vmax=vmax,
         ax_title="Ens. Mean",
@@ -265,8 +240,6 @@ def plot_ensemble_prediction(
     std_im = plot_on_axis(
         axes[2],
         ens_std,
-        border*0,
-        obs_mask=obs_mask,
         ax_title="Ens. Std."
     )  # Own vrange
 
@@ -277,8 +250,6 @@ def plot_ensemble_prediction(
         plot_on_axis(
             ax,
             member,
-            border,
-            obs_mask=obs_mask,
             vmin=vmin,
             vmax=vmax,
             ax_title=f"Member {member_i}",
@@ -326,7 +297,6 @@ def plot_spatial_error(
         ax,
         error,
         data_config,
-        obs_mask=obs_mask,
         vmin=vmin,
         vmax=vmax,
         cmap="OrRd",
