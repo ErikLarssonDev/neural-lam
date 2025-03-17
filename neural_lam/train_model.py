@@ -19,12 +19,14 @@ from neural_lam.models.graph_efm import GraphEFM
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.diffusion import Diffusion
+from neural_lam.models.ir_sde import IR_SDE
 
 MODELS = {
     "graphcast": GraphCast,
     "graph_fm": GraphFM,
     "graph_efm": GraphEFM,
     "diffusion": Diffusion,
+    "ir_sde": IR_SDE, 
 }
 
 def list_of_ints(arg):
@@ -283,6 +285,18 @@ def main(input_args=None):
         default=0.02,
         help="Sigma min for training. (default: 0.02)",
     )
+    parser.add_argument(
+        "--sigma_max",
+        type=float,
+        default=10 / 255, # To get the same sigma max as the paper, normalize by 255 to get it into the image domain. TODO: Experiment with this for better results for atmospheric data
+        help="Sigma max for training. (default: 10)",
+    )
+    parser.add_argument(
+        "--eps",
+        type=float,
+        default=0.005,
+        help="Eps for IR-SDE. (default: 0.005)",
+    )
 
     # EDM Options
     # resample_filter=args.resample_filter,
@@ -366,6 +380,11 @@ def main(input_args=None):
         "--save_output",
         action="store_true",
         help="If the model output should be saved to the output folder (default: False)",
+    )
+    parser.add_argument(
+        "--save_steps",
+        action="store_true",
+        help="If the diffusion steps output of 1 sample should be saved to the folder diffusion_steps (default: False)",
     )
 
 
@@ -461,6 +480,8 @@ def main(input_args=None):
         )  # Allows using Tensor Cores on A100s
     else:
         device_name = "cpu"
+
+    print(f"Using device: {device_name}")
 
     # Load model parameters Use new args for model
     model_class = MODELS[args.model]

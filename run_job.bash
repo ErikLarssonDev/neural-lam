@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J baseline_downscaling_1200e
+#SBATCH -J baseline_downscaling_1400e
 #SBATCH -t 1-00:00:00
 #SBATCH --gpus=4
 #SBATCH -C "fat"
@@ -17,7 +17,7 @@ git switch downscaling
 # Standard arguments
 MODEL="--model diffusion"
 # DIFFUSION_MODEL="--diffusion_model graph_fm --graph hierarchical-3"
-RUN_NAME="--wandb_run_name baseline_downscaling_1200e"
+RUN_NAME="--wandb_run_name baseline_downscaling_1400e"
 
 # Paths to saved models
 EDM_200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/downscaling-diffusion-6x128-03_04_10-3876/last.ckpt"
@@ -28,7 +28,7 @@ EDM_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/baseli
 # Execute Python script with arguments
 # Train
 # python3 neural_lam/train_model.py $MODEL $DIFFUSION_MODEL $RUN_NAME --n_workers 16 --pred_residual --border_condition --vertical_propnets 1 --batch_size 12  --processor_layers 2 --hidden_dim 128 --epochs 800 --load $level_3_600e --lr 0.0001
-# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME  --n_workers 16 --pred_residual --epochs 1200 --batch_size 12 --lr 0.00001 --load $EDM_1000e # --lr 0.0000001 # --encoder_type residual # --noise_aug_prob 0.5
+python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME  --n_workers 16 --pred_residual --epochs 1400 --batch_size 12 --lr 0.00001 --load $EDM_1200e # --lr 0.0000001 # --encoder_type residual # --noise_aug_prob 0.5
 
 # Test
 # python3 neural_lam/train_model.py $MODEL $DIFFUSION_MODEL $RUN_NAME --n_workers 2 --pred_residual --border_condition --vertical_propnets 1 --batch_size 18  --processor_layers 2 --hidden_dim 128 --eval val --n_example_pred 0 --ensemble_size 5 --load $level_3_600e
@@ -41,7 +41,7 @@ EDM_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/baseli
 # Trial test
 # Batch size 18 for GraphFM
 # Batch size (56 max but 32 more stable) for EDM
-python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --n_workers 2 --pred_residual --eval test --n_example_pred 1 --batch_size 4 --subset_ds --ensemble_size 5 --sampler edm --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/baseline_downscaling_1200e-diffusion-6x128-03_07_15-9081/last.ckpt
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --n_workers 2 --pred_residual --eval test --n_example_pred 1 --batch_size 4 --subset_ds --ensemble_size 5 --sampler edm --sampler_steps 51 --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/baseline_downscaling_1200e-diffusion-6x128-03_07_15-9081/last.ckpt
 
 
 # Eval

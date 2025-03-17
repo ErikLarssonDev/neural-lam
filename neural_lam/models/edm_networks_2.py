@@ -266,6 +266,7 @@ class SongUNet(torch.nn.Module):
         resample_filter     = [1,1],        # Resampling filter: [1,1] for DDPM++, [1,3,3,1] for NCSN++. TODO: Test to change to [1,3,3,1]
         hidden_layers       = 1,            # Number of hidden layers in the grid encoding MLPs.
         obs_mask            = None,            # Masking of the observation grid.
+        ir_sde              = False,        # Whether to use the improved residual SDE formulation.
     ):
         assert embedding_type in ['fourier', 'positional']
         assert encoder_type in ['standard', 'skip', 'residual']
@@ -284,21 +285,22 @@ class SongUNet(torch.nn.Module):
             init=init, init_zero=init_zero, init_attn=init_attn,
         )
         self.obs_mask = obs_mask
-        self.config_loader = config.Config.from_file('neural_lam/data_config.yaml')
+        self.ir_sde = ir_sde
+        # self.config_loader = config.Config.from_file('neural_lam/data_config.yaml')
 
-        # Load static features for grid/data
-        static_data_dict = utils.load_static_data(
-            self.config_loader.dataset.name
-        )
+        # # Load static features for grid/data
+        # static_data_dict = utils.load_static_data(
+        #     self.config_loader.dataset.name
+        # )
 
-        for static_data_name, static_data in static_data_dict.items():
-            if isinstance(static_data, torch.Tensor):
-                self.register_buffer(
-                    static_data_name, static_data, persistent=False
-                )
-            else:
-                # Non-tensor static can not and should not be buffers
-                setattr(self, static_data_name, static_data)
+        # for static_data_name, static_data in static_data_dict.items():
+        #     if isinstance(static_data, torch.Tensor):
+        #         self.register_buffer(
+        #             static_data_name, static_data, persistent=False
+        #         )
+        #     else:
+        #         # Non-tensor static can not and should not be buffers
+        #         setattr(self, static_data_name, static_data)
 
         # Mapping.
         self.map_noise = PositionalEmbedding(num_channels=noise_channels, endpoint=True) if embedding_type == 'positional' else FourierEmbedding(num_channels=noise_channels)
@@ -386,7 +388,7 @@ class SongUNet(torch.nn.Module):
         return x.unsqueeze(0).expand(batch_size, -1, -1).contiguous()
     
     def forward(self, x, noise_labels, class_labels):
-        
+    
         # Mapping.
         emb = self.map_noise(noise_labels)
         emb = emb.reshape(emb.shape[0], 2, -1).flip(1).reshape(*emb.shape).contiguous() # swap sin/cos
@@ -395,6 +397,10 @@ class SongUNet(torch.nn.Module):
         emb = emb.squeeze()
     
         # Create full grid node features of shape (B, num_grid_nodes, grid_dim)
+
+        if self.ir_sde:
+            x = x - class_labels
+        
         x = torch.cat(
             (
                 x,

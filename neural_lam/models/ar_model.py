@@ -110,7 +110,7 @@ class ARModel(pl.LightningModule):
         self.lr_scheduler = args.lr_scheduler
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, betas=(0.9, 0.95), weight_decay=self.weight_decay)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, betas=(0.9, 0.95), weight_decay=self.weight_decay) # Why not standard values?
         if self.lr_scheduler == "cosine": # Cosine annealing
             print("Using cosine annealing learning rate scheduler")
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.trainer.estimated_stepping_batches, eta_min=0) # self.trainer.estimated_stepping_batches, self.trainer.max_epochs
