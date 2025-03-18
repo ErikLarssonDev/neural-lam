@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -J IR_SDE_neural_lam_200e
+#SBATCH -J sampler_1000_IR_SDE_neural_lam_200e
 #SBATCH -t 2-00:00:00
-#SBATCH --gpus=1
+#SBATCH --gpus=4
 #SBATCH -C "fat"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=erila85@liu.se
@@ -17,13 +17,13 @@ git switch downscaling
 # Standard arguments
 MODEL="--model ir_sde"
 # DIFFUSION_MODEL="--diffusion_model graph_fm --graph hierarchical-3"
-RUN_NAME="--wandb_run_name IR_SDE_neural_lam_200e"
+RUN_NAME="--wandb_run_name sampler_1000_IR_SDE_neural_lam_200e"
 
 # Paths to saved models
 
 # Execute Python script with arguments
 # Train
-python3 neural_lam/train_model.py --model ir_sde --diffusion_model song_unet $RUN_NAME  --n_workers 16 --batch_size 12 --epochs 200  --sampler_steps 100 # --load $IR_SDE_600e
+python3 neural_lam/train_model.py --model ir_sde --diffusion_model song_unet $RUN_NAME  --n_workers 16 --batch_size 12 --epochs 200  --sampler_steps 1000 # --load $IR_SDE_600e
 
 # Test
 # python3 neural_lam/train_model.py --model ir_sde --diffusion_model song_unet $RUN_NAME --n_workers 2 --eval val --n_example_pred 1 --batch_size 8 --ensemble_size 5 --sampler_steps 100 --load $IR_SDE_600e  

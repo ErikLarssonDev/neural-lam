@@ -59,18 +59,11 @@ class IR_SDE(ARModel):
                                 "crps_ens": [],
                                 "spread_squared": [],
                             }
-        # Instantiate model + trainer
-        if torch.cuda.is_available():
-            self.device_name = "cuda"
-            torch.set_float32_matmul_precision(
-                "high"
-            )  # Allows using Tensor Cores on A100s
-        else:
-            self.device_name = "cpu"
-
     ############################################################################
     # IR-SDE
         # self.max_sigma = args.sigma_max / 255 if args.sigma_max >= 1 else args.sigma_max # Is this only because of images?, still needed for good results.
+        self.device_name = f"{args.device_name}:{torch.cuda.current_device()}" # We need this to initialize everything on the correct device, TODO: Can we remove this?
+
         self._initialize(self.max_sigma, T=args.sampler_steps, schedule="cosine", eps=args.eps)
 
     def _initialize(self, max_sigma=10 / 255, T=100, schedule="cosine", eps=0.005): # Standard values from deblurring task
@@ -88,7 +81,7 @@ class IR_SDE(ARModel):
             return betas
         
         def get_thetas_cumsum(thetas):
-            return torch.cumsum(thetas, dim=0)
+            return torch.cumsum(thetas, dim=0) # TODO: Could use torch.quad(cosine_schedule, 0, 1, eps=1e-6) to get the integral instead
 
         def get_sigmas(thetas):
             return torch.sqrt(max_sigma**2 * 2 * thetas)
@@ -102,21 +95,30 @@ class IR_SDE(ARModel):
             print('Not implemented such schedule yet!!!')
 
         sigmas = get_sigmas(thetas)
-        thetas_cumsum = get_thetas_cumsum(thetas) - thetas[0] # for that thetas[0] is not 0
+        thetas_cumsum = get_thetas_cumsum(thetas) - thetas[0] # for that thetas[0] is not 0, TODO: Why subtract the first element?
         self.dt = -1 / thetas_cumsum[-1] * math.log(eps)
         sigma_bars = get_sigma_bars(thetas_cumsum)
         
+        # TODO: Should we really save all of this or just calculate it when needed?
         self.thetas = thetas
         self.sigmas = sigmas
         self.thetas_cumsum = thetas_cumsum
         self.sigma_bars = sigma_bars
+
+    def set_device(self):
+        self.thetas = self.thetas.to(device=self.device_name)
+        self.sigmas = self.sigmas.to(device=self.device_name)
+        self.thetas_cumsum = self.thetas_cumsum.to(device=self.device_name)
+        self.sigma_bars = self.sigma_bars.to(device=self.device_name)
+        self.dt = self.dt.to(device=self.device_name)
+
 
     # set mu for different cases
     def set_mu(self, mu): # TODO: Should probably remove this and just send mu to the noise function
         self.mu = mu
 
     def mu_bar(self, x0, t):
-        return self.mu + (x0 - self.mu) * torch.exp(-self.thetas_cumsum[t] * self.dt)
+        return self.mu + (x0 - self.mu) * torch.exp(-self.thetas_cumsum[t] * self.dt).to(x0.device)
     
     def sigma_bar(self, t):
         return self.sigma_bars[t]
@@ -149,7 +151,7 @@ class IR_SDE(ARModel):
         noise_level = self.sigma_bar(timesteps)
         noisy_states = noises * noise_level + state_mean
 
-        return timesteps, noisy_states.to(torch.float32)
+        return timesteps, noisy_states
     
     def sde_reverse_drift(self, x, score, t):
         return (self.thetas[t] * (self.mu - x) - self.sigmas[t]**2 * score) * self.dt
@@ -175,7 +177,7 @@ class IR_SDE(ARModel):
             self.state_0 = GT # GT
 
     def dispersion(self, x, t):
-        return self.sigmas[t] * (torch.randn_like(x, device=self.device_name) * math.sqrt(self.dt))
+        return self.sigmas[t] * (torch.randn_like(x, device=x.device) * math.sqrt(self.dt))
 
     def reverse_sde_step(self, x, score, t):
         return x - self.sde_reverse_drift(x, score, t) - self.dispersion(x, t)
@@ -250,6 +252,10 @@ class IR_SDE(ARModel):
         next_state: (B, N_grid, d_state)
         pred_std: None
         """
+        # Moving everything to the correct device, TODO: Try to remove this as it can slow down the training. 
+        self.device_name = LQ.device
+        self.set_device()
+
         noisy_state = self.noise_state(LQ)
         self.feed_data(state=noisy_state, LQ=LQ, GT=None)
         self.set_mu(self.condition)
@@ -269,6 +275,9 @@ class IR_SDE(ARModel):
         downscaled_state: (B, N_grid, d_state)
         pred_std: None 
         """
+        # Moving everything to the correct device, TODO: Try to remove this as it can slow down the training. 
+        self.device_name = LQ.device
+        self.set_device()
 
         # TODO: Implement pred_residual for training
 
@@ -286,11 +295,10 @@ class IR_SDE(ARModel):
         # Learning the maximum likelihood objective for state x_{t-1}
         xt_1_expection = self.reverse_sde_step_mean(self.state, score, timesteps) # TODO: Can this be used to calculate the mse_step? Or is it something else than the prediction. 
         xt_1_optimum = self.reverse_optimum_step(self.state, self.state_0, timesteps)
-        # TODO: Use exactly the same loss function as IR-SDE project and see if the loss is the same. If not, we need to investigate why. loss_fn in denoising_model.py leads to loss.py
-        loss = self.loss_fn(xt_1_expection, xt_1_optimum) # metrics.mse(xt_1_expection.permute(0, 2, 3, 1).flatten(1, 2), xt_1_optimum.permute(0, 2, 3, 1).flatten(1, 2), pred_std=torch.tensor(1, device=LQ.device)) # Equal weights for all variables, maybe we should use the same weights as in the baseline model
+       
+        loss = self.loss_fn(xt_1_expection, xt_1_optimum) # Equal weights for all variables, maybe we should use the same weights as in the baseline model
         
-        print(f"xt_1_exp: {xt_1_expection.shape}, xt_1_opt: {xt_1_optimum.shape}, loss: {loss}")
-
+        # TODO: We should return x1 based on taking one large step, not just a small step as if we were to continue the diffusion process
         return xt_1_expection.permute(0, 2, 3, 1).flatten(1, 2), None, loss
     
     def unroll_prediction(self, LQ):
@@ -397,8 +405,6 @@ class IR_SDE(ARModel):
         Train on single batch
         """
         prediction, target, pred_std, loss = self.common_step_train(batch)
-        print("Training step")
-        print(f"Prediction: {prediction.shape}, Target: {target.shape}, Loss: {loss.shape}")
 
         # Compute loss
         batch_loss = torch.mean(loss)  # mean over unrolled times and batch
@@ -408,8 +414,6 @@ class IR_SDE(ARModel):
                 prediction, target, pred_std
             )
         )  # mean over unrolled times and batch
-
-        print(f"Batch loss: {batch_loss}, Batch mse: {batch_mse}")
 
         log_dict = {"train_loss": batch_loss, "train_mse": batch_mse, "loss": batch_loss} # TODO: Remove "loss" from log_dict if we can see that we get the same results as before
         self.log_dict(

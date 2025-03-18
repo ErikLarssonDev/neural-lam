@@ -482,6 +482,7 @@ def main(input_args=None):
         device_name = "cpu"
 
     print(f"Using device: {device_name}")
+    args.device_name = device_name
 
     # Load model parameters Use new args for model
     model_class = MODELS[args.model]
