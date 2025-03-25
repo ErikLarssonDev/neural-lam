@@ -182,7 +182,7 @@ class IR_SDE(ARModel):
     def reverse_sde_step(self, x, score, t):
         return x - self.sde_reverse_drift(x, score, t) - self.dispersion(x, t)
     
-    def reverse_sde(self, xt, T=-1, save_states=False, save_dir='diffusion_steps', GT=None, **kwargs):
+    def reverse_sde(self, xt, T=-1, save_dir='diffusion_steps', GT=None, **kwargs):
         T = self.T if T < 0 else T
         x = xt.clone()
         for t in reversed(range(1, T + 1)):
@@ -261,7 +261,7 @@ class IR_SDE(ARModel):
         self.set_mu(self.condition)
 
         # TODO: Implement Heun solver
-        next_state = self.reverse_sde(self.state, save_states=False, GT=None) # TODO: Fix save states for plotting
+        next_state = self.reverse_sde(self.state, GT=None) # TODO: Fix save states for plotting
 
         return next_state.permute(0, 2, 3, 1).flatten(1, 2), None
 

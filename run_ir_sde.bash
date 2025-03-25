@@ -26,10 +26,10 @@ RUN_NAME="--wandb_run_name sampler_1000_IR_SDE_neural_lam_200e"
 python3 neural_lam/train_model.py --model ir_sde --diffusion_model song_unet $RUN_NAME  --n_workers 16 --batch_size 12 --epochs 200  --sampler_steps 1000 # --load $IR_SDE_600e
 
 # Test
-# python3 neural_lam/train_model.py --model ir_sde --diffusion_model song_unet $RUN_NAME --n_workers 2 --eval val --n_example_pred 1 --batch_size 8 --ensemble_size 5 --sampler_steps 100 --load $IR_SDE_600e  
+# python3 neural_lam/train_model.py --model ir_sde --diffusion_model song_unet $RUN_NAME --n_workers 2 --eval val --n_example_pred 1 --batch_size 8 --ensemble_size 5 --sampler_steps 100 --load $IR_SDE_600e   
 
 # Trial train
 # python3 neural_lam/train_model.py --model ir_sde --diffusion_model song_unet --n_workers 16 --batch_size 12 --sampler_steps 100 --epochs 5 --subset_ds
 
 # Trial test
-# python3 neural_lam/train_model.py --model ir_sde --diffusion_model song_unet --n_workers 2 --eval test --n_example_pred 1 --batch_size 4 --subset_ds --ensemble_size 3 --sampler_steps 100 --load "/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/IR_SDE_neural_lam_200e-ir_sde-6x128-03_14_16-5847/last.ckpt"
+# python3 neural_lam/train_model.py --model ir_sde --diffusion_model song_unet --n_workers 2 --eval test --n_example_pred 1 --batch_size 4 --subset_ds --ensemble_size 5 --sampler_steps 100 --save_steps --subset_ds --load "/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/IR_SDE_neural_lam_200e-ir_sde-6x128-03_14_16-5847/last.ckpt"
