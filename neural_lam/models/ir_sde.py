@@ -18,6 +18,15 @@ from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.edm_networks_2 import SongUNet
 
+# For integration
+from torchquad import set_up_backend  # Necessary to enable GPU support
+from torchquad import Trapezoid, Simpson, Boole, MonteCarlo, VEGAS # The available integrators
+from torchquad.utils.set_precision import set_precision
+import torchquad
+
+# Use this to enable GPU support and set the floating point precision
+set_up_backend("torch", data_type="float32")
+
 class IR_SDE(ARModel):
     """
     A new auto-regressive weather forecasting model
@@ -59,6 +68,8 @@ class IR_SDE(ARModel):
                                 "crps_ens": [],
                                 "spread_squared": [],
                             }
+        
+        self.integrator = Trapezoid()
     ############################################################################
     # IR-SDE
         # self.max_sigma = args.sigma_max / 255 if args.sigma_max >= 1 else args.sigma_max # Is this only because of images?, still needed for good results.
@@ -67,21 +78,6 @@ class IR_SDE(ARModel):
         self._initialize(self.max_sigma, T=args.sampler_steps, schedule="cosine", eps=args.eps)
 
     def _initialize(self, max_sigma=10 / 255, T=100, schedule="cosine", eps=0.005): # Standard values from deblurring task
-        def cosine_theta_schedule(timesteps, s = 0.008):
-            """
-            cosine schedule
-            """
-            print('cosine schedule')
-            timesteps = timesteps + 2 # for truncating from 1 to -1
-            steps = timesteps + 1
-            x = torch.linspace(0, timesteps, steps, dtype=torch.float32, device=self.device_name)
-            alphas_cumprod = torch.cos(((x / timesteps) + s) / (1 + s) * math.pi * 0.5) ** 2 # TODO: x/timesteps could be [0,1], does not need to be discrete
-            alphas_cumprod = alphas_cumprod / alphas_cumprod[0]
-            betas = 1 - alphas_cumprod[1:-1]
-            return betas
-        
-        def get_thetas_cumsum(thetas):
-            return torch.cumsum(thetas, dim=0) # TODO: Could use torch.quad(cosine_schedule, 0, 1, eps=1e-6) to get the integral instead
 
         def get_sigmas(thetas):
             return torch.sqrt(max_sigma**2 * 2 * thetas)
@@ -89,36 +85,61 @@ class IR_SDE(ARModel):
         def get_sigma_bars(thetas_cumsum):
             return torch.sqrt(max_sigma**2 * (1 - torch.exp(-2 * thetas_cumsum * self.dt)))
         
-        if schedule == 'cosine':
-            thetas = cosine_theta_schedule(T)
-        else:
-            print('Not implemented such schedule yet!!!')
+        # if schedule == 'cosine':
+        #     thetas = cosine_theta_schedule(T)
+        # else:
+        #     print('Not implemented such schedule yet!!!')
 
-        sigmas = get_sigmas(thetas)
-        thetas_cumsum = get_thetas_cumsum(thetas) - thetas[0] # for that thetas[0] is not 0, TODO: Why subtract the first element?
-        self.dt = -1 / thetas_cumsum[-1] * math.log(eps)
-        sigma_bars = get_sigma_bars(thetas_cumsum)
+        # sigmas = get_sigmas(thetas)
+        # thetas_cumsum = get_thetas_cumsum(thetas) - thetas[0] # for that thetas[0] is not 0, 
+        self.dt = torch.log(eps, self.device_name) # This is to avoid oversmoothing, see appendix D # -1 / thetas_cumsum[-1] * math.log(eps)
+        # sigma_bars = get_sigma_bars(thetas_cumsum)
         
         # TODO: Should we really save all of this or just calculate it when needed?
-        self.thetas = thetas
-        self.sigmas = sigmas
-        self.thetas_cumsum = thetas_cumsum
-        self.sigma_bars = sigma_bars
+        # self.thetas = thetas
+        # self.sigmas = sigmas
+        # self.thetas_cumsum = thetas_cumsum
+        # self.sigma_bars = sigma_bars
 
-    def set_device(self):
-        self.thetas = self.thetas.to(device=self.device_name)
-        self.sigmas = self.sigmas.to(device=self.device_name)
-        self.thetas_cumsum = self.thetas_cumsum.to(device=self.device_name)
-        self.sigma_bars = self.sigma_bars.to(device=self.device_name)
-        self.dt = self.dt.to(device=self.device_name)
+    # def set_device(self):
+        # self.thetas = self.thetas.to(device=self.device_name)
+        # self.sigmas = self.sigmas.to(device=self.device_name)
+        # self.thetas_cumsum = self.thetas_cumsum.to(device=self.device_name)
+        # self.sigma_bars = self.sigma_bars.to(device=self.device_name)
+        # self.dt = self.dt.to(device=self.device_name)
 
+    # def cosine_theta_schedule(self, timesteps, s = 0.008):
+    #     """
+    #     cosine schedule
+    #     """
+    #     print('cosine schedule')
+    #     timesteps = timesteps + 2 # for truncating from 1 to -1
+    #     steps = timesteps + 1
+    #     x = torch.linspace(0, timesteps, steps, dtype=torch.float32, device=self.device_name)
+    #     alphas_cumprod = torch.cos(((x / timesteps) + s) / (1 + s) * math.pi * 0.5) ** 2 # TODO: x/timesteps could be [0,1], does not need to be discrete
+    #     alphas_cumprod = alphas_cumprod / alphas_cumprod[0]
+    #     betas = 1 - alphas_cumprod[1:-1]
+    #     return betas
+
+    def cosine_theta_schedule(x, s=torch.tensor([0.008])):
+        """
+        Cosine schedule using normalized x in [0,1].
+        """
+        alphas_cumprod = torch.cos(((x) + s) / (1 + s) * math.pi * 0.5) ** 2
+        alphas_cumprod = alphas_cumprod / torch.cos((s / (1 + s)) * math.pi * 0.5) ** 2  # Normalize
+        betas = 1 - alphas_cumprod
+        return betas
+
+    def get_thetas_cumsum(self, t):
+        # return torch.cumsum(thetas, dim=0) # TODO: Could use torch.quad(cosine_schedule, 0, 1, eps=1e-6) to get the integral instead
+        return self.integrator.integrate(self.cosine_theta_schedule, dim=1, N=100, integration_domain=[[0,t]]) * 2 # We do *2 to match the paper. TODO: Figuer out if this makes sense (Appendix D).
 
     # set mu for different cases
     def set_mu(self, mu): # TODO: Should probably remove this and just send mu to the noise function
         self.mu = mu
 
     def mu_bar(self, x0, t):
-        return self.mu + (x0 - self.mu) * torch.exp(-self.thetas_cumsum[t] * self.dt).to(x0.device)
+        return self.mu + (x0 - self.mu) * torch.exp(-self.get_thetas_cumsum(t) * self.dt).to(x0.device)
     
     def sigma_bar(self, t):
         return self.sigma_bars[t]
@@ -144,7 +165,8 @@ class IR_SDE(ARModel):
 
         batch = x0.shape[0]
 
-        timesteps = torch.randint(1, self.T + 1, (batch, 1, 1, 1), device=x0.device).long()
+        # timesteps = torch.randint(1, self.T + 1, (batch, 1, 1, 1), device=x0.device).long()
+        timesteps = torch.rand(batch, 1, 1, 1, device=x0.device) # Should be in [0,1] for continous time.
 
         state_mean = self.mu_bar(x0, timesteps)
         noises = torch.randn_like(state_mean, device=x0.device)
@@ -163,7 +185,7 @@ class IR_SDE(ARModel):
     def reverse_optimum_step(self, xt, x0, t):
         A = torch.exp(-self.thetas[t] * self.dt)
         B = torch.exp(-self.thetas_cumsum[t] * self.dt)
-        C = torch.exp(-self.thetas_cumsum[t-1] * self.dt)
+        C = torch.exp(-self.thetas_cumsum[t-1] * self.dt) # TODO: We need to decide on a discretization scheme, for the training.
 
         term1 = A * (1 - C**2) / (1 - B**2)
         term2 = C * (1 - A**2) / (1 - B**2)
