@@ -74,13 +74,15 @@ class IR_SDE(ARModel):
     # IR-SDE
         # self.max_sigma = args.sigma_max / 255 if args.sigma_max >= 1 else args.sigma_max # Is this only because of images?, still needed for good results.
         self.device_name = f"{args.device_name}:{torch.cuda.current_device()}" # We need this to initialize everything on the correct device, TODO: Can we remove this?
+        self.max_sigma = 10/255 # Standard values from deblurring task
+        self.dt = torch.log(0.005, self.device_name) # Standard values from deblurring task
 
         self._initialize(self.max_sigma, T=args.sampler_steps, schedule="cosine", eps=args.eps)
 
     def _initialize(self, max_sigma=10 / 255, T=100, schedule="cosine", eps=0.005): # Standard values from deblurring task
 
-        def get_sigmas(thetas):
-            return torch.sqrt(max_sigma**2 * 2 * thetas)
+        # def get_sigmas(thetas):
+        #     return torch.sqrt(max_sigma**2 * 2 * thetas)
 
         def get_sigma_bars(thetas_cumsum):
             return torch.sqrt(max_sigma**2 * (1 - torch.exp(-2 * thetas_cumsum * self.dt)))
@@ -92,7 +94,7 @@ class IR_SDE(ARModel):
 
         # sigmas = get_sigmas(thetas)
         # thetas_cumsum = get_thetas_cumsum(thetas) - thetas[0] # for that thetas[0] is not 0, 
-        self.dt = torch.log(eps, self.device_name) # This is to avoid oversmoothing, see appendix D # -1 / thetas_cumsum[-1] * math.log(eps)
+         # This is to avoid oversmoothing, see appendix D # -1 / thetas_cumsum[-1] * math.log(eps)
         # sigma_bars = get_sigma_bars(thetas_cumsum)
         
         # TODO: Should we really save all of this or just calculate it when needed?
@@ -121,18 +123,24 @@ class IR_SDE(ARModel):
     #     betas = 1 - alphas_cumprod[1:-1]
     #     return betas
 
-    def cosine_theta_schedule(x, s=torch.tensor([0.008])):
+    def cosine_theta_schedule(t, s=torch.tensor([0.008])):
         """
         Cosine schedule using normalized x in [0,1].
         """
-        alphas_cumprod = torch.cos(((x) + s) / (1 + s) * math.pi * 0.5) ** 2
+        alphas_cumprod = torch.cos(((t) + s) / (1 + s) * math.pi * 0.5) ** 2
         alphas_cumprod = alphas_cumprod / torch.cos((s / (1 + s)) * math.pi * 0.5) ** 2  # Normalize
         betas = 1 - alphas_cumprod
         return betas
-
+    
+    def get_theta(self, t):
+        return self.cosine_theta_schedule(t)
+    
+    def get_sigma(self, t):
+        return torch.sqrt(self.max_sigma**2 * 2 * self.get_theta(t))
+    
     def get_thetas_cumsum(self, t):
         # return torch.cumsum(thetas, dim=0) # TODO: Could use torch.quad(cosine_schedule, 0, 1, eps=1e-6) to get the integral instead
-        return self.integrator.integrate(self.cosine_theta_schedule, dim=1, N=100, integration_domain=[[0,t]]) * 2 # We do *2 to match the paper. TODO: Figuer out if this makes sense (Appendix D).
+        return self.integrator.integrate(self.get_theta, dim=1, N=100, integration_domain=[[0,t]]) * 2 # We do *2 to match the paper. TODO: Figuer out if this makes sense (Appendix D).
 
     # set mu for different cases
     def set_mu(self, mu): # TODO: Should probably remove this and just send mu to the noise function
@@ -142,7 +150,8 @@ class IR_SDE(ARModel):
         return self.mu + (x0 - self.mu) * torch.exp(-self.get_thetas_cumsum(t) * self.dt).to(x0.device)
     
     def sigma_bar(self, t):
-        return self.sigma_bars[t]
+        # return self.sigma_bars[t]
+        return torch.sqrt(max_sigma**2 * (1 - torch.exp(-2 * thetas_cumsum * self.dt)))
     
     def score_fn(self, x, t, **kwargs):
         noise_level = (t-1) / (self.T-1) # Normalize the diffusion time to [0, 1], TODO: How should we send the noise level to the model?
@@ -176,17 +185,17 @@ class IR_SDE(ARModel):
         return timesteps, noisy_states
     
     def sde_reverse_drift(self, x, score, t):
-        return (self.thetas[t] * (self.mu - x) - self.sigmas[t]**2 * score) * self.dt
+        return (self.get_theta(t) * (self.mu - x) - self.get_sigma(t)**2 * score) * self.dt
 
     def reverse_sde_step_mean(self, x, score, t):
         return x - self.sde_reverse_drift(x, score, t)
     
     # optimum x_{t-1}
     def reverse_optimum_step(self, xt, x0, t):
-        A = torch.exp(-self.thetas[t] * self.dt)
-        B = torch.exp(-self.thetas_cumsum[t] * self.dt)
-        C = torch.exp(-self.thetas_cumsum[t-1] * self.dt) # TODO: We need to decide on a discretization scheme, for the training.
-
+        A = torch.exp(-self.get_theta(t) * self.dt)
+        B = torch.exp(-self.get_thetas_cumsum(t) * self.dt)
+        step_back = torch.uniform(0+1/1000, t, device=xt.device) # TODO: We need to decide on a discretization scheme, for the training. #  We can use U[0+eps,t] as step back, eps = 1/1000 or the smallest step size that we think that we will use.
+        C = torch.exp(-self.get_thetas_cumsum(t-step_back) * self.dt) # TODO: We need to decide on a discretization scheme, for the training. #  We can use U[0+eps,t] as step back, eps = 1/1000 or the smallest step size that we think that we will use.
         term1 = A * (1 - C**2) / (1 - B**2)
         term2 = C * (1 - A**2) / (1 - B**2)
 
@@ -199,7 +208,7 @@ class IR_SDE(ARModel):
             self.state_0 = GT # GT
 
     def dispersion(self, x, t):
-        return self.sigmas[t] * (torch.randn_like(x, device=x.device) * math.sqrt(self.dt))
+        return self.get_sigma(t) * (torch.randn_like(x, device=x.device) * math.sqrt(self.dt))
 
     def reverse_sde_step(self, x, score, t):
         return x - self.sde_reverse_drift(x, score, t) - self.dispersion(x, t)
