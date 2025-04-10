@@ -19,13 +19,13 @@ from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.edm_networks_2 import SongUNet
 
 # For integration
-from torchquad import set_up_backend  # Necessary to enable GPU support
+# from torchquad import set_up_backend  # Necessary to enable GPU support
 from torchquad import Trapezoid, Simpson, Boole, MonteCarlo, VEGAS # The available integrators
-from torchquad.utils.set_precision import set_precision
-import torchquad
+# from torchquad.utils.set_precision import set_precision
+# import torchquad
 
 # Use this to enable GPU support and set the floating point precision
-set_up_backend("torch", data_type="float32")
+# set_up_backend("torch", data_type="float32")
 
 class IR_SDE(ARModel):
     """
@@ -74,8 +74,8 @@ class IR_SDE(ARModel):
     # IR-SDE
         # self.max_sigma = args.sigma_max / 255 if args.sigma_max >= 1 else args.sigma_max # Is this only because of images?, still needed for good results.
         self.device_name = f"{args.device_name}:{torch.cuda.current_device()}" # We need this to initialize everything on the correct device, TODO: Can we remove this?
-        self.max_sigma = 10/255 # Standard values from deblurring task
-        self.dt = torch.log(0.005, self.device_name) # Standard values from deblurring task
+        self.max_sigma = 10/255 # Standard values from deblurring task, TODO: Should we use the same values for atmospheric data?
+        self.dt = torch.log(torch.tensor([0.005])) # , device=self.device_name)) # Standard values from deblurring task
 
         self._initialize(self.max_sigma, T=args.sampler_steps, schedule="cosine", eps=args.eps)
 
@@ -123,7 +123,7 @@ class IR_SDE(ARModel):
     #     betas = 1 - alphas_cumprod[1:-1]
     #     return betas
 
-    def cosine_theta_schedule(t, s=torch.tensor([0.008])):
+    def cosine_theta_schedule(self, t, s=torch.tensor([0.008])):
         """
         Cosine schedule using normalized x in [0,1].
         """
@@ -151,16 +151,16 @@ class IR_SDE(ARModel):
     
     def sigma_bar(self, t):
         # return self.sigma_bars[t]
-        return torch.sqrt(max_sigma**2 * (1 - torch.exp(-2 * thetas_cumsum * self.dt)))
+        return torch.sqrt(self.max_sigma**2 * (1 - torch.exp(-2 * self.get_thetas_cumsum(t) * self.dt)))
     
     def score_fn(self, x, t, **kwargs):
-        noise_level = (t-1) / (self.T-1) # Normalize the diffusion time to [0, 1], TODO: How should we send the noise level to the model?
-        noise = self.model(x, noise_level.reshape(x.shape[0]), self.mu, **kwargs)
+        # noise_level = (t-1) / (self.T-1) # Normalize the diffusion time to [0, 1], TODO: How should we send the noise level to the model?
+        noise = self.model(x, t.reshape(x.shape[0]), self.mu, **kwargs)
         return self.get_score_from_noise(noise, t)
     
     def noise_fn(self, x, t, **kwargs):
-        noise_level = (t-1) / (self.T-1) # Normalize the diffusion time to [0, 1], TODO: How should we send the noise level to the model?
-        return self.model(x, noise_level.reshape(x.shape[0]), self.mu, **kwargs)
+        # noise_level = (t-1) / (self.T-1) # Normalize the diffusion time to [0, 1], TODO: How should we send the noise level to the model?
+        return self.model(x, t.reshape(x.shape[0]), self.mu, **kwargs)
     
     def get_score_from_noise(self, noise, t):
         return -noise / self.sigma_bar(t)
@@ -194,8 +194,10 @@ class IR_SDE(ARModel):
     def reverse_optimum_step(self, xt, x0, t):
         A = torch.exp(-self.get_theta(t) * self.dt)
         B = torch.exp(-self.get_thetas_cumsum(t) * self.dt)
-        step_back = torch.uniform(0+1/1000, t, device=xt.device) # TODO: We need to decide on a discretization scheme, for the training. #  We can use U[0+eps,t] as step back, eps = 1/1000 or the smallest step size that we think that we will use.
-        C = torch.exp(-self.get_thetas_cumsum(t-step_back) * self.dt) # TODO: We need to decide on a discretization scheme, for the training. #  We can use U[0+eps,t] as step back, eps = 1/1000 or the smallest step size that we think that we will use.
+        # TODO: We need to decide on a discretization scheme, for the training. #  We can use U[0+eps,t] as step back, eps = 1/1000 or the smallest step size that we think that we will use.
+        eps = 1e-6
+        step_back = (eps - t) * torch.rand_like(t) + t # Sampling uniform [eps, t] 
+        C = torch.exp(-self.get_thetas_cumsum(t-step_back) * self.dt)
         term1 = A * (1 - C**2) / (1 - B**2)
         term2 = C * (1 - A**2) / (1 - B**2)
 
@@ -224,7 +226,7 @@ class IR_SDE(ARModel):
 
             if self.save_steps:
                 for var_idx, var_name in enumerate(constants.PARAM_NAMES_SHORT):
-                    os.makedirs(f"{save_dir}/{var_name}", exist_ok=True) # TODO: Make the saving work for multiple fields, preferably in a subfolders
+                    os.makedirs(f"{save_dir}/{var_name}", exist_ok=True)
                     print(f"Saving to {save_dir}/{var_name}/state_{idx}.png")
 
                     vmin = GT[0, var_idx, ...].min().item()
@@ -260,17 +262,120 @@ class IR_SDE(ARModel):
                     axes[1].set_title(f"Ground Truth", size=15)
                     # fig.colorbar(im, ax=axes, orientation="horizontal")
                     fig.suptitle(f"{var_name} at time {t}", size=20)
-                    fig.savefig(f"{save_dir}/{var_name}/state_{idx}.png", bbox_inches='tight') # TODO: Should log to wandb
+                    fig.savefig(f"{save_dir}/{var_name}/state_{idx}.png", bbox_inches='tight')
                     plt.close(fig)
                 
                 self.save_steps = False # Only save the first time
 
         return x
     
+    # TODO: Implement second order solver. 
+    def heun_sampler(self, xt, T=-1, save_dir='diffusion_steps', GT=None, **kwargs):
+        T = self.T if T < 0 else T
+        x = xt.clone()
+        for t in reversed(range(1, T + 1)):
+            idx = t
+            t = torch.tensor(t, device=x.device)
+            score = self.score_fn(x, t, **kwargs)
+            x = self.reverse_sde_step(x, score, t)
+
+            if self.save_steps:
+                for var_idx, var_name in enumerate(constants.PARAM_NAMES_SHORT):
+                    os.makedirs(f"{save_dir}/{var_name}", exist_ok=True)
+                    print(f"Saving to {save_dir}/{var_name}/state_{idx}.png")
+
+                    vmin = GT[0, var_idx, ...].min().item()
+                    vmax = GT[0, var_idx, ...].max().item()
+
+                    fig, axes = plt.subplots(
+                        1,
+                        2,
+                        figsize=(12, 8),
+                        subplot_kw={"projection": constants.LAMBERT_PROJ},
+                    )
+
+                    axes[0].coastlines()  # Add coastline outlines
+                    im = axes[0].imshow(
+                        x[0, var_idx, ...].data.cpu().numpy(),
+                        origin="lower",
+                        vmin=vmin, # Should have the same vmin and vmax for all images, but at least the same for GT and pred, maybe GT sets the same for all?
+                        vmax=vmax,
+                        cmap="plasma",
+                        # extent=grid_limits,
+                    )
+                    axes[0].set_title(f"X_t", size=15)
+                    
+                    axes[1].coastlines()  # Add coastline outlines
+                    im = axes[1].imshow(
+                        GT[0, var_idx, ...].data.cpu().numpy(),
+                        origin="lower",
+                        vmin=vmin,
+                        vmax=vmax,
+                        cmap="plasma",
+                        # extent=grid_limits,
+                    )
+                    axes[1].set_title(f"Ground Truth", size=15)
+                    # fig.colorbar(im, ax=axes, orientation="horizontal")
+                    fig.suptitle(f"{var_name} at time {t}", size=20)
+                    fig.savefig(f"{save_dir}/{var_name}/state_{idx}.png", bbox_inches='tight')
+                    plt.close(fig)
+                
+                self.save_steps = False # Only save the first time
+
+        return x
+    
+    
     def noise_state(self, tensor):
         return tensor + torch.randn_like(tensor) * self.max_sigma
     
     # # TODO: Implement interpolate function
+    def interpolate(self, source, GT, save_dir=None):
+        self.set_mu(GT)
+        x = source.clone()
+        T = torch.linspace(0, 1, T + 1, device=x.device)
+        for idx, t in enumerate(T):
+            x = self.forward_step(x, t)
+            for var_idx, var_name in enumerate(constants.PARAM_NAMES_SHORT):
+                os.makedirs(f"{save_dir}/{var_name}", exist_ok=True)
+                print(f"Saving to {save_dir}/{var_name}/state_{idx}.png")
+
+                vmin = GT[0, var_idx, ...].min().item()
+                vmax = GT[0, var_idx, ...].max().item()
+
+                fig, axes = plt.subplots(
+                    1,
+                    2,
+                    figsize=(12, 8),
+                    subplot_kw={"projection": constants.LAMBERT_PROJ},
+                )
+
+                axes[0].coastlines()  # Add coastline outlines
+                im = axes[0].imshow(
+                    x[0, var_idx, ...].data.cpu().numpy(),
+                    origin="lower",
+                    vmin=vmin, # Should have the same vmin and vmax for all images, but at least the same for GT and pred, maybe GT sets the same for all?
+                    vmax=vmax,
+                    cmap="plasma",
+                    # extent=grid_limits,
+                )
+                axes[0].set_title(f"X_t", size=15)
+                
+                axes[1].coastlines()  # Add coastline outlines
+                im = axes[1].imshow(
+                    GT[0, var_idx, ...].data.cpu().numpy(),
+                    origin="lower",
+                    vmin=vmin,
+                    vmax=vmax,
+                    cmap="plasma",
+                    # extent=grid_limits,
+                )
+                axes[1].set_title(f"Ground Truth", size=15)
+                # fig.colorbar(im, ax=axes, orientation="horizontal")
+                fig.suptitle(f"{var_name} at time {t}", size=20)
+                # fig.savefig(f"{save_dir}/{var_name}/state_{idx}.png", bbox_inches='tight')
+                plt.close(fig)
+            
+            yield x.cpu().numpy()
 
     #----------------------------------------------------------------------------
 
@@ -308,7 +413,7 @@ class IR_SDE(ARModel):
         """
         # Moving everything to the correct device, TODO: Try to remove this as it can slow down the training. 
         self.device_name = LQ.device
-        self.set_device()
+        # self.set_device()
 
         # TODO: Implement pred_residual for training
 

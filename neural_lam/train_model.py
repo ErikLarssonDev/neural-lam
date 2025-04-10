@@ -481,6 +481,8 @@ def main(input_args=None):
     else:
         device_name = "cpu"
 
+    device_name = "cpu" # TODO Remove this line when GPU works
+
     print(f"Using device: {device_name}")
     args.device_name = device_name
 
