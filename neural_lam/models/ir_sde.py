@@ -218,8 +218,8 @@ class IR_SDE(ARModel):
     def reverse_sde(self, xt, T=-1, save_dir='diffusion_steps', GT=None, **kwargs):
         T = self.T if T < 0 else T
         x = xt.clone()
-        for t in reversed(range(1, T + 1)):
-            idx = t
+        T = torch.linspace(0, 1, T + 1, device=x.device)
+        for idx, t in enumerate(reversed(T)):
             t = torch.tensor(t, device=x.device)
             score = self.score_fn(x, t, **kwargs)
             x = self.reverse_sde_step(x, score, t)
@@ -270,14 +270,16 @@ class IR_SDE(ARModel):
         return x
     
     # TODO: Implement second order solver. 
-    def heun_sampler(self, xt, T=-1, save_dir='diffusion_steps', GT=None, **kwargs):
+    def reverse_sde_2(self, xt, T=-1, save_dir='diffusion_steps', GT=None, **kwargs):
         T = self.T if T < 0 else T
         x = xt.clone()
-        for t in reversed(range(1, T + 1)):
-            idx = t
+        T = torch.linspace(0, 1, T + 1, device=x.device)
+        for idx, t in enumerate(reversed(T)):
             t = torch.tensor(t, device=x.device)
             score = self.score_fn(x, t, **kwargs)
             x = self.reverse_sde_step(x, score, t)
+
+            # TODO: Implement second order step
 
             if self.save_steps:
                 for var_idx, var_name in enumerate(constants.PARAM_NAMES_SHORT):
