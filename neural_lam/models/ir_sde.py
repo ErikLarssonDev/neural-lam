@@ -236,6 +236,86 @@ class IR_SDE(ARModel):
 
         return x
     
+    def reverse_sde_2(self, xt, T=-1, save_dir='diffusion_steps', GT=None, **kwargs):
+        T = self.T if T < 0 else T
+        x = xt.clone()
+
+        for t in reversed(range(1, T + 1)):
+            idx = t
+            t_tensor = torch.tensor(t, device=x.device, dtype=torch.float32)
+
+            # First-order score
+            x.requires_grad_(True)
+            score = self.score_fn(x, t_tensor, **kwargs)
+
+            # Second-order correction using Taylor expansion
+            noise = torch.randn_like(x)
+            # dt = -1.0 / T  # small step (can be tuned or inferred from schedule)
+            sqrt_dt = torch.sqrt(torch.tensor(abs(self.dt), device=x.device))
+
+            # Get Jacobian-vector product (JVP): ∇_x score(x,t) @ noise
+            grad_score = torch.autograd.grad(
+                outputs=score,
+                inputs=x,
+                grad_outputs=torch.ones_like(score),
+                create_graph=True
+            )[0]
+
+            # Optional: full second-order term can also include ∇²x · b (Hessian), we skip that for now
+            correction = 0.5 * grad_score * (noise ** 2 - self.dt)
+
+            # Standard Euler-like update
+            x = x + self.reverse_sde_step(x, score, t_tensor)
+
+            # Add second-order correction
+            x = x + correction
+
+            x = x.detach()  # Detach to avoid growing the graph
+
+            if self.save_steps:
+                for var_idx, var_name in enumerate(constants.PARAM_NAMES_SHORT):
+                    os.makedirs(f"{save_dir}/{var_name}", exist_ok=True)
+                    print(f"Saving to {save_dir}/{var_name}/state_{idx}.png")
+
+                    vmin = GT[0, var_idx, ...].min().item()
+                    vmax = GT[0, var_idx, ...].max().item()
+
+                    fig, axes = plt.subplots(
+                        1,
+                        2,
+                        figsize=(12, 8),
+                        subplot_kw={"projection": constants.LAMBERT_PROJ},
+                    )
+
+                    axes[0].coastlines()
+                    im = axes[0].imshow(
+                        x[0, var_idx, ...].data.cpu().numpy(),
+                        origin="lower",
+                        vmin=vmin,
+                        vmax=vmax,
+                        cmap="plasma",
+                    )
+                    axes[0].set_title(f"X_t", size=15)
+
+                    axes[1].coastlines()
+                    im = axes[1].imshow(
+                        GT[0, var_idx, ...].data.cpu().numpy(),
+                        origin="lower",
+                        vmin=vmin,
+                        vmax=vmax,
+                        cmap="plasma",
+                    )
+                    axes[1].set_title(f"Ground Truth", size=15)
+
+                    fig.suptitle(f"{var_name} at time {t}", size=20)
+                    fig.savefig(f"{save_dir}/{var_name}/state_{idx}.png", bbox_inches='tight')
+                    plt.close(fig)
+
+                self.save_steps = False  # Only save first time
+
+        return x
+
+    
     def noise_state(self, tensor):
         return tensor + torch.randn_like(tensor) * self.max_sigma
     
