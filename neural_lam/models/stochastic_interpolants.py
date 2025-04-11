@@ -18,7 +18,7 @@ from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.edm_networks_2 import SongUNet
 
-class IR_SDE(ARModel):
+class SI(ARModel):
     """
     A new auto-regressive weather forecasting model
     """
@@ -60,251 +60,6 @@ class IR_SDE(ARModel):
                                 "spread_squared": [],
                             }
     ############################################################################
-    # IR-SDE
-        # self.max_sigma = args.sigma_max / 255 if args.sigma_max >= 1 else args.sigma_max # Is this only because of images?, still needed for good results.
-        self.device_name = f"{args.device_name}:{torch.cuda.current_device()}" # We need this to initialize everything on the correct device, TODO: Can we remove this?
-
-        self._initialize(self.max_sigma, T=args.sampler_steps, schedule="cosine", eps=args.eps)
-
-    def _initialize(self, max_sigma=10 / 255, T=100, schedule="cosine", eps=0.005): # Standard values from deblurring task
-        def cosine_theta_schedule(timesteps, s = 0.008):
-            """
-            cosine schedule
-            """
-            print('cosine schedule')
-            timesteps = timesteps + 2 # for truncating from 1 to -1
-            steps = timesteps + 1
-            x = torch.linspace(0, timesteps, steps, dtype=torch.float32, device=self.device_name)
-            alphas_cumprod = torch.cos(((x / timesteps) + s) / (1 + s) * math.pi * 0.5) ** 2 # TODO: x/timesteps could be [0,1], does not need to be discrete
-            alphas_cumprod = alphas_cumprod / alphas_cumprod[0]
-            betas = 1 - alphas_cumprod[1:-1]
-            return betas
-        
-        def get_thetas_cumsum(thetas):
-            return torch.cumsum(thetas, dim=0) # TODO: Could use torch.quad(cosine_schedule, 0, 1, eps=1e-6) to get the integral instead
-
-        def get_sigmas(thetas):
-            return torch.sqrt(max_sigma**2 * 2 * thetas)
-
-        def get_sigma_bars(thetas_cumsum):
-            return torch.sqrt(max_sigma**2 * (1 - torch.exp(-2 * thetas_cumsum * self.dt)))
-        
-        if schedule == 'cosine':
-            thetas = cosine_theta_schedule(T)
-        else:
-            print('Not implemented such schedule yet!!!')
-
-        sigmas = get_sigmas(thetas)
-        thetas_cumsum = get_thetas_cumsum(thetas) - thetas[0] # for that thetas[0] is not 0, TODO: Why subtract the first element?
-        self.dt = -1 / thetas_cumsum[-1] * math.log(eps)
-        sigma_bars = get_sigma_bars(thetas_cumsum)
-        
-        # TODO: Should we really save all of this or just calculate it when needed?
-        self.thetas = thetas
-        self.sigmas = sigmas
-        self.thetas_cumsum = thetas_cumsum
-        self.sigma_bars = sigma_bars
-
-    def set_device(self):
-        self.thetas = self.thetas.to(device=self.device_name)
-        self.sigmas = self.sigmas.to(device=self.device_name)
-        self.thetas_cumsum = self.thetas_cumsum.to(device=self.device_name)
-        self.sigma_bars = self.sigma_bars.to(device=self.device_name)
-        self.dt = self.dt.to(device=self.device_name)
-
-
-    # set mu for different cases
-    def set_mu(self, mu): # TODO: Should probably remove this and just send mu to the noise function
-        self.mu = mu
-
-    def mu_bar(self, x0, t):
-        return self.mu + (x0 - self.mu) * torch.exp(-self.thetas_cumsum[t] * self.dt).to(x0.device)
-    
-    def sigma_bar(self, t):
-        return self.sigma_bars[t]
-    
-    def score_fn(self, x, t, **kwargs):
-        noise_level = (t-1) / (self.T-1) # Normalize the diffusion time to [0, 1], TODO: How should we send the noise level to the model?
-        noise = self.model(x, noise_level.reshape(x.shape[0]), self.mu, **kwargs)
-        return self.get_score_from_noise(noise, t)
-    
-    def noise_fn(self, x, t, **kwargs):
-        noise_level = (t-1) / (self.T-1) # Normalize the diffusion time to [0, 1], TODO: How should we send the noise level to the model?
-        return self.model(x, noise_level.reshape(x.shape[0]), self.mu, **kwargs)
-    
-    def get_score_from_noise(self, noise, t):
-        return -noise / self.sigma_bar(t)
-        
-    # Sample states for training
-    def generate_random_states(self, x0, mu):
-        x0 = x0
-        mu = mu
-
-        self.set_mu(mu)
-
-        batch = x0.shape[0]
-
-        timesteps = torch.randint(1, self.T + 1, (batch, 1, 1, 1), device=x0.device).long()
-
-        state_mean = self.mu_bar(x0, timesteps)
-        noises = torch.randn_like(state_mean, device=x0.device)
-        noise_level = self.sigma_bar(timesteps)
-        noisy_states = noises * noise_level + state_mean
-
-        return timesteps, noisy_states
-    
-    def sde_reverse_drift(self, x, score, t):
-        return (self.thetas[t] * (self.mu - x) - self.sigmas[t]**2 * score) * self.dt
-
-    def reverse_sde_step_mean(self, x, score, t):
-        return x - self.sde_reverse_drift(x, score, t)
-    
-    # optimum x_{t-1}
-    def reverse_optimum_step(self, xt, x0, t):
-        A = torch.exp(-self.thetas[t] * self.dt)
-        B = torch.exp(-self.thetas_cumsum[t] * self.dt)
-        C = torch.exp(-self.thetas_cumsum[t-1] * self.dt)
-
-        term1 = A * (1 - C**2) / (1 - B**2)
-        term2 = C * (1 - A**2) / (1 - B**2)
-
-        return term1 * (xt - self.mu) + term2 * (x0 - self.mu) + self.mu
-    
-    def feed_data(self, state, LQ, GT=None):
-        self.state = state # noisy_state
-        self.condition = LQ # LQ
-        if GT is not None:
-            self.state_0 = GT # GT
-
-    def dispersion(self, x, t):
-        return self.sigmas[t] * (torch.randn_like(x, device=x.device) * math.sqrt(self.dt))
-
-    def reverse_sde_step(self, x, score, t):
-        return x - self.sde_reverse_drift(x, score, t) - self.dispersion(x, t)
-    
-    def reverse_sde(self, xt, T=-1, save_dir='diffusion_steps', GT=None, **kwargs):
-        T = self.T if T < 0 else T
-        x = xt.clone()
-        for t in reversed(range(1, T + 1)):
-            idx = t
-            t = torch.tensor(t, device=x.device)
-            score = self.score_fn(x, t, **kwargs)
-            x = self.reverse_sde_step(x, score, t)
-
-            if self.save_steps:
-                for var_idx, var_name in enumerate(constants.PARAM_NAMES_SHORT):
-                    os.makedirs(f"{save_dir}/{var_name}", exist_ok=True) # TODO: Make the saving work for multiple fields, preferably in a subfolders
-                    print(f"Saving to {save_dir}/{var_name}/state_{idx}.png")
-
-                    vmin = GT[0, var_idx, ...].min().item()
-                    vmax = GT[0, var_idx, ...].max().item()
-
-                    fig, axes = plt.subplots(
-                        1,
-                        2,
-                        figsize=(12, 8),
-                        subplot_kw={"projection": constants.LAMBERT_PROJ},
-                    )
-
-                    axes[0].coastlines()  # Add coastline outlines
-                    im = axes[0].imshow(
-                        x[0, var_idx, ...].data.cpu().numpy(),
-                        origin="lower",
-                        vmin=vmin, # Should have the same vmin and vmax for all images, but at least the same for GT and pred, maybe GT sets the same for all?
-                        vmax=vmax,
-                        cmap="plasma",
-                        # extent=grid_limits,
-                    )
-                    axes[0].set_title(f"X_t", size=15)
-                    
-                    axes[1].coastlines()  # Add coastline outlines
-                    im = axes[1].imshow(
-                        GT[0, var_idx, ...].data.cpu().numpy(),
-                        origin="lower",
-                        vmin=vmin,
-                        vmax=vmax,
-                        cmap="plasma",
-                        # extent=grid_limits,
-                    )
-                    axes[1].set_title(f"Ground Truth", size=15)
-                    # fig.colorbar(im, ax=axes, orientation="horizontal")
-                    fig.suptitle(f"{var_name} at time {t}", size=20)
-                    fig.savefig(f"{save_dir}/{var_name}/state_{idx}.png", bbox_inches='tight') # TODO: Should log to wandb
-                    plt.close(fig)
-                
-                self.save_steps = False # Only save the first time
-
-        return x
-    
-
-    # TODO: Need to implement the reverse_sde_2 function for the new model
-    def reverse_sde_2(self, xt, T=-1, save_dir='diffusion_steps', GT=None, **kwargs):
-        T = self.T if T < 0 else T
-        x = xt.clone()
-        for t in reversed(range(1, T + 1)):
-            idx = t
-            t = torch.tensor(t, device=x.device)
-            score = self.score_fn(x, t, **kwargs)
-            x1 = self.reverse_sde_step(x, score, t)
-
-            # Second order step, we can't do this on the last step since we stop at t=1
-            if t > 1:
-                t = torch.tensor(t-1, device=x.device)
-                score2 = self.score_fn(x1, t, **kwargs)
-                x = self.reverse_sde_step(x1, (score * 0.5 + score2 *0.5), t)
-            else:
-                x = x1
-
-            if self.save_steps:
-                for var_idx, var_name in enumerate(constants.PARAM_NAMES_SHORT):
-                    os.makedirs(f"{save_dir}/{var_name}", exist_ok=True) # TODO: Make the saving work for multiple fields, preferably in a subfolders
-                    print(f"Saving to {save_dir}/{var_name}/state_{idx}.png")
-
-                    vmin = GT[0, var_idx, ...].min().item()
-                    vmax = GT[0, var_idx, ...].max().item()
-
-                    fig, axes = plt.subplots(
-                        1,
-                        2,
-                        figsize=(12, 8),
-                        subplot_kw={"projection": constants.LAMBERT_PROJ},
-                    )
-
-                    axes[0].coastlines()  # Add coastline outlines
-                    im = axes[0].imshow(
-                        x[0, var_idx, ...].data.cpu().numpy(),
-                        origin="lower",
-                        vmin=vmin, # Should have the same vmin and vmax for all images, but at least the same for GT and pred, maybe GT sets the same for all?
-                        vmax=vmax,
-                        cmap="plasma",
-                        # extent=grid_limits,
-                    )
-                    axes[0].set_title(f"X_t", size=15)
-                    
-                    axes[1].coastlines()  # Add coastline outlines
-                    im = axes[1].imshow(
-                        GT[0, var_idx, ...].data.cpu().numpy(),
-                        origin="lower",
-                        vmin=vmin,
-                        vmax=vmax,
-                        cmap="plasma",
-                        # extent=grid_limits,
-                    )
-                    axes[1].set_title(f"Ground Truth", size=15)
-                    # fig.colorbar(im, ax=axes, orientation="horizontal")
-                    fig.suptitle(f"{var_name} at time {t}", size=20)
-                    fig.savefig(f"{save_dir}/{var_name}/state_{idx}.png", bbox_inches='tight') # TODO: Should log to wandb
-                    plt.close(fig)
-                
-                self.save_steps = False # Only save the first time
-
-        return x
-
-    
-    def noise_state(self, tensor):
-        return tensor + torch.randn_like(tensor) * self.max_sigma
-    
-    # # TODO: Implement interpolate function
 
     #----------------------------------------------------------------------------
 
@@ -318,20 +73,13 @@ class IR_SDE(ARModel):
         pred_std: None
         """
         # Moving everything to the correct device, TODO: Try to remove this as it can slow down the training. 
-        self.device_name = LQ.device
-        self.set_device()
 
-        noisy_state = self.noise_state(LQ)
-        self.feed_data(state=noisy_state, LQ=LQ, GT=None)
-        self.set_mu(self.condition)
+        # TODO: Implement Euler solver
 
         # TODO: Implement Heun solver
-        if self.sampler == "euler":
-            next_state = self.reverse_sde(self.state, GT=None)
-        elif self.sampler == "euler_2":
-            next_state = self.reverse_sde_2(self.state, GT=None)
-
-        return next_state.permute(0, 2, 3, 1).flatten(1, 2), None
+      
+        # return next_state.permute(0, 2, 3, 1).flatten(1, 2), None
+        pass
 
     def predict_step_train(self, LQ, HQ):
         """
@@ -343,31 +91,9 @@ class IR_SDE(ARModel):
         downscaled_state: (B, N_grid, d_state)
         pred_std: None 
         """
-        # Moving everything to the correct device, TODO: Try to remove this as it can slow down the training. 
-        self.device_name = LQ.device
-        self.set_device()
-
-        # TODO: Implement pred_residual for training
-
-        # Generate random states
-        timesteps, noisy_states = self.generate_random_states(HQ, LQ)
-        self.feed_data(noisy_states, LQ, HQ)
         
-        # Optimize parameters
-        self.set_mu(self.condition)
-
-        # Get noise and score
-        noise = self.noise_fn(self.state, timesteps) # Changed to noise levels from timesteps
-        score = self.get_score_from_noise(noise, timesteps)
-
-        # Learning the maximum likelihood objective for state x_{t-1}
-        xt_1_expection = self.reverse_sde_step_mean(self.state, score, timesteps) # TODO: Can this be used to calculate the mse_step? Or is it something else than the prediction. 
-        xt_1_optimum = self.reverse_optimum_step(self.state, self.state_0, timesteps)
-       
-        loss = self.loss_fn(xt_1_expection, xt_1_optimum) # Equal weights for all variables, maybe we should use the same weights as in the baseline model
-        
-        # TODO: We should return x1 based on taking one large step, not just a small step as if we were to continue the diffusion process
-        return xt_1_expection.permute(0, 2, 3, 1).flatten(1, 2), None, loss
+        # return xt_1_expection.permute(0, 2, 3, 1).flatten(1, 2), None, loss
+        pass
     
     def unroll_prediction(self, LQ):
             """
@@ -947,26 +673,57 @@ class IR_SDE(ARModel):
     def forward(self, x, sigma, class_labels=None, force_fp32=False, **model_kwargs):
         return self.model(x, sigma, class_labels=class_labels, **model_kwargs)
     
+class Interpolant:
 
-# Loss function from IR-SDE paper
-class MatchingLoss(nn.Module):
-    def __init__(self, loss_type='l1', is_weighted=False):
-        super().__init__()
-        self.is_weighted = is_weighted
+    def __init__(self, sigma_coef=1, beta_fn='t^2'):
+        self.sigma_coef = sigma_coef
+        self.beta_fn = beta_fn
 
-        if loss_type == 'l1':
-            self.loss_fn = F.l1_loss
-        elif loss_type == 'l2':
-            self.loss_fn = F.mse_loss
-        else:
-            raise ValueError(f'invalid loss type {loss_type}')
+    def wide(self, t):
+        return t[:, None, None, None]
 
-    def forward(self, predict, target, weights=None):
+    def alpha(self, t):
+        return self.wide(1-t) 
 
-        loss = self.loss_fn(predict, target, reduction='none')
-        loss = einops.reduce(loss, 'b ... -> b (...)', 'mean')
+    def alpha_dot(self, t):
+        return self.wide(-1.0 * torch.ones_like(t))
 
-        if self.is_weighted and weights is not None:
-            loss = weights * loss
+    def beta(self, t):
+        is_squared = self.beta_fn == 't^2'
+        return self.wide(t.pow(2) if is_squared else t)
 
-        return loss.mean()
+    def beta_dot(self, t):
+        is_squared = self.beta_fn == 't^2'
+        return self.wide(2.0 * t if is_squared else torch.ones_like(t))
+
+    # we sometimes multiply sigma + sigma_dot by avg pixel norm, 
+    # but when standardized (centered cifar), 
+    # or when norm 1 (we rescale nse), not needed
+    def sigma(self, t):
+        return self.sigma_coef * self.wide(1-t) 
+
+    def sigma_dot(self, t):
+        return self.sigma_coef * self.wide(-torch.ones_like(t)) 
+    
+    def gamma(self, t):
+        return self.wide(t.sqrt()) * self.sigma(t)
+
+    def compute_zt(self, D):
+        return D['at'] * D['z0'] + D['bt'] * D['z1'] + D['gamma_t'] * D['noise']
+
+    def compute_target(self, D):
+        return D['adot'] * D['z0'] + D['bdot'] * D['z1'] +  (D['sdot'] * D['root_t']) * D['noise']
+    
+    def interpolant_coefs(self, D):
+        return self(D)
+
+    def __call__(self, D):
+        D['at'] = self.alpha(D['t'])
+        D['bt'] = self.beta(D['t'])
+        D['adot'] = self.alpha_dot(D['t'])
+        D['bdot'] = self.beta_dot(D['t'])
+        D['root_t'] = self.wide(D['t'].sqrt())
+        D['gamma_t'] = self.gamma(D['t'])
+        D['st'] = self.sigma(D['t'])
+        D['sdot'] = self.sigma_dot(D['t'])
+        return D
