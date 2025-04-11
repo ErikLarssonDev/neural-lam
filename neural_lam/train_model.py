@@ -20,6 +20,7 @@ from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.diffusion import Diffusion
 from neural_lam.models.ir_sde import IR_SDE
+from neural_lam.models.stochastic_interpolants import SI
 
 MODELS = {
     "graphcast": GraphCast,
@@ -27,6 +28,7 @@ MODELS = {
     "graph_efm": GraphEFM,
     "diffusion": Diffusion,
     "ir_sde": IR_SDE, 
+    "SI": SI,
 }
 
 def list_of_ints(arg):
@@ -480,6 +482,8 @@ def main(input_args=None):
         )  # Allows using Tensor Cores on A100s
     else:
         device_name = "cpu"
+
+    device_name = "cpu" # TODO: Remove when GPUs are running again
 
     print(f"Using device: {device_name}")
     args.device_name = device_name

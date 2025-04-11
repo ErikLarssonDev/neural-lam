@@ -18,10 +18,7 @@ from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.edm_networks_2 import SongUNet
 
-def bad(x):
-    return torch.any(torch.isnan(x)) or torch.any(torch.isinf(x))  
-
-class SI(ARModel):
+class IHD(ARModel):
     """
     A new auto-regressive weather forecasting model
     """
@@ -35,7 +32,7 @@ class SI(ARModel):
         self.noise_aug_prob = args.noise_aug_prob # Probability of augmenting with noise [0, 1]
         self.save_output = args.save_output
         self.save_output_wandb = args.save_output_wandb
-        self.sampler_steps = args.sampler_steps # TODO: Should probably rename this and investigate if we can get continuous time steps for training [0, 1]
+        self.T = args.sampler_steps # TODO: Should probably rename this and investigate if we can get continuous time steps for training [0, 1]
         self.save_steps = args.save_steps
 
         if args.diffusion_model == 'song_unet':
@@ -61,78 +58,7 @@ class SI(ARModel):
                                 "crps_ens": [],
                                 "spread_squared": [],
                             }
-        
-        self.I = Interpolant(sigma_coef=1, beta_fn='t^2')
-        self.EM_sample_steps = 500
-        self.t_min_sampling = 0.0  # no min time needed
-        self.t_max_sampling = .999
     ############################################################################
-
-    def wide(self, t):
-        return t[:, None, None, None] 
-
-    def drift_to_score(self, D):
-        z0 = D['z0']
-        zt = D['zt']
-        at, bt, adot, bdot, bF = D['at'], D['bt'], D['adot'], D['bdot'], D['bF']
-        st, sdot = D['st'], D['sdot']
-        numer = (-bt * bF) + (adot * bt * z0) + (bdot * zt) - (bdot * at * z0)
-        denom = (sdot * bt - bdot * st) * st * self.wide(D['t'])
-        assert not bad(numer)
-        assert not bad(denom)
-        return numer / denom
-    
-    def EM(self, base = None, label= None, cond = None, diffusion_fn = None):
-        steps = self.sampler_steps
-        tmin, tmax = self.t_min_sampling, self.t_max_sampling
-        ts = torch.linspace(tmin, tmax, steps).type_as(base)
-        dt = ts[1] - ts[0]
-        ones = torch.ones(base.shape[0]).type_as(base)
- 
-        # initial condition
-        xt = base
-
-        # diffusion_fn = None means use the diffusion function that you trained with
-        # otherwise, for a desired diffusion coefficient, do the model surgery to define
-        # the correct drift coefficient
-
-        def step_fn(xt, t, label):
-            D = self.I.interpolant_coefs({'t': t, 'zt': xt, 'z0': base})
-
-            bF = self.model(xt, t, label, cond = cond)
-            D['bF'] = bF
-            sigma = self.I.sigma(t)
-           
-            # specified diffusion func
-            if diffusion_fn is not None:
-                g = diffusion_fn(t)
-                s = self.drift_to_score(D)
-                f = bF + .5 *  (g.pow(2) - sigma.pow(2)) * s
-
-            # default diffusion func
-            else:
-                f = bF
-                g = sigma
-
-            mu = xt + f * dt
-            xt = mu + g * torch.randn_like(mu) * dt.sqrt()
-            return xt, mu # return sample and its mean
-
-        for i, tscalar in enumerate(ts):
-            
-            if i == 0 and (diffusion_fn is not None):
-                # only need to do this when using other diffusion coefficients that you didn't train with
-                # because the drift-to-score conversion has a denominator that features 0 at time 0
-                # if just sampling with "sigma" (the diffusion coefficient you trained with) you
-                # can skip this
-                tscalar = ts[1] # 0 + (1/500)
-
-            if (i+1) % 100 == 0:
-                print("100 sample steps")
-            xt, mu = step_fn(xt, tscalar * ones, label = label)
-        assert not bad(mu)
-        return mu
-
 
     #----------------------------------------------------------------------------
 
@@ -145,45 +71,14 @@ class SI(ARModel):
         next_state: (B, N_grid, d_state)
         pred_std: None
         """
-        # Prepare batch
-        D = {'z0': LQ, 'label': None, 'N': LQ.shape[0]} # TODO: Check for difference, missing 'z1' and 'HQ'
-
-        # Get random batch of times
-        D['t'] = torch.rand(LQ.shape[0], device=LQ.device)
-
-        # Conditioning on LQ
-        D['cond'] = LQ
-
-        # Interpolant noise
-        D['noise'] = torch.rand_like(LQ, device=LQ.device)
-
-        # Get alpha, beta, etc
-        D = self.I.interpolant_coefs(D)
-
-        # zt
-        D['zt'] = self.I.compute_zt(D)
-
-        # Target
-        D['drift_target'] = self.I.compute_target(D)
-
-        # definently_sample
-        EM_args = {'base': D['z0'], 'label': D['label'], 'cond': D['cond']}
-       
-        # list diffusion funcs
-        # None means use the one you trained with
-        diffusion_fns = {
-            'g_sigma': None,
-            'g_other': lambda t: self.sigma_coef * self.wide(1-t).pow(4),
-        }
-
+        # Moving everything to the correct device, TODO: Try to remove this as it can slow down the training. 
 
         # TODO: Implement Euler solver
-        sample = self.EM(diffusion_fn=None, **EM_args) # None because we want to use the diffusion function we trained with, TODO: Experiment with this later
 
         # TODO: Implement Heun solver
       
-        return sample.permute(0, 2, 3, 1).flatten(1, 2), None
-
+        # return next_state.permute(0, 2, 3, 1).flatten(1, 2), None
+        pass
 
     def predict_step_train(self, LQ, HQ):
         """
@@ -195,35 +90,11 @@ class SI(ARModel):
         downscaled_state: (B, N_grid, d_state)
         pred_std: None 
         """
-        # Prepare batch
-        D = {'z0': LQ, 'z1': HQ, 'label': None, 'N': LQ.shape[0]}   
 
-        # Get random batch of times
-        D['t'] = torch.rand(LQ.shape[0], device=LQ.device)
-
-        # Conditioning on LQ
-        D['cond'] = LQ
-
-        # Interpolant noise
-        D['noise'] = torch.rand_like(LQ, device=LQ.device)
-
-        # Get alpha, beta, etc
-        D = self.I.interpolant_coefs(D)
-
-        # zt
-        D['zt'] = self.I.compute_zt(D)
-
-        # Target
-        D['drift_target'] = self.I.compute_target(D)
-
-        # Training step
-        output = self.model(D['zt'], D['t'].reshape(D['zt'].shape[0]), LQ)
-
-        # Calculate loss
-        loss = F.mse_loss(output, D['drift_target'], reduction='mean')
-
-        return output.permute(0, 2, 3, 1).flatten(1, 2), None, loss
         
+
+        # return xt_1_expection.permute(0, 2, 3, 1).flatten(1, 2), None, loss
+        pass
     
     def unroll_prediction(self, LQ):
             """
