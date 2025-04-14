@@ -62,7 +62,10 @@ class IR_SDE(ARModel):
     ############################################################################
     # IR-SDE
         # self.max_sigma = args.sigma_max / 255 if args.sigma_max >= 1 else args.sigma_max # Is this only because of images?, still needed for good results.
-        self.device_name = f"{args.device_name}:{torch.cuda.current_device()}" # We need this to initialize everything on the correct device, TODO: Can we remove this?
+        if args.device_name == 'cpu':
+            self.device_name = args.device_name
+        else:
+            self.device_name = f"{args.device_name}:{torch.cuda.current_device()}" # We need this to initialize everything on the correct device, TODO: Can we remove this?
 
         self._initialize(self.max_sigma, T=args.sampler_steps, schedule="cosine", eps=args.eps)
 
@@ -305,6 +308,24 @@ class IR_SDE(ARModel):
         return tensor + torch.randn_like(tensor) * self.max_sigma
     
     # # TODO: Implement interpolate function
+
+    def drift(self, x, t):
+        return self.thetas[t] * (self.mu - x) * self.dt
+
+    def forward_step(self, x, t):
+        return x + self.drift(x, t) + self.dispersion(x, t)
+    
+    def interpolate(self, source, target):
+        T=-1
+        self.set_mu(target)
+        T = self.T if T < 0 else T
+        states = torch.zeros((T,) + tuple(source.shape))
+        x = source.clone()
+        for t in range(1, T + 1):
+            x = self.forward_step(x, t)
+            states[t-1] = x
+        
+        return states
 
     #----------------------------------------------------------------------------
 
