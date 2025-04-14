@@ -483,7 +483,7 @@ def main(input_args=None):
     else:
         device_name = "cpu"
 
-    device_name = "cpu" # TODO: Remove when GPUs are running again
+    # device_name = "cpu" # TODO: Remove when GPUs are running again
 
     print(f"Using device: {device_name}")
     args.device_name = device_name
