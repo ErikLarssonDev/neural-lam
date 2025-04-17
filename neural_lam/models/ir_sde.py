@@ -115,11 +115,6 @@ class IR_SDE(ARModel):
         self.sigma_bars = self.sigma_bars.to(device=self.device_name)
         self.dt = self.dt.to(device=self.device_name)
 
-
-    # set mu for different cases
-    def set_mu(self, mu): # TODO: Should probably remove this and just send mu to the noise function
-        self.mu = mu
-
     def mu_bar(self, x0, t):
         return self.mu + (x0 - self.mu) * torch.exp(-self.thetas_cumsum[t] * self.dt).to(x0.device)
     
@@ -128,12 +123,12 @@ class IR_SDE(ARModel):
     
     def score_fn(self, x, t, **kwargs):
         noise_level = (t-1) / (self.T-1) # Normalize the diffusion time to [0, 1], TODO: How should we send the noise level to the model?
-        noise = self.model(x, noise_level.reshape(x.shape[0]), self.mu, **kwargs)
+        noise = self.model(x, noise_level.reshape(x.shape[0]), self.condition, **kwargs)
         return self.get_score_from_noise(noise, t)
     
     def noise_fn(self, x, t, **kwargs):
         noise_level = (t-1) / (self.T-1) # Normalize the diffusion time to [0, 1], TODO: How should we send the noise level to the model?
-        return self.model(x, noise_level.reshape(x.shape[0]), self.mu, **kwargs)
+        return self.model(x, noise_level.reshape(x.shape[0]), self.condition, **kwargs)
     
     def get_score_from_noise(self, noise, t):
         return -noise / self.sigma_bar(t)
@@ -143,7 +138,7 @@ class IR_SDE(ARModel):
         x0 = x0
         mu = mu
 
-        self.set_mu(mu)
+        self.mu = mu
 
         batch = x0.shape[0]
 
@@ -172,12 +167,6 @@ class IR_SDE(ARModel):
         term2 = C * (1 - A**2) / (1 - B**2)
 
         return term1 * (xt - self.mu) + term2 * (x0 - self.mu) + self.mu
-    
-    def feed_data(self, state, LQ, GT=None):
-        self.state = state # noisy_state
-        self.condition = LQ # LQ
-        if GT is not None:
-            self.state_0 = GT # GT
 
     def dispersion(self, x, t):
         return self.sigmas[t] * (torch.randn_like(x, device=x.device) * math.sqrt(self.dt))
@@ -199,8 +188,12 @@ class IR_SDE(ARModel):
                     os.makedirs(f"{save_dir}/{var_name}", exist_ok=True) # TODO: Make the saving work for multiple fields, preferably in a subfolders
                     print(f"Saving to {save_dir}/{var_name}/state_{idx}.png")
 
-                    vmin = GT[0, var_idx, ...].min().item()
-                    vmax = GT[0, var_idx, ...].max().item()
+                    if GT is not None:
+                        vmin = GT[0, var_idx, ...].min().item()
+                        vmax = GT[0, var_idx, ...].max().item()
+                    else:
+                        vmin = self.mu[0, var_idx, ...].min().item()
+                        vmax = self.mu[0, var_idx, ...].max().item()
 
                     fig, axes = plt.subplots(
                         1,
@@ -209,9 +202,14 @@ class IR_SDE(ARModel):
                         subplot_kw={"projection": constants.LAMBERT_PROJ},
                     )
 
+                    if self.pred_residual:
+                        xt = x + self.condition
+                    else:
+                        xt = x
+
                     axes[0].coastlines()  # Add coastline outlines
                     im = axes[0].imshow(
-                        x[0, var_idx, ...].data.cpu().numpy(),
+                        xt[0, var_idx, ...].data.cpu().numpy(),
                         origin="lower",
                         vmin=vmin, # Should have the same vmin and vmax for all images, but at least the same for GT and pred, maybe GT sets the same for all?
                         vmax=vmax,
@@ -220,22 +218,23 @@ class IR_SDE(ARModel):
                     )
                     axes[0].set_title(f"X_t", size=15)
                     
-                    axes[1].coastlines()  # Add coastline outlines
-                    im = axes[1].imshow(
-                        GT[0, var_idx, ...].data.cpu().numpy(),
-                        origin="lower",
-                        vmin=vmin,
-                        vmax=vmax,
-                        cmap="plasma",
-                        # extent=grid_limits,
-                    )
-                    axes[1].set_title(f"Ground Truth", size=15)
+                    if GT is not None: 
+                        axes[1].coastlines()  # Add coastline outlines
+                        im = axes[1].imshow(
+                            GT[0, var_idx, ...].data.cpu().numpy(),
+                            origin="lower",
+                            vmin=vmin,
+                            vmax=vmax,
+                            cmap="plasma",
+                            # extent=grid_limits,
+                        )
+                        axes[1].set_title(f"Ground Truth", size=15)
                     # fig.colorbar(im, ax=axes, orientation="horizontal")
                     fig.suptitle(f"{var_name} at time {t}", size=20)
                     fig.savefig(f"{save_dir}/{var_name}/state_{idx}.png", bbox_inches='tight') # TODO: Should log to wandb
                     plt.close(fig)
                 
-                self.save_steps = False # Only save the first time
+        self.save_steps = False # Only save the first time
 
         return x
     
@@ -248,23 +247,26 @@ class IR_SDE(ARModel):
             idx = t
             t = torch.tensor(t, device=x.device)
             score = self.score_fn(x, t, **kwargs)
-            x1 = self.reverse_sde_step(x, score, t)
+            x1 = self.reverse_sde_step_mean(x, score, t) # self.reverse_sde_step(x, score, t)
 
             # Second order step, we can't do this on the last step since we stop at t=1
             if t > 1:
                 t = torch.tensor(t-1, device=x.device)
                 score2 = self.score_fn(x1, t, **kwargs)
-                x = self.reverse_sde_step(x1, (score * 0.5 + score2 *0.5), t)
+                x = self.reverse_sde_step(x, (score * 0.5 + score2 *0.5), t)
             else:
-                x = x1
-
+                x = x1 # No stochastic step on the last step.
             if self.save_steps:
                 for var_idx, var_name in enumerate(constants.PARAM_NAMES_SHORT):
                     os.makedirs(f"{save_dir}/{var_name}", exist_ok=True) # TODO: Make the saving work for multiple fields, preferably in a subfolders
                     print(f"Saving to {save_dir}/{var_name}/state_{idx}.png")
 
-                    vmin = GT[0, var_idx, ...].min().item()
-                    vmax = GT[0, var_idx, ...].max().item()
+                    if GT is not None:
+                        vmin = GT[0, var_idx, ...].min().item()
+                        vmax = GT[0, var_idx, ...].max().item()
+                    else:
+                        vmin = self.mu[0, var_idx, ...].min().item()
+                        vmax = self.mu[0, var_idx, ...].max().item()
 
                     fig, axes = plt.subplots(
                         1,
@@ -272,10 +274,14 @@ class IR_SDE(ARModel):
                         figsize=(12, 8),
                         subplot_kw={"projection": constants.LAMBERT_PROJ},
                     )
+                    if self.pred_residual:
+                        xt = x + self.condition
+                    else:
+                        xt = x
 
                     axes[0].coastlines()  # Add coastline outlines
                     im = axes[0].imshow(
-                        x[0, var_idx, ...].data.cpu().numpy(),
+                        xt[0, var_idx, ...].data.cpu().numpy(),
                         origin="lower",
                         vmin=vmin, # Should have the same vmin and vmax for all images, but at least the same for GT and pred, maybe GT sets the same for all?
                         vmax=vmax,
@@ -284,22 +290,23 @@ class IR_SDE(ARModel):
                     )
                     axes[0].set_title(f"X_t", size=15)
                     
-                    axes[1].coastlines()  # Add coastline outlines
-                    im = axes[1].imshow(
-                        GT[0, var_idx, ...].data.cpu().numpy(),
-                        origin="lower",
-                        vmin=vmin,
-                        vmax=vmax,
-                        cmap="plasma",
-                        # extent=grid_limits,
-                    )
-                    axes[1].set_title(f"Ground Truth", size=15)
+                    if GT is not None: 
+                        axes[1].coastlines()  # Add coastline outlines
+                        im = axes[1].imshow(
+                            GT[0, var_idx, ...].data.cpu().numpy(),
+                            origin="lower",
+                            vmin=vmin,
+                            vmax=vmax,
+                            cmap="plasma",
+                            # extent=grid_limits,
+                        )
+                        axes[1].set_title(f"Ground Truth", size=15)
                     # fig.colorbar(im, ax=axes, orientation="horizontal")
                     fig.suptitle(f"{var_name} at time {t}", size=20)
                     fig.savefig(f"{save_dir}/{var_name}/state_{idx}.png", bbox_inches='tight') # TODO: Should log to wandb
                     plt.close(fig)
                 
-                self.save_steps = False # Only save the first time
+        self.save_steps = False # Only save the first time
 
         return x
 
@@ -317,7 +324,7 @@ class IR_SDE(ARModel):
     
     def interpolate(self, source, target):
         T=-1
-        self.set_mu(target)
+        self.mu = target
         T = self.T if T < 0 else T
         states = torch.zeros((T,) + tuple(source.shape))
         x = source.clone()
@@ -342,15 +349,26 @@ class IR_SDE(ARModel):
         self.device_name = LQ.device
         self.set_device()
 
-        noisy_state = self.noise_state(LQ)
-        self.feed_data(state=noisy_state, LQ=LQ, GT=None)
-        self.set_mu(self.condition)
+        if self.pred_residual:
+            mu = LQ - LQ
+        else:
+            mu = LQ
+
+        noisy_state = self.noise_state(mu)
+
+        # Feed data
+        self.state = noisy_state
+        self.condition = LQ
+        self.mu = mu
 
         # TODO: Implement Heun solver
-        if self.sampler == "euler":
-            next_state = self.reverse_sde(self.state, GT=None)
-        elif self.sampler == "euler_2":
-            next_state = self.reverse_sde_2(self.state, GT=None)
+        if self.sampler == "euler_2":
+            next_state = self.reverse_sde_2(self.state, GT=self.state_0)
+        else:
+            next_state = self.reverse_sde(self.state, GT=self.state_0)
+
+        if self.pred_residual:
+            next_state = next_state + LQ
 
         return next_state.permute(0, 2, 3, 1).flatten(1, 2), None
 
@@ -369,13 +387,21 @@ class IR_SDE(ARModel):
         self.set_device()
 
         # TODO: Implement pred_residual for training
-
+        if self.pred_residual:
+            mu = LQ - LQ
+            target = HQ - LQ
+        else:
+            mu = LQ
+            target = HQ
+            
         # Generate random states
-        timesteps, noisy_states = self.generate_random_states(HQ, LQ)
-        self.feed_data(noisy_states, LQ, HQ)
-        
-        # Optimize parameters
-        self.set_mu(self.condition)
+        timesteps, noisy_states = self.generate_random_states(target, mu)
+
+        # Feed data
+        self.state = noisy_states
+        self.condition = LQ
+        self.state_0 = target
+        self.mu = mu
 
         # Get noise and score
         noise = self.noise_fn(self.state, timesteps) # Changed to noise levels from timesteps
@@ -386,6 +412,9 @@ class IR_SDE(ARModel):
         xt_1_optimum = self.reverse_optimum_step(self.state, self.state_0, timesteps)
        
         loss = self.loss_fn(xt_1_expection, xt_1_optimum) # Equal weights for all variables, maybe we should use the same weights as in the baseline model
+
+        if self.pred_residual:
+            xt_1_expection = xt_1_expection + LQ
         
         # TODO: We should return x1 based on taking one large step, not just a small step as if we were to continue the diffusion process
         return xt_1_expection.permute(0, 2, 3, 1).flatten(1, 2), None, loss
@@ -688,6 +717,7 @@ class IR_SDE(ARModel):
         """
         # Compute and store metrics for ensemble forecast
         LQ, HQ = batch["LQ"], batch["HQ"]
+        self.state_0 = HQ
 
         target_states = HQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1) # (B, pred_steps, d_f)
 

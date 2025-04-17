@@ -62,8 +62,8 @@ class SI(ARModel):
                                 "spread_squared": [],
                             }
         
-        self.I = Interpolant(sigma_coef=1, beta_fn='t^2')
-        self.EM_sample_steps = 500
+        self.I = Interpolant(sigma_coef=args.sigma_coef, beta_fn='t^2')
+        # self.EM_sample_steps = 500
         self.t_min_sampling = 0.0  # no min time needed
         self.t_max_sampling = .999
     ############################################################################
@@ -99,7 +99,7 @@ class SI(ARModel):
         def step_fn(xt, t, label):
             D = self.I.interpolant_coefs({'t': t, 'zt': xt, 'z0': base})
 
-            bF = self.model(xt, t, label, cond = cond)
+            bF = self.model(xt, t, cond)
             D['bF'] = bF
             sigma = self.I.sigma(t)
            
@@ -118,6 +118,24 @@ class SI(ARModel):
             xt = mu + g * torch.randn_like(mu) * dt.sqrt()
             return xt, mu # return sample and its mean
 
+        def step_fn_2(xt, t, t1, label): # TODO: Only supporting the same diffusion function for now.
+            bF = self.model(xt, t, cond)
+
+            mu1 = xt + bF * dt
+
+            bF2 = self.model(mu1, t1, cond)
+
+            f = 0.5 * (bF + bF2)
+
+            # Final step
+            sigma = self.I.sigma(t)
+            g = sigma
+            mu = xt + f * dt
+            xt = mu + g * torch.randn_like(mu) * dt.sqrt()
+            return xt, mu # return sample and its mean
+            
+
+
         for i, tscalar in enumerate(ts):
             
             if i == 0 and (diffusion_fn is not None):
@@ -129,7 +147,82 @@ class SI(ARModel):
 
             if (i+1) % 100 == 0:
                 print("100 sample steps")
-            xt, mu = step_fn(xt, tscalar * ones, label = label)
+            
+            if self.sampler == 'euler_2' and i < len(ts) - 1:
+                xt, mu = step_fn_2(xt, tscalar * ones, ts[i+1], label = label)
+            else:
+                xt, mu = step_fn(xt, tscalar * ones, label = label)
+            if self.save_steps:
+                save_dir='diffusion_steps'
+                t = len(ts) - i
+                for var_idx, var_name in enumerate(constants.PARAM_NAMES_SHORT):
+                    os.makedirs(f"{save_dir}/{var_name}", exist_ok=True) # TODO: Make the saving work for multiple fields, preferably in a subfolders
+                    print(f"Saving to {save_dir}/{var_name}/state_{t}.png")
+
+                    if self.GT is not None:
+                        vmin = self.GT[0, var_idx, ...].min().item()
+                        vmax = self.GT[0, var_idx, ...].max().item()
+                    else:
+                        vmin = mu[0, var_idx, ...].min().item()
+                        vmax = mu[0, var_idx, ...].max().item()
+
+                    fig, axes = plt.subplots(
+                        1,
+                        4,
+                        figsize=(24, 8),
+                        subplot_kw={"projection": constants.LAMBERT_PROJ},
+                    )
+
+                    axes[0].coastlines()  # Add coastline outlines
+                    im = axes[0].imshow(
+                        xt[0, var_idx, ...].data.cpu().numpy(),
+                        origin="lower",
+                        vmin=vmin, # Should have the same vmin and vmax for all images, but at least the same for GT and pred, maybe GT sets the same for all?
+                        vmax=vmax,
+                        cmap="plasma",
+                        # extent=grid_limits,
+                    )
+                    axes[0].set_title(f"X_t", size=15)
+
+                    axes[1].coastlines()  # Add coastline outlines
+                    im = axes[1].imshow(
+                        mu[0, var_idx, ...].data.cpu().numpy(),
+                        origin="lower",
+                        vmin=vmin,
+                        vmax=vmax,
+                        cmap="plasma",
+                        # extent=grid_limits,
+                    )
+                    axes[1].set_title(f"mu", size=15)
+
+                    axes[2].coastlines()  # Add coastline outlines
+                    im = axes[2].imshow(
+                        base[0, var_idx, ...].data.cpu().numpy(),
+                        origin="lower",
+                        vmin=vmin,
+                        vmax=vmax,
+                        cmap="plasma",
+                        # extent=grid_limits,
+                    )
+                    axes[2].set_title(f"LQ", size=15)
+                    
+                    if self.GT is not None: 
+                        axes[3].coastlines()  # Add coastline outlines
+                        im = axes[3].imshow(
+                            self.GT[0, var_idx, ...].data.cpu().numpy(),
+                            origin="lower",
+                            vmin=vmin,
+                            vmax=vmax,
+                            cmap="plasma",
+                            # extent=grid_limits,
+                        )
+                        axes[3].set_title(f"Ground Truth", size=15)
+                    fig.colorbar(im, ax=axes, orientation="horizontal")
+                    fig.suptitle(f"{var_name} at time {t}", size=20)
+                    fig.savefig(f"{save_dir}/{var_name}/state_{t}.png", bbox_inches='tight') # TODO: Should log to wandb
+                    plt.close(fig)
+                
+        self.save_steps = False # Only save the first time
         assert not bad(mu)
         return mu
 
@@ -149,22 +242,22 @@ class SI(ARModel):
         D = {'z0': LQ, 'label': None, 'N': LQ.shape[0]} # TODO: Check for difference, missing 'z1' and 'HQ'
 
         # Get random batch of times
-        D['t'] = torch.rand(LQ.shape[0], device=LQ.device)
+        #D['t'] = torch.rand(LQ.shape[0], device=LQ.device)
 
         # Conditioning on LQ
         D['cond'] = LQ
 
         # Interpolant noise
-        D['noise'] = torch.rand_like(LQ, device=LQ.device)
+        # D['noise'] = torch.rand_like(LQ, device=LQ.device)
 
         # Get alpha, beta, etc
-        D = self.I.interpolant_coefs(D)
+        # D = self.I.interpolant_coefs(D)
 
         # zt
-        D['zt'] = self.I.compute_zt(D)
+        # D['zt'] = self.I.compute_zt(D)
 
         # Target
-        D['drift_target'] = self.I.compute_target(D)
+        # D['drift_target'] = self.I.compute_target(D)
 
         # definently_sample
         EM_args = {'base': D['z0'], 'label': D['label'], 'cond': D['cond']}
@@ -173,6 +266,7 @@ class SI(ARModel):
         # None means use the one you trained with
         diffusion_fns = {
             'g_sigma': None,
+            'g_sigma_01': lambda t: self.sigma_coef * self.wide(1-t) * 0.1,
             'g_other': lambda t: self.sigma_coef * self.wide(1-t).pow(4),
         }
 
@@ -205,7 +299,7 @@ class SI(ARModel):
         D['cond'] = LQ
 
         # Interpolant noise
-        D['noise'] = torch.rand_like(LQ, device=LQ.device)
+        D['noise'] = torch.randn_like(LQ, device=LQ.device)
 
         # Get alpha, beta, etc
         D = self.I.interpolant_coefs(D)
@@ -523,6 +617,11 @@ class SI(ARModel):
         """
         # Compute and store metrics for ensemble forecast
         LQ, HQ = batch["LQ"], batch["HQ"]
+
+        if self.save_steps:
+            self.GT = HQ
+        else:
+            self.GT = None
 
         target_states = HQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1) # (B, pred_steps, d_f)
 

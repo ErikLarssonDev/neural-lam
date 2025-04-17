@@ -388,6 +388,12 @@ def main(input_args=None):
         action="store_true",
         help="If the diffusion steps output of 1 sample should be saved to the folder diffusion_steps (default: False)",
     )
+    parser.add_argument(
+        "--sigma_coef",
+        type=float,
+        default=1,
+        help="Sigma coefficient for stochatic interpolants (default: 1)",
+    )
 
 
     # Logger Settings
