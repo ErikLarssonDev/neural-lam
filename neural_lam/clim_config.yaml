@@ -19,7 +19,7 @@ dataset:
   ground_truth_stats_path: '/mimer/NOBACKUP/groups/mlhighres/projects/detex/HCLIM_EC-Earth3-Veg/stats/mean_std/mean_std_pr_EUR-11_EC-Earth3-Veg_historical_r1i1p1f1_HCLIMcom-SMHI_HCLIM43-ALADIN_v1-r1_day_1951-2014_mm_day_noleap.npy'
   normalize_ground_truth: True
   name: clim
-  var_names:
+  var_names: # TODO: Update this
     - pres_0g
     - pres_0s
     - nlwrs_0
@@ -37,7 +37,7 @@ dataset:
     - wvint_0
     - z_1000
     - z_500
-  var_units:
+  var_units: # TODO: Update this
     - Pa
     - Pa
     - $\mathrm{W}/\mathrm{m}^2$
@@ -55,7 +55,7 @@ dataset:
     - $\mathrm{kg}/\mathrm{m}^2$
     - $\mathrm{m}^2/\mathrm{s}^2$
     - $\mathrm{m}^2/\mathrm{s}^2$
-  var_longnames:
+  var_longnames: # TODO: Update this
     - pres_heightAboveGround_0_instant
     - pres_heightAboveSea_0_instant
     - nlwrs_heightAboveGround_0_accum
@@ -73,10 +73,10 @@ dataset:
     - wvint_entireAtmosphere_0_instant
     - z_isobaricInhPa_1000_instant
     - z_isobaricInhPa_500_instant
-  num_forcing_features: 16
-grid_shape_state: [248, 218] # Using the smaller grid for now, not plotting the border
-full_grid_shape_state: [268, 238]
-# grid_shape_state: [268, 238]
+  num_forcing_features: 0 # TODO: Update this, all inputs that are not in the output is considered forcing
+  num_static_features: 0 # TODO: Update this, land-sea mask, orography, etc.
+FULL_GRID_SHAPE: [1069, 1069] # TODO: Update this
+# TODO: Update this
 projection:
   class: LambertConformal
   kwargs:

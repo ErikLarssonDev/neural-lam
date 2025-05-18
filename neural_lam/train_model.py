@@ -282,12 +282,8 @@ def main(input_args=None):
         type=str,
         help="Learning rate scheduler to use, supported (cosine), (default: None)",
     )
-    parser.add_argument(
-        "--sigma_min",
-        type=float,
-        default=0.02,
-        help="Sigma min for training. (default: 0.02)",
-    )
+
+    # IR-SDE Options
     parser.add_argument(
         "--sigma_max",
         type=float,
@@ -303,6 +299,12 @@ def main(input_args=None):
 
     # EDM Options
     # resample_filter=args.resample_filter,
+    parser.add_argument(
+        "--sigma_min",
+        type=float,
+        default=0.002, # TODO: Do we need lower sigma_min for atmospheric data?
+        help="Sigma min for training. (default: 0.002)",
+    )
     parser.add_argument(
         "--resample_filter",
         type=list_of_ints,

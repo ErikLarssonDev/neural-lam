@@ -26,20 +26,21 @@ class ARModel(pl.LightningModule):
         self.save_hyperparameters()
         self.args = args
         self.config_loader = config.Config.from_file(args.data_config)
-
+            
+        # TODO: Check if we need this
         # Load static features for grid/data
-        static_data_dict = utils.load_static_data(
-            self.config_loader.dataset.name
-        )
+        # static_data_dict = utils.load_static_data(
+        #     self.config_loader.dataset.name
+        # )
 
-        for static_data_name, static_data in static_data_dict.items():
-            if isinstance(static_data, torch.Tensor):
-                self.register_buffer(
-                    static_data_name, static_data, persistent=False
-                )
-            else:
-                # Non-tensor static can not and should not be buffers
-                setattr(self, static_data_name, static_data)
+        # for static_data_name, static_data in static_data_dict.items():
+        #     if isinstance(static_data, torch.Tensor):
+        #         self.register_buffer(
+        #             static_data_name, static_data, persistent=False
+        #         )
+        #     else:
+        #         # Non-tensor static can not and should not be buffers
+        #         setattr(self, static_data_name, static_data)
 
         # Double grid output dim. to also output std.-dev.
         self.output_std = bool(args.output_std)
@@ -52,34 +53,23 @@ class ARModel(pl.LightningModule):
             # Store constant per-variable std.-dev. weighting
             # Note that this is the inverse of the multiplicative weighting
             # in wMSE/wMAE
-            self.register_buffer(
-                "per_var_std",
-                self.step_diff_std / torch.sqrt(self.param_weights),
-                persistent=False,
-            )
 
-        # grid_dim from data + static
-        (
-            self.num_grid_nodes,
-            grid_static_dim,
-        ) = self.grid_static_features.shape  # 63784 = 268x238
+            # TODO: Check if we need this
+            # self.register_buffer(
+            #     "per_var_std",
+            #     self.step_diff_std / torch.sqrt(self.param_weights),
+            #     persistent=False,
+            # )
+            self.per_var_std = torch.tensor([1]) # Equal weights for all variables
 
-        num_states = 3 if args.model == "diffusion" else 2
-        (
-            self.num_boundary_nodes,
-            boundary_static_dim,  # TODO Will need for computation below
-        ) = self.boundary_static_features.shape
-        self.num_input_nodes = self.num_grid_nodes + self.num_boundary_nodes
+        num_states = 2 if args.model == "diffusion" else 1
 
+        # TODO: Check that this is correct with new dataset
         self.grid_dim = (
             num_states * self.config_loader.num_data_vars()
-            + grid_static_dim
+            + self.config_loader.dataset.num_static_features
             + self.config_loader.dataset.num_forcing_features
         )
-        if args.border_condition:
-            self.boundary_dim = self.grid_dim if args.model == "diffusion" else self.grid_dim + self.config_loader.num_data_vars()
-        else:
-            self.boundary_dim = self.grid_dim - self.config_loader.num_data_vars() if args.model == "diffusion" else self.grid_dim
     
         # Instantiate loss function
         self.loss = metrics.get_metric(args.loss)

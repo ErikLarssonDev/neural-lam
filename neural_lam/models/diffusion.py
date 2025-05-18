@@ -31,23 +31,16 @@ class Diffusion(ARModel):
         self.sigma_data = 1
         self.rho = 7
         self.sampler = args.sampler
-        self.noise_aug_prob = args.noise_aug_prob # Probability of augmenting with noise [0, 1]
         self.save_output = args.save_output
         self.save_output_wandb = args.save_output_wandb
         self.sampler_steps = args.sampler_steps
 
-        # if args.diffusion_model != 'edm':
-        #     self.map_noise = NoiseEmbedding()
-            
-        # if args.diffusion_model == 'graph_fm':
-        #     self.model = GraphFM(args)
         if args.diffusion_model == 'edm':
             self.model = EDMPrecond(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
-                                    in_channels=self.grid_output_dim*2, # We have noise and LQ as input
+                                    in_channels=self.grid_dim, # We have noise and LQ as input
                                     out_channels=self.grid_output_dim,
                                     model_type='SongUNet',
                                     embedding_type=args.noise_embedding,
-                                    # obs_mask=self.interior_mask,
                                     sigma_data=self.sigma_data,
                                     sigma_min=self.sigma_min,
                                     sigma_max=self.sigma_max,
@@ -117,6 +110,7 @@ class Diffusion(ARModel):
     
         input_grid = LQ # torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
 
+        # TODO: Pred residual is not supported as we don't have the residual/normalization in the training data
         # Make y residual if needed
         if self.pred_residual:
             y = HQ - LQ
@@ -183,10 +177,6 @@ class Diffusion(ARModel):
         weight_list = []
 
         for i in range(pred_steps):
-            # forcing = forcing_features[:, i]
-            # border_state = boundary_forcing[:, i]
-            # true_state = true_states[:, i]
-
             pred_state, pred_std, weight = self.predict_step_train(LQ, HQ)
 
             prediction_list.append(pred_state)
@@ -203,13 +193,9 @@ class Diffusion(ARModel):
         )  # (B, pred_steps, num_grid_nodes, d_f)
 
         if self.output_std:
-            # pred_std = torch.stack(
-            #     pred_std_list, dim=1
-            # )  # (B, pred_steps, num_grid_nodes, d_f)
             pred_std = torch.tensor(1, device=LQ.device) # Using the same weights for all variables
         else:
             pred_std = self.per_var_std # (d_f,)
-            # pred_std = 1 # Testing equal weights
 
         return prediction, pred_std, weight
 
