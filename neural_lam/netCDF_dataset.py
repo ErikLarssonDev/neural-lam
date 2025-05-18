@@ -80,8 +80,16 @@ class NetCDFDataset(Dataset):
         ground_truth_batch_data = self.get_batch(self.ground_truth_datasets, idx)
         if self.normalize_ground_truth:
             ground_truth_batch_data = (ground_truth_batch_data - self.ground_truth_mean) / self.ground_truth_std
+        
+        # return input_batch_data, ground_truth_batch_data
 
-        return input_batch_data, ground_truth_batch_data
+        states = {
+            "LQ": input_batch_data,
+            "HQ": ground_truth_batch_data,
+        }
+
+        return states
+
         
 def get_dataloader(input_path, input_files, ground_truth_path, ground_truth_files, ground_truth_stats_path,
                    start_date, end_date, levels=None, is_inference_dataset=False, normalize_ground_truth=False,

@@ -15,6 +15,7 @@ from pytorch_lightning.profilers import AdvancedProfiler
 from neural_lam import constants, utils, config
 from neural_lam.weather_dataset import WeatherDataset
 from neural_lam.downscaling_dataset import DownscalingDataset
+from neural_lam.netCDF_dataset import NetCDFDataset
 from neural_lam.models.graph_efm import GraphEFM
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
@@ -46,7 +47,7 @@ def main(input_args=None):
         "--data_config",
         type=str,
         default="neural_lam/data_config.yaml",
-        help="Path to data config file (default: neural_lam/data_config.yaml)",
+        help="Path to data config file (default: neural_lam/clim_config.yaml)",
     )
     parser.add_argument(
         "--model",
@@ -438,6 +439,7 @@ def main(input_args=None):
     args.var_leads_metrics_watch = {
         int(k): v for k, v in json.loads(args.var_leads_metrics_watch).items()
     }
+
     config_loader = config.Config.from_file(args.data_config)
 
     # Asserts for arguments
@@ -457,11 +459,17 @@ def main(input_args=None):
 
     # Load data
     train_loader = torch.utils.data.DataLoader(
-        DownscalingDataset(
-            config_loader.dataset.name,
-            split="train",
-            subset=args.subset_ds,
-            control_only=args.control_only,
+        NetCDFDataset(
+            start_date=config_loader.dataset.train_start_date,
+            end_date=config_loader.dataset.train_end_date,
+            input_path=config_loader.dataset.input_path,
+            input_files=config_loader.dataset.input_files,
+            ground_truth_path=config_loader.dataset.ground_truth_path,
+            ground_truth_files=config_loader.dataset.ground_truth_files,
+            ground_truth_stats_path=config_loader.dataset.ground_truth_stats_path,
+            levels=config_loader.dataset.levels,
+            is_inference_dataset=False,
+            normalize_ground_truth=config_loader.dataset.normalize_ground_truth,
         ),
         args.batch_size,
         shuffle=True,
@@ -469,11 +477,17 @@ def main(input_args=None):
     )
 
     val_loader = torch.utils.data.DataLoader(
-        DownscalingDataset(
-            config_loader.dataset.name,
-            split="val",
-            subset=args.subset_ds,
-            control_only=args.control_only,
+        NetCDFDataset(
+            start_date=config_loader.dataset.validation_start_date,
+            end_date=config_loader.dataset.validation_end_date,
+            input_path=config_loader.dataset.input_path,
+            input_files=config_loader.dataset.input_files,
+            ground_truth_path=config_loader.dataset.ground_truth_path,
+            ground_truth_files=config_loader.dataset.ground_truth_files,
+            ground_truth_stats_path=config_loader.dataset.ground_truth_stats_path,
+            levels=config_loader.dataset.levels,
+            is_inference_dataset=False,
+            normalize_ground_truth=config_loader.dataset.normalize_ground_truth,
         ),
         args.batch_size,
         shuffle=False,
@@ -570,11 +584,17 @@ def main(input_args=None):
             eval_loader = val_loader
         else:  # Test
             eval_loader = torch.utils.data.DataLoader(
-                DownscalingDataset(
-                    config_loader.dataset.name,
-                    split="test",
-                    subsample_step=args.step_length,
-                    subset=bool(args.subset_ds),
+                NetCDFDataset(
+                    start_date=config_loader.dataset.validation_start_date, # TODO: Get test dates from config
+                    end_date=config_loader.dataset.validation_end_date, # TODO: Get test dates from config
+                    input_path=config_loader.dataset.input_path,
+                    input_files=config_loader.dataset.input_files,
+                    ground_truth_path=config_loader.dataset.ground_truth_path,
+                    ground_truth_files=config_loader.dataset.ground_truth_files,
+                    ground_truth_stats_path=config_loader.dataset.ground_truth_stats_path,
+                    levels=config_loader.dataset.levels,
+                    is_inference_dataset=False,
+                    normalize_ground_truth=config_loader.dataset.normalize_ground_truth,
                 ),
                 args.batch_size,
                 shuffle=False,
