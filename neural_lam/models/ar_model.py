@@ -64,7 +64,7 @@ class ARModel(pl.LightningModule):
             grid_static_dim,
         ) = self.grid_static_features.shape  # 63784 = 268x238
 
-        num_states = 3 if args.model == "diffusion" else 2
+        num_states = 3 if args.model == "diffusion" or args.model == "SI" else 2
         (
             self.num_boundary_nodes,
             boundary_static_dim,  # TODO Will need for computation below

@@ -18,12 +18,14 @@ from neural_lam.models.graph_efm import GraphEFM
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.diffusion import Diffusion
+from neural_lam.models.SI import SI
 
 MODELS = {
     "graphcast": GraphCast,
     "graph_fm": GraphFM,
     "graph_efm": GraphEFM,
     "diffusion": Diffusion,
+    "SI": SI,
 }
 
 def list_of_ints(arg):
@@ -282,6 +284,12 @@ def main(input_args=None):
         default=0.02,
         help="Sigma min for training. (default: 0.02)",
     )
+    parser.add_argument(
+        "--sigma_coef",
+        type=float,
+        default=1,
+        help="Sigma coefficient for stochatic interpolants (default: 1)",
+    )
 
     # EDM Options
     # resample_filter=args.resample_filter,
@@ -363,6 +371,11 @@ def main(input_args=None):
     )
     parser.add_argument(
         "--save_output",
+        action="store_true",
+        help="If the model output should be saved to the output folder (default: False)",
+    )
+    parser.add_argument(
+        "--save_steps",
         action="store_true",
         help="If the model output should be saved to the output folder (default: False)",
     )

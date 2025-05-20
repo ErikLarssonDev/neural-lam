@@ -556,7 +556,7 @@ class SongUNet(torch.nn.Module):
             ),
             dim=-1,
         )
-
+        
         # Create full boundary node features of shape
         # (B, num_boundary_nodes, boundary_dim)
 

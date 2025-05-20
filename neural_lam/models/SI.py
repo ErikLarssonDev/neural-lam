@@ -15,7 +15,10 @@ from neural_lam import constants, metrics, utils, vis
 
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
-from neural_lam.models.edm_networks_2 import EDMPrecond
+from neural_lam.models.edm_networks_2 import EDMPrecond, SongUNet
+
+def bad(x):
+    return torch.any(torch.isnan(x)) or torch.any(torch.isinf(x)) 
 
 class SI(ARModel):
     """
@@ -27,31 +30,20 @@ class SI(ARModel):
         # Some dimensionalities that can be useful to have stored
         self.border_condition = args.border_condition
         self.ensemble_size = args.ensemble_size
-        self.sigma_min = args.sigma_min
-        self.sigma_max = 88
-        self.sigma_data = 1
-        self.rho = 7
         self.sampler = args.sampler
         self.noise_aug_prob = args.noise_aug_prob # Probability of augmenting with noise [0, 1]
         self.save_output = args.save_output
         self.save_output_wandb = args.save_output_wandb
         self.sampler_steps = args.sampler_steps
+        self.save_steps = args.save_steps # TODO: Fix later
+        self.GT = None
+        self.output_std = args.output_std # Whether to use the variable weights or not
 
-        if args.diffusion_model != 'edm':
-            self.map_noise = NoiseEmbedding()
-            
-        if args.diffusion_model == 'graph_fm':
-            self.model = GraphFM(args)
-        elif args.diffusion_model == 'edm':
-            self.model = EDMPrecond(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
+        if args.diffusion_model == 'song_unet':
+            self.model = SongUNet(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
                                     in_channels=self.grid_dim,
                                     out_channels=self.grid_output_dim,
-                                    model_type='SongUNet',
                                     embedding_type=args.noise_embedding,
-                                    obs_mask=self.interior_mask,
-                                    sigma_data=self.sigma_data,
-                                    sigma_min=self.sigma_min,
-                                    sigma_max=self.sigma_max,
                                     resample_filter=args.resample_filter,
                                     channel_mult=args.channel_mult,
                                     encoder_type=args.encoder_type,
@@ -59,9 +51,15 @@ class SI(ARModel):
                                     )
         else:
             raise ValueError(f"Diffusion model {args.diffusion_model} not recognized")
+
             
         self.pred_residual = args.pred_residual # Whether to predict the residual instead of the next state
         self.diffusion_model = args.diffusion_model
+
+        self.I = Interpolant(sigma_coef=args.sigma_coef, beta_fn='t^2')
+        # self.EM_sample_steps = 500
+        self.t_min_sampling = 0.0  # no min time needed
+        self.t_max_sampling = .999
 
         self.test_metrics = {
                                 "ens_mae": [],
@@ -70,6 +68,149 @@ class SI(ARModel):
                                 "spread_squared": [],
                             }
 
+    def EM(self, base = None, cond = None, boundary=None, diffusion_fn = None):
+        steps = self.sampler_steps
+        tmin, tmax = self.t_min_sampling, self.t_max_sampling
+        ts = torch.linspace(tmin, tmax, steps).type_as(base)
+        dt = ts[1] - ts[0]
+        ones = torch.ones(base.shape[0]).type_as(base)
+ 
+        # initial condition
+        xt = base
+
+        # diffusion_fn = None means use the diffusion function that you trained with
+        # otherwise, for a desired diffusion coefficient, do the model surgery to define
+        # the correct drift coefficient
+
+        def step_fn(xt, t):
+            D = self.I.interpolant_coefs({'t': t, 'zt': xt, 'z0': base})
+
+            bF = self.model(xt, t, cond, boundary)
+            D['bF'] = bF
+            sigma = self.I.sigma(t)
+           
+            # specified diffusion func
+            if diffusion_fn is not None:
+                g = diffusion_fn(t)
+                s = self.drift_to_score(D)
+                f = bF + .5 *  (g.pow(2) - sigma.pow(2)) * s
+
+            # default diffusion func
+            else:
+                f = bF
+                g = sigma
+
+            mu = xt + f * dt
+            xt = mu + g * torch.randn_like(mu) * dt.sqrt()
+            return xt, mu # return sample and its mean
+
+        def step_fn_2(xt, t, t1): # TODO: Only supporting the same diffusion function for now.
+            bF = self.model(xt, t, cond, boundary)
+
+            mu1 = xt + bF * dt
+
+            bF2 = self.model(mu1, t1, cond, boundary)
+
+            f = 0.5 * (bF + bF2)
+
+            # Final step
+            sigma = self.I.sigma(t)
+            g = sigma
+            mu = xt + f * dt
+            xt = mu + g * torch.randn_like(mu) * dt.sqrt()
+            return xt, mu # return sample and its mean
+            
+
+
+        for i, tscalar in enumerate(ts):
+            
+            if i == 0 and (diffusion_fn is not None):
+                # only need to do this when using other diffusion coefficients that you didn't train with
+                # because the drift-to-score conversion has a denominator that features 0 at time 0
+                # if just sampling with "sigma" (the diffusion coefficient you trained with) you
+                # can skip this
+                tscalar = ts[1] # 0 + (1/500)
+            
+            if self.sampler == 'euler_2' and i < len(ts) - 1:
+                xt, mu = step_fn_2(xt, tscalar * ones, ts[i+1] * ones)
+            else:
+                xt, mu = step_fn(xt, tscalar * ones)
+
+            if self.save_steps:
+                save_dir='diffusion_steps'
+                t = len(ts) - i
+                for var_idx, var_name in enumerate(constants.PARAM_NAMES_SHORT):
+                    os.makedirs(f"{save_dir}/{var_name}", exist_ok=True) # TODO: Make the saving work for multiple fields, preferably in a subfolders
+                    print(f"Saving to {save_dir}/{var_name}/state_{t}.png")
+
+                    if self.GT is not None:
+                        vmin = self.GT[0, 0, :, var_idx].min().item()
+                        vmax = self.GT[0, 0, :, var_idx].max().item()
+                    else:
+                        vmin = mu[0, :, var_idx].min().item()
+                        vmax = mu[0, :, var_idx].max().item()
+
+                    fig, axes = plt.subplots(
+                        1,
+                        4,
+                        figsize=(24, 8),
+                        subplot_kw={"projection": constants.LAMBERT_PROJ},
+                    )
+
+                    axes[0].coastlines()  # Add coastline outlines
+
+                    im = vis.plot_on_axis(
+                        axes[0],
+                        xt[0, :, var_idx],
+                        vmin=vmin, # Should have the same vmin and vmax for all images, but at least the same for GT and pred, maybe GT sets the same for all?
+                        vmax=vmax,
+                        cmap="plasma",
+                    )
+          
+                    axes[0].set_title(f"X_t", size=15)
+
+                    axes[1].coastlines()  # Add coastline outlines
+                    im = vis.plot_on_axis(
+                        axes[1],
+                        mu[0, :, var_idx],
+                        vmin=vmin,
+                        vmax=vmax,
+                        cmap="plasma",
+
+                    )
+       
+                    axes[1].set_title(f"mu", size=15)
+
+                    axes[2].coastlines()  # Add coastline outlines
+                    im = vis.plot_on_axis(
+                        axes[2],
+                        base[0, :, var_idx],
+                        vmin=vmin,
+                        vmax=vmax,
+                        cmap="plasma",
+                    )
+ 
+                    axes[2].set_title(f"Initial State", size=15)
+                    
+                    if self.GT is not None: 
+                        axes[3].coastlines()  # Add coastline outlines
+                        im = vis.plot_on_axis(
+                            axes[3],
+                            self.GT[0, 0, :, var_idx],
+                            vmin=vmin,
+                            vmax=vmax,
+                            cmap="plasma",
+                        )
+        
+                        axes[3].set_title(f"Ground Truth", size=15)
+                    fig.colorbar(im, ax=axes, orientation="horizontal")
+                    fig.suptitle(f"{var_name} at time {t}", size=20)
+                    fig.savefig(f"{save_dir}/{var_name}/state_{t}.png", bbox_inches='tight') # TODO: Should log to wandb
+                    plt.close(fig)
+                
+        self.save_steps = False # Only save the first time
+        assert not bad(mu)
+        return mu
 
     def predict_step(self, prev_state, prev_prev_state, forcing, boundary_forcing):
         """
@@ -87,20 +228,34 @@ class SI(ARModel):
                     (pred_std can be ignored by just returning None)
         """
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1) # (B, N_grid, d_input)
-        latents = torch.randn_like(input_grid[:, :, :self.grid_output_dim]) # (B, N_grid, d_state)
+        # latents = torch.randn_like(input_grid[:, :, :self.grid_output_dim]) # (B, N_grid, d_state)
 
-        # Run through sampler
-        if self.sampler == "heun":
-            next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
-        elif self.sampler == "edm":
-            next_state, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5, num_steps=self.sampler_steps)
-        elif self.sampler == "ddpm":
-            next_state, diff_states = self.ddpm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
+        # # Run through sampler
+        # if self.sampler == "heun":
+        #     next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
+        # elif self.sampler == "edm":
+        #     next_state, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5, num_steps=self.sampler_steps)
+        # elif self.sampler == "ddpm":
+        #     next_state, diff_states = self.ddpm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
 
-        # Add residual if needed
-        if self.pred_residual:
-            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
-            next_state = prev_state + next_state
+        # # Add residual if needed
+        # if self.pred_residual:
+        #     next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
+        #     next_state = prev_state + next_state
+
+        # definently_sample
+        EM_args = {'base': prev_state, 'cond': input_grid, 'boundary': boundary_forcing}
+       
+        # list diffusion funcs
+        # None means use the one you trained with
+        diffusion_fns = {
+            'g_sigma': None,
+            'g_sigma_01': lambda t: self.sigma_coef * self.wide(1-t) * 0.1,
+            'g_other': lambda t: self.sigma_coef * self.wide(1-t).pow(4),
+        }
+
+
+        next_state = self.EM(diffusion_fn=None, **EM_args) # None because we want to use the diffusion function we trained with, TODO: Experiment with this later
         
         return next_state, None
 
@@ -120,41 +275,48 @@ class SI(ARModel):
                     (pred_std can be ignored by just returning None)
         """
 
-        # Sample from F inverse
-        rnd_uniform = torch.rand([prev_state.shape[0], 1, 1], device=prev_state.device)
-        rho_inv = 1 / self.rho
-        sigma_max_rho = self.sigma_max ** rho_inv
-        sigma_min_rho = self.sigma_min ** rho_inv
-        sigma = (sigma_max_rho + rnd_uniform * (sigma_min_rho - sigma_max_rho)) ** self.rho
-        y = true_state # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
-
-        # Noise augmentation
-        if torch.rand(1) < self.noise_aug_prob:
-            rnd_uniform_aug = torch.empty([prev_state.shape[0], 1, 1], device=prev_state.device).uniform_(0.9, 1) # Previously 0.75, 1
-            sigma_aug = (sigma_max_rho + rnd_uniform_aug * (sigma_min_rho - sigma_max_rho)) ** self.rho
-            prev_state += torch.randn_like(prev_state) * sigma_aug
-            prev_prev_state += torch.randn_like(prev_prev_state) * sigma_aug
+        # y = true_state # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
+        # Make y residual if needed
+        # if self.pred_residual:
+        #     y = y - prev_state
+        #     y = (y - self.step_diff_mean[constants.USED_PARAMS]) / self.step_diff_std[constants.USED_PARAMS] # Normalize residual
       
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
 
-        # Make y residual if needed
-        if self.pred_residual:
-            y = y - prev_state
-            y = (y - self.step_diff_mean[constants.USED_PARAMS]) / self.step_diff_std[constants.USED_PARAMS] # Normalize residual
+        # Prepare batch
+        D = {'z0': prev_state, 'z1': true_state, 'label': None, 'N': prev_state.shape[0]}   
 
-        n = torch.randn_like(y) * sigma    
-        noisy_input = y+n
+        # Get random batch of times
+        D['t'] = torch.rand(prev_state.shape[0], device=prev_state.device)
 
-        next_state = self.forward(noisy_input, sigma, input_grid, boundary_forcing) # Shape (B, d_state, N_x, N_y)
+        # Interpolant noise
+        D['noise'] = torch.randn_like(prev_state, device=prev_state.device)
+
+        # Get alpha, beta, etc
+        D = self.I.interpolant_coefs(D)
+        
+        # zt
+        D['zt'] = self.I.compute_zt(D)
+
+        # Target
+        D['drift_target'] = self.I.compute_target(D)
+
+
+        output = self.model(D['zt'], D['t'].reshape(D['zt'].shape[0]), input_grid, boundary_forcing) # Shape (B, d_state, N_x, N_y)
 
         # Add residual if needed
-        if self.pred_residual:
-            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
-            next_state = prev_state + next_state
+        # if self.pred_residual:
+        #     next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
+        #     next_state = prev_state + next_state
 
-        weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
+        # weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
+                # Calculate loss
+        loss = F.mse_loss(output, D['drift_target'], reduction='none')
         
-        return next_state, None, weight
+        if self.output_std:
+            loss = loss / (self.per_var_std**2)
+
+        return output, None, loss
     
     def unroll_prediction(self, init_states, forcing_features, boundary_forcing):
             """
@@ -211,14 +373,14 @@ class SI(ARModel):
         prediction_list = []
         pred_std_list = []
         pred_steps = forcing_features.shape[1]
-        weight_list = []
+        loss_list = []
 
         for i in range(pred_steps):
             forcing = forcing_features[:, i]
             border_state = boundary_forcing[:, i]
             true_state = true_states[:, i]
 
-            pred_state, pred_std, weight = self.predict_step_train(
+            pred_state, pred_std, loss = self.predict_step_train(
                 prev_state, prev_prev_state, forcing, true_state, border_state
             )
             # state: (B, num_grid_nodes, d_f)
@@ -228,7 +390,7 @@ class SI(ARModel):
             new_state = pred_state
 
             prediction_list.append(new_state)
-            weight_list.append(weight)
+            loss_list.append(loss)
             if self.output_std:
                 pred_std_list.append(pred_std)
 
@@ -240,8 +402,8 @@ class SI(ARModel):
             prediction_list, dim=1
         )  # (B, pred_steps, num_grid_nodes, d_f)
 
-        weight = torch.stack(
-            weight_list, dim=1
+        loss = torch.stack(
+            loss_list, dim=1
         )  # (B, pred_steps, num_grid_nodes, d_f)
 
         if self.output_std:
@@ -253,7 +415,7 @@ class SI(ARModel):
             pred_std = self.per_var_std  # (d_f,)
             # pred_std = 1 # Testing equal weights
 
-        return prediction, pred_std, weight
+        return prediction, pred_std, loss
 
     def common_step_train(self, batch):
         """
@@ -265,26 +427,27 @@ class SI(ARModel):
             where index 0 corresponds to index 1 of init_states
         """
         (init_states, target_states, forcing, boundary_forcing) = batch
-        prediction, pred_std, weight = self.unroll_prediction_train(
+        prediction, pred_std, loss = self.unroll_prediction_train(
             init_states, forcing, target_states, boundary_forcing
         )  # (B, pred_steps, num_grid_nodes, d_f)
         # prediction: (B, pred_steps, num_grid_nodes, d_f)
         # pred_std: (B, pred_steps, num_grid_nodes, d_f) or (d_f,)
 
-        return prediction, target_states, pred_std, weight
+        return prediction, target_states, pred_std, loss
 
     def training_step(self, batch):
         """
         Train on single batch
         """
-        prediction, target, pred_std, weight = self.common_step_train(batch)
+        prediction, target, pred_std, loss = self.common_step_train(batch)
 
         # Compute loss
-        batch_loss = torch.mean(
-            self.loss(
-                prediction, target, pred_std, weight=weight # mask=self.interior_mask_bool
-            )
-        )  # mean over unrolled times and batch
+        batch_loss = torch.mean(loss)  # mean over unrolled times and batch
+        # batch_loss = torch.mean(
+        #     self.loss(
+        #         prediction, target, pred_std, weight=weight # mask=self.interior_mask_bool
+        #     )
+        # )  # mean over unrolled times and batch
 
         batch_mse = torch.mean(
             metrics.mse(
@@ -495,6 +658,11 @@ class SI(ARModel):
         """
         # Compute and store metrics for ensemble forecast
         init_states, target_states, forcing_features, boundary_forcing = batch
+
+        if self.save_steps:
+            self.GT = target_states
+        else:
+            self.GT = None
 
         trajectories, traj_stds = self.sample_trajectories(
             init_states,
@@ -884,4 +1052,60 @@ class FourierEmbedding(torch.nn.Module):
         x = x.ger((2 * np.pi * self.freqs).to(x.dtype))
         x = torch.cat([x.cos(), x.sin()], dim=1)
         return x
+    
+# Stochastic interpolant for the diffusion process
+class Interpolant:
+
+    def __init__(self, sigma_coef=1, beta_fn='t^2'):
+        self.sigma_coef = sigma_coef
+        self.beta_fn = beta_fn
+
+    def wide(self, t):
+        return t[:, None, None]
+
+    def alpha(self, t):
+        return self.wide(1-t) 
+
+    def alpha_dot(self, t):
+        return self.wide(-1.0 * torch.ones_like(t))
+
+    def beta(self, t):
+        is_squared = self.beta_fn == 't^2'
+        return self.wide(t.pow(2) if is_squared else t)
+
+    def beta_dot(self, t):
+        is_squared = self.beta_fn == 't^2'
+        return self.wide(2.0 * t if is_squared else torch.ones_like(t))
+
+    # we sometimes multiply sigma + sigma_dot by avg pixel norm, 
+    # but when standardized (centered cifar), 
+    # or when norm 1 (we rescale nse), not needed
+    def sigma(self, t):
+        return self.sigma_coef * self.wide(1-t) 
+
+    def sigma_dot(self, t):
+        return self.sigma_coef * self.wide(-torch.ones_like(t)) 
+    
+    def gamma(self, t):
+        return self.wide(t.sqrt()) * self.sigma(t)
+
+    def compute_zt(self, D):
+        return D['at'] * D['z0'] + D['bt'] * D['z1'] + D['gamma_t'] * D['noise']
+
+    def compute_target(self, D):
+        return D['adot'] * D['z0'] + D['bdot'] * D['z1'] +  (D['sdot'] * D['root_t']) * D['noise']
+    
+    def interpolant_coefs(self, D):
+        return self(D)
+
+    def __call__(self, D):
+        D['at'] = self.alpha(D['t'])
+        D['bt'] = self.beta(D['t'])
+        D['adot'] = self.alpha_dot(D['t'])
+        D['bdot'] = self.beta_dot(D['t'])
+        D['root_t'] = self.wide(D['t'].sqrt())
+        D['gamma_t'] = self.gamma(D['t'])
+        D['st'] = self.sigma(D['t'])
+        D['sdot'] = self.sigma_dot(D['t'])
+        return D
     

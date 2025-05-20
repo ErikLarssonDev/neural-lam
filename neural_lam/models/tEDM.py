@@ -17,7 +17,7 @@ from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.edm_networks_2 import EDMPrecond
 
-class Diffusion(ARModel):
+class tEDM(ARModel):
     """
     A new auto-regressive weather forecasting model
     """
@@ -756,8 +756,7 @@ class Diffusion(ARModel):
 
 #----------------------------------------------------------------------------
 
-    # Sampler used in GenCast (taken from a reimplementation of the paper before the official code was released).
-    # TODO: Check if this is correct.
+    # Sampler used in GenCast
     def ddpm_sampler(
         self, latents, class_labels=None, boundary_forcing=None, randn_like=torch.randn_like,
         num_steps=20, sigma_min=0.03, sigma_max=80, rho=7,
