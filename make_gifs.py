@@ -5,7 +5,7 @@ import os
 
 N_frames = 19
 duration=700
-EXPERIMENT_NAME="EDM_1200e"
+EXPERIMENT_NAME="SI_1200e_5"
 
 dir_path=f"gifs/{EXPERIMENT_NAME}"
 os.makedirs("gifs", exist_ok=True)
@@ -13,7 +13,7 @@ os.makedirs(dir_path, exist_ok=True)
 
 # Create the frames
 frames = []
-img_fnames = glob.glob(os.path.join("/proj/berzelius-2022-164/users/x_erila/neural-lam/wandb/run-20250115_103417-r35gs1j7/files/media/images", "*.png"))
+img_fnames = glob.glob(os.path.join("/proj/berzelius-2022-164/users/x_erila/neural-lam/wandb/run-20250508_110237-bu5u6y5g/files/media/images", "*.png"))
 
 var_dict = {}
 
