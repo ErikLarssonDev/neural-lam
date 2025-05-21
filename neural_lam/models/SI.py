@@ -42,7 +42,7 @@ class SI(ARModel):
         if args.diffusion_model == 'song_unet':
             self.model = SongUNet(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
                                     in_channels=self.grid_dim,
-                                    out_channels=self.grid_output_dim,
+                                    out_channels=self.config_loader.num_data_vars(),
                                     embedding_type=args.noise_embedding,
                                     resample_filter=args.resample_filter,
                                     channel_mult=args.channel_mult,
@@ -300,8 +300,7 @@ class SI(ARModel):
 
         # Target
         D['drift_target'] = self.I.compute_target(D)
-
-
+        
         output = self.model(D['zt'], D['t'].reshape(D['zt'].shape[0]), input_grid, boundary_forcing) # Shape (B, d_state, N_x, N_y)
 
         # Add residual if needed
@@ -310,11 +309,10 @@ class SI(ARModel):
         #     next_state = prev_state + next_state
 
         # weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
-                # Calculate loss
+        # Calculate loss
         loss = F.mse_loss(output, D['drift_target'], reduction='none')
-        
-        if self.output_std:
-            loss = loss / (self.per_var_std**2)
+
+        loss = loss / (self.per_var_std**2)
 
         return output, None, loss
     
