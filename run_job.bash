@@ -56,12 +56,13 @@ SI_1000e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/SI_600e
 SI_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/SI_1200e-SI-6x128-05_07_18-0323/last.ckpt"
 
 # With weighted loss
-SI_600e_weighted=""
+SI_600e_weighted="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/SI_600e_weighted-SI-6x128-05_20_18-5352/last.ckpt"
 
 # Execute Python script with arguments
 # Train
 # python3 neural_lam/train_model.py $MODEL $DIFFUSION_MODEL $RUN_NAME --n_workers 16 --pred_residual --border_condition --vertical_propnets 1 --batch_size 12  --processor_layers 2 --hidden_dim 128 --epochs 800 --load $level_3_600e --lr 0.0001
 # python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 2000 --batch_size 12 --load $EDM_1800e --lr 0.0000001 # --encoder_type residual # --noise_aug_prob 0.5
+# python3 neural_lam/train_model.py --model SI --diffusion_model song_unet $RUN_NAME  --n_workers 16 --border_condition --epochs 600 --batch_size 12
 python3 neural_lam/train_model.py --model SI --diffusion_model song_unet $RUN_NAME  --n_workers 16 --border_condition --epochs 1000 --batch_size 12 --output_std --load $SI_600e_weighted --lr 0.0001 
 
 # Test
@@ -73,7 +74,7 @@ python3 neural_lam/train_model.py --model SI --diffusion_model song_unet $RUN_NA
 # Trial train
 # python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --graph hierarchical-3 --n_workers 16 --pred_residual --border_condition --vertical_propnets 1 --batch_size 12  --processor_layers 2 --hidden_dim 128
 # python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --n_workers 16 --pred_residual --border_condition --resample_filter [1,3,3,1] --channel_mult [2, 2, 2, 2] --encoder_type standard --attn_resolutions [134, 68, 34, 18]
-# python3 neural_lam/train_model.py --model SI --diffusion_model song_unet --n_workers 16 --border_condition --subset_ds --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/SI_600e-SI-6x128-05_07_08-7772/last.ckpt
+# python3 neural_lam/train_model.py --model SI --diffusion_model song_unet --n_workers 16 --border_condition --subset_ds --output_std --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/SI_600e-SI-6x128-05_07_08-7772/last.ckpt
 
 # Trial test
 # Batch size 18 for GraphFM
