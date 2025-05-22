@@ -935,6 +935,48 @@ class EDMPrecond(torch.nn.Module):
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
 
+class tEDMPrecond(torch.nn.Module):
+    def __init__(self,
+        img_resolution,                     # Image resolution.
+        in_channels,                        # Number of input channels.
+        out_channels,                       # Number of output channels.
+        v,                                  # The degrees of freedom for the student-t noise.
+        label_dim       = 0,                # Number of class labels, 0 = unconditional.
+        use_fp16        = False,            # Execute the underlying model at FP16 precision?
+        sigma_min       = 0,                # Minimum supported noise level.
+        sigma_max       = float('inf'),     # Maximum supported noise level.
+        sigma_data      = 1,                # Expected standard deviation of the training data.
+        model_type      = 'DhariwalUNet',   # Class name of the underlying model.
+        **model_kwargs,                     # Keyword arguments for the underlying model.
+    ):
+        super().__init__()
+        self.img_resolution = img_resolution
+        self.v = v
+        self.label_dim = label_dim
+        self.use_fp16 = use_fp16
+        self.sigma_min = sigma_min
+        self.sigma_max = sigma_max
+        self.sigma_data = sigma_data
+        self.model = globals()[model_type](img_resolution=img_resolution, in_channels=in_channels, out_channels=out_channels, label_dim=label_dim, **model_kwargs)
+
+    def forward(self, x, sigma, class_labels=None, boundary_forcing=None, force_fp32=False, **model_kwargs):
+        x = x.to(torch.float32)
+        sigma = sigma.to(torch.float32).reshape(-1, 1, 1)
+        dtype = torch.float16 if (self.use_fp16 and not force_fp32 and x.device.type == 'cuda') else torch.float32
+
+        c_skip = self.sigma_data ** 2 / (((self.v / (self.v - 2)) * sigma ** 2) + self.sigma_data ** 2)
+        c_out = torch.sqrt(self.v / (self.v - 2)) * sigma * self.sigma_data / ((self.v / (self.v - 2)) * sigma ** 2 + self.sigma_data ** 2).sqrt()
+        c_in = 1 / ((self.v / (self.v - 2)) * self.sigma_data ** 2 + sigma ** 2).sqrt()
+        c_noise = sigma.log() / 4
+
+        F_x = self.model((c_in * x).to(dtype), c_noise.flatten(), class_labels=class_labels, boundary_forcing=boundary_forcing, **model_kwargs)
+        assert F_x.dtype == dtype
+        D_x = c_skip * x + c_out * F_x.to(torch.float32)
+        return D_x
+
+    def round_sigma(self, sigma):
+        return torch.as_tensor(sigma)
+
 #----------------------------------------------------------------------------
 
 if __name__=='__main__':

@@ -19,6 +19,7 @@ from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.diffusion import Diffusion
 from neural_lam.models.SI import SI
+from neural_lam.models.tEDM import tEDM
 
 MODELS = {
     "graphcast": GraphCast,
@@ -26,6 +27,7 @@ MODELS = {
     "graph_efm": GraphEFM,
     "diffusion": Diffusion,
     "SI": SI,
+    "tEDM": tEDM,
 }
 
 def list_of_ints(arg):
@@ -281,8 +283,8 @@ def main(input_args=None):
     parser.add_argument(
         "--sigma_min",
         type=float,
-        default=0.02,
-        help="Sigma min for training. (default: 0.02)",
+        default=0.002,
+        help="Sigma min for training. (default: 0.002)",
     )
     parser.add_argument(
         "--sigma_coef",
@@ -378,6 +380,14 @@ def main(input_args=None):
         "--save_steps",
         action="store_true",
         help="If the model output should be saved to the output folder (default: False)",
+    )
+
+    # tEDM Options
+    parser.add_argument(
+        "--v",
+        type=float, # TODO: Could be tensor with different values for each variable
+        default=3.0, # 3, 5 in the paper
+        help="v > 2 parameter for tEDM (default: 3)", # NOTE: Heavier tails for lower v, gaussian for v -> ∞
     )
 
 
