@@ -15,7 +15,7 @@ from neural_lam import constants, metrics, utils, vis
 
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
-from neural_lam.models.edm_networks_2 import EDMPrecond
+from neural_lam.models.edm_networks_2 import tEDMPrecond
 
 class tEDM(ARModel):
     """
@@ -23,6 +23,29 @@ class tEDM(ARModel):
     """
     def __init__(self, args):
         super().__init__(args)
+
+        # grid_dim from data + static
+        (
+            self.num_grid_nodes,
+            grid_static_dim,
+        ) = self.grid_static_features.shape  # 63784 = 268x238
+
+        num_states = 3
+        (
+            self.num_boundary_nodes,
+            boundary_static_dim,  # TODO Will need for computation below
+        ) = self.boundary_static_features.shape
+        self.num_input_nodes = self.num_grid_nodes + self.num_boundary_nodes
+
+        self.grid_dim = (
+            num_states * self.config_loader.num_data_vars()
+            + grid_static_dim
+            + self.config_loader.dataset.num_forcing_features
+        )
+        if args.border_condition:
+            self.boundary_dim = self.grid_dim
+        else:
+            self.boundary_dim = self.grid_dim - self.config_loader.num_data_vars()
 
         # Some dimensionalities that can be useful to have stored
         self.border_condition = args.border_condition
@@ -36,6 +59,7 @@ class tEDM(ARModel):
         self.save_output = args.save_output
         self.save_output_wandb = args.save_output_wandb
         self.sampler_steps = args.sampler_steps
+        self.v = torch.tensor(args.v)
 
         if args.diffusion_model != 'edm':
             self.map_noise = NoiseEmbedding()
@@ -43,9 +67,10 @@ class tEDM(ARModel):
         if args.diffusion_model == 'graph_fm':
             self.model = GraphFM(args)
         elif args.diffusion_model == 'edm':
-            self.model = EDMPrecond(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
+            self.model = tEDMPrecond(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
                                     in_channels=self.grid_dim,
                                     out_channels=self.grid_output_dim,
+                                    v=self.v,
                                     model_type='SongUNet',
                                     embedding_type=args.noise_embedding,
                                     obs_mask=self.interior_mask,
@@ -62,6 +87,8 @@ class tEDM(ARModel):
             
         self.pred_residual = args.pred_residual # Whether to predict the residual instead of the next state
         self.diffusion_model = args.diffusion_model
+
+
 
         self.test_metrics = {
                                 "ens_mae": [],
@@ -87,7 +114,10 @@ class tEDM(ARModel):
                     (pred_std can be ignored by just returning None)
         """
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1) # (B, N_grid, d_input)
-        latents = torch.randn_like(input_grid[:, :, :self.grid_output_dim]) # (B, N_grid, d_state)
+
+        # TODO: Change this to student-t noise
+        # latents = torch.randn_like(input_grid[:, :, :self.grid_output_dim]) # (B, N_grid, d_state)
+        latents = torch.distributions.studentT.StudentT(torch.tensor(self.v, device=input_grid.device)).rsample(input_grid[:, :, :self.grid_output_dim].shape) # NOTE: tEDM uses student-t noise
 
         # Run through sampler
         if self.sampler == "heun":
@@ -119,21 +149,15 @@ class tEDM(ARModel):
         pred_std: None or (B, N_grid, d_state), predicted standard-deviations
                     (pred_std can be ignored by just returning None)
         """
-
+        
         # Sample from F inverse
         rnd_uniform = torch.rand([prev_state.shape[0], 1, 1], device=prev_state.device)
         rho_inv = 1 / self.rho
         sigma_max_rho = self.sigma_max ** rho_inv
         sigma_min_rho = self.sigma_min ** rho_inv
         sigma = (sigma_max_rho + rnd_uniform * (sigma_min_rho - sigma_max_rho)) ** self.rho
+        self.v.to(sigma.device)
         y = true_state # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
-
-        # Noise augmentation
-        if torch.rand(1) < self.noise_aug_prob:
-            rnd_uniform_aug = torch.empty([prev_state.shape[0], 1, 1], device=prev_state.device).uniform_(0.9, 1) # Previously 0.75, 1
-            sigma_aug = (sigma_max_rho + rnd_uniform_aug * (sigma_min_rho - sigma_max_rho)) ** self.rho
-            prev_state += torch.randn_like(prev_state) * sigma_aug
-            prev_prev_state += torch.randn_like(prev_prev_state) * sigma_aug
       
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
 
@@ -142,7 +166,10 @@ class tEDM(ARModel):
             y = y - prev_state
             y = (y - self.step_diff_mean[constants.USED_PARAMS]) / self.step_diff_std[constants.USED_PARAMS] # Normalize residual
 
-        n = torch.randn_like(y) * sigma    
+        # TODO: Change this to student-t noise
+        # n = torch.randn_like(y) * sigma    
+        n = torch.distributions.studentT.StudentT(torch.tensor(self.v, device=sigma.device)).rsample(y.shape)* sigma # NOTE: tEDM uses student-t noise
+        sigma = sigma * torch.sqrt(self.v / (self.v - 2)) # NOTE: Change for tEDM
         noisy_input = y+n
 
         next_state = self.forward(noisy_input, sigma, input_grid, boundary_forcing) # Shape (B, d_state, N_x, N_y)
@@ -152,7 +179,9 @@ class tEDM(ARModel):
             next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
             next_state = prev_state + next_state
 
-        weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
+
+        c_out = torch.sqrt(self.v / (self.v - 2)) * sigma * self.sigma_data / ((self.v / (self.v - 2)) * sigma ** 2 + self.sigma_data ** 2).sqrt()
+        weight = 1 / c_out ** 2 # (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
         
         return next_state, None, weight
     
