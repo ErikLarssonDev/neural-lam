@@ -20,6 +20,7 @@ from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.diffusion import Diffusion
 from neural_lam.models.SI import SI
 from neural_lam.models.tEDM import tEDM
+from neural_lam.models.fm import FM
 
 MODELS = {
     "graphcast": GraphCast,
@@ -28,6 +29,7 @@ MODELS = {
     "diffusion": Diffusion,
     "SI": SI,
     "tEDM": tEDM,
+    "FM": FM,
 }
 
 def list_of_ints(arg):
