@@ -152,7 +152,7 @@ class Diffusion(ARModel):
             next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
             next_state = prev_state + next_state
 
-        weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
+        weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2 # (B, 1, 1), weight for the loss function
         
         return next_state, None, weight
     
@@ -390,7 +390,6 @@ class Diffusion(ARModel):
         ):
             # traj_slice is (S, pred_steps, num_grid_nodes, d_f)
             # others are (pred_steps, num_grid_nodes, d_f)
-
             self.plotted_examples += 1  # Increment already here
 
             # Save slices to wandb
