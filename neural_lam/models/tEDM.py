@@ -166,7 +166,6 @@ class tEDM(ARModel):
             y = y - prev_state
             y = (y - self.step_diff_mean[constants.USED_PARAMS]) / self.step_diff_std[constants.USED_PARAMS] # Normalize residual
 
-        # TODO: Change this to student-t noise
         # n = torch.randn_like(y) * sigma    
         n = torch.distributions.studentT.StudentT(torch.tensor(self.v, device=sigma.device)).rsample(y.shape)* sigma # NOTE: tEDM uses student-t noise
         sigma = sigma * torch.sqrt(self.v / (self.v - 2)) # NOTE: Change for tEDM

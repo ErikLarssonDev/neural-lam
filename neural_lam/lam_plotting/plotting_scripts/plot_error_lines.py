@@ -16,7 +16,7 @@ from neural_lam import constants, utils
 PLOT_DIR_NAME = "line_plots"
 
 # Load static features for grid/data
-static_data_dict = utils.load_static_data("meps_example")
+static_data_dict = utils.load_static_data("meps")
 
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
 def plot_error_lines(

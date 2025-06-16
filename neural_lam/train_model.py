@@ -539,8 +539,10 @@ def main(input_args=None):
     #             mode="min",
     #         )
     #     )
+
+    wandb_project = args.wandb_project if args.eval is None else f"{args.wandb_project}_eval" # Saving the evalua
     logger = pl.loggers.WandbLogger(
-        project=args.wandb_project, name=run_name, config=args
+        project=wandb_project, name=run_name, config=args
     )
 
     # Training strategy

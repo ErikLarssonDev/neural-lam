@@ -494,7 +494,32 @@ class ARModel(pl.LightningModule):
                 metric_tensor.cpu().numpy(),
                 delimiter=",",
             )
+        
+        metric_np = metric_tensor.cpu().numpy()
 
+        # Get mean for the metric over all variables
+        metric_mean = torch.mean(metric_tensor / self.data_std, dim=1).cpu().numpy()  # (pred_steps,)
+
+        # Add the mean to the log dict and the metric name "Mean"
+        metric_names = self.config_loader.dataset.var_names + ["Mean"]
+        metric_np = np.column_stack(
+            [metric_np, metric_mean]
+        )
+
+        # Logging all of the metrics as line plots
+        for i, varname in enumerate(metric_names):  # adjust var names as needed
+            wandb.log({f"{full_log_name}_{varname}_lineplot": wandb.plot.line_series(
+                xs=list(range(metric_np.shape[0])),
+                ys=metric_np[:, i].tolist(),
+                keys=[wandb.run.name],
+                title=f"{full_log_name} {varname}",
+                xname="Time Step"
+            )})
+
+        print(
+            f"Logged {full_log_name} with shape {metric_tensor.shape}, {metric_np.shape}"
+            f"to wandb"
+        )
         # Check if metrics are watched, log exact values for specific vars
         if full_log_name in self.args.metrics_watch:
             for var_i, timesteps in self.args.var_leads_metrics_watch.items():
