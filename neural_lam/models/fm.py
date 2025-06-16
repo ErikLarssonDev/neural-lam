@@ -68,9 +68,8 @@ class FM(ARModel):
         self.pred_residual = args.pred_residual # Whether to predict the residual instead of the next state
         self.diffusion_model = args.diffusion_model
 
-        # self.EM_sample_steps = 500
-        self.t_min_sampling = 0.0  # no min time needed
-        self.t_max_sampling = .999
+        self.t_min_sampling = 0.0  
+        self.t_max_sampling = 1.0
 
         self.test_metrics = {
                                 "ens_mae": [],
@@ -100,6 +99,8 @@ class FM(ARModel):
         # Run through sampler
         if self.sampler == "heun":
             next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.t_min_sampling, sigma_max=self.t_max_sampling)
+        elif self.sampler == "midpoint":
+            next_state, diff_states = self.midpoint(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.t_min_sampling, sigma_max=self.t_max_sampling)
         else:
             raise ValueError(f"Sampler {self.sampler} not recognized")
 
@@ -141,18 +142,18 @@ class FM(ARModel):
         zt = (1 - t[:, None, None]) * z0 + t[:, None, None] * z1
     
         etaz = self.model(zt, t, input_grid, boundary_forcing)
-        next_state = etaz
+        next_state = zt + (1 - t[:, None, None]) * etaz # One step prediction to the end
 
-        loss =  torch.mean(0.5 * etaz ** 2 - z0 * etaz)
+        loss =  (etaz - (z1-z0)) ** 2
+
+        loss = torch.mean(loss / (self.per_var_std**2))
 
         # Add residual if needed
         if self.pred_residual:
             next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
             next_state = prev_state + next_state
 
-        loss = loss / (self.per_var_std**2)
-
-        return next_state, None, loss
+        return next_state, None, loss.unsqueeze(0)
     
     def unroll_prediction(self, init_states, forcing_features, boundary_forcing):
             """
@@ -681,94 +682,58 @@ class FM(ARModel):
 # You should have received a copy of the license along with this
 # work. If not, see http://creativecommons.org/licenses/by-nc-sa/4.0/
 
+
+    def midpoint(self, latents, class_labels=None, boundary_forcing=None, num_steps=20, sigma_min=0.0, sigma_max=1.0):
+        """
+        Generate random images using the midpoint sampling technique.
+        This is a placeholder for the midpoint sampling method.
+        """
+        t_steps = torch.linspace(sigma_min, sigma_max, num_steps, device=latents.device) # t_0 = tmin, t_N = tmax
+        x_t = latents
+        for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
+            # print(f"Midpoint sampling step {i+1}/{num_steps-1} with t_cur={t_cur}, t_next={t_next}")
+            t_cur = t_cur.unsqueeze(0)  # (1)
+            t_next = t_next.unsqueeze(0)
+            half_step = (t_next - t_cur) / 2
+            mid =  half_step * self.model(latents, t_cur, class_labels=class_labels, boundary_forcing=boundary_forcing)
+            x_t = x_t + (t_next - t_cur) * self.model(mid, t_cur+half_step, class_labels=class_labels, boundary_forcing=boundary_forcing)
+        
+        return x_t, None
+
     """Generate random images using the techniques described in the paper
     "Elucidating the Design Space of Diffusion-Based Generative Models"."""
 
     #----------------------------------------------------------------------------
     # Proposed Heun sampler (Algorithm 1).
     def heun_sampler(
-        self, latents, class_labels=None, boundary_forcing=None, randn_like=torch.randn_like,
-        num_steps=20, sigma_min=0.03, sigma_max=80, rho=7,
+        self, latents, class_labels=None, boundary_forcing=None, num_steps=20, sigma_min=0.0, sigma_max=1.0
     ):
-
         # Time step discretization.
         # step_indices = torch.arange(num_steps)
         # t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
         # t_steps = torch.cat([torch.as_tensor(t_steps, device=latents.device), torch.zeros_like(t_steps[:1], device=latents.device)]) # t_N = 0
-        t_steps = torch.linspace(tmin, tmax, steps, device=device)
+        t_steps = torch.linspace(sigma_min, sigma_max, num_steps, device=latents.device) # t_0 = tmin, t_N = tmax
 
         # Main sampling loop.
         x_next = latents # * t_steps[0]
         for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
             x_cur = x_next
-            denoised = self.forward(x_cur, t_cur, class_labels=class_labels, boundary_forcing=boundary_forcing)
-            d_cur = (x_cur - denoised) / t_cur      
+            t_cur = t_cur.unsqueeze(0)  # (1)
+            t_next = t_next.unsqueeze(0)
+            d_cur = self.model(x_cur, t_cur, class_labels=class_labels, boundary_forcing=boundary_forcing)
+            # d_cur = (x_cur - denoised) / t_cur
             x_next = x_cur + (t_next - t_cur) * d_cur
 
             # Apply 2nd order correction.
             if i < num_steps - 1:
-                denoised = self.forward(x_next, t_next, class_labels=class_labels, boundary_forcing=boundary_forcing)
-                d_prime = (x_next - denoised) / t_next   
+                d_prime = self.model(x_next, t_next, class_labels=class_labels, boundary_forcing=boundary_forcing)
+                # d_prime = (x_next - denoised) / t_next
                 x_next = x_cur + (t_next - t_cur) * (0.5 * d_cur + 0.5 * d_prime)
 
         return x_next, None
 
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
-
-class NoiseLevelMLP(nn.Module):
-    def __init__(self, input_dim, hidden_dim=128, output_dim=16):
-        super(NoiseLevelMLP, self).__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, output_dim)
-
-    def forward(self, fourier_features):
-        x = silu(self.fc1(fourier_features))
-        x = silu(self.fc2(x))
-        x = self.fc3(x)
-        return x  # Output noise-level encoding (batch_size, output_dim)
-class NoiseEmbedding(nn.Module):
-    def __init__(self, num_frequencies=32, base_period=16):
-        super(NoiseEmbedding, self).__init__()
-        self.fourier_transform = FourierEmbedding(num_channels=num_frequencies, scale=base_period)
-        self.mlp = NoiseLevelMLP(input_dim=num_frequencies, output_dim=16)
-
-    def forward(self, log_noise_levels):
-        fourier_features = self.fourier_transform(log_noise_levels)
-        noise_level_encoding = self.mlp(fourier_features)
-        return noise_level_encoding
-    
-#----------------------------------------------------------------------------
-# Timestep embedding used in the DDPM++ and ADM architectures.
-
-class PositionalEmbedding(torch.nn.Module):
-    def __init__(self, num_channels, max_positions=10000, endpoint=False):
-        super().__init__()
-        self.num_channels = num_channels
-        self.max_positions = max_positions
-        self.endpoint = endpoint
-
-    def forward(self, x):
-        freqs = torch.arange(start=0, end=self.num_channels//2)
-        freqs = freqs / (self.num_channels // 2 - (1 if self.endpoint else 0))
-        freqs = (1 / self.max_positions) ** freqs
-        x = x.ger(freqs.to(x.dtype))
-        x = torch.cat([x.cos(), x.sin()], dim=1)
-        return x
-
-#----------------------------------------------------------------------------
-# Timestep embedding used in the NCSN++ architecture.
-
-class FourierEmbedding(torch.nn.Module):
-    def __init__(self, num_channels, scale=16):
-        super().__init__()
-        self.register_buffer('freqs', torch.randn(num_channels // 2) * scale)
-
-    def forward(self, x):
-        x = x.ger((2 * np.pi * self.freqs).to(x.dtype))
-        x = torch.cat([x.cos(), x.sin()], dim=1)
-        return x
     
 
     

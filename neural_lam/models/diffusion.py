@@ -28,7 +28,7 @@ class Diffusion(ARModel):
         self.border_condition = args.border_condition
         self.ensemble_size = args.ensemble_size
         self.sigma_min = args.sigma_min
-        self.sigma_max = 88
+        self.sigma_max = args.sigma_max
         self.sigma_data = 1
         self.rho = 7
         self.sampler = args.sampler
@@ -91,9 +91,9 @@ class Diffusion(ARModel):
 
         # Run through sampler
         if self.sampler == "heun":
-            next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
+            next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5, sigma_max=self.sigma_max)
         elif self.sampler == "edm":
-            next_state, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5, num_steps=self.sampler_steps)
+            next_state, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5, sigma_max=self.sigma_max, num_steps=self.sampler_steps)
         elif self.sampler == "ddpm":
             next_state, diff_states = self.ddpm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
 
