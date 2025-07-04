@@ -3,28 +3,25 @@ dataset:
   train_end_date: 2008-12-31
   validation_start_date: 2009-01-01
   validation_end_date: 2014-12-31
-  input_path: /mimer/NOBACKUP/groups/mlhighres/projects/detex/EC-Earth3-Veg/standardized_new/
+  input_path: /mimer/NOBACKUP/groups/mlhighres/projects/detex/EC-Earth3-Veg/
   levels: [100000, 85000, 70000, 50000, 25000]
   input_files: [
-    'standardized.clt_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap.nc',
-    'standardized.hus_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap.nc',
-    'standardized.pr_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_mm_day_noleap.nc',
-    'standardized.psl_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap.nc',
-    'standardized.tas_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap.nc',
-    'standardized.ta_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap.nc',
-    'standardized.ua_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap.nc',
-    'standardized.va_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap.nc'
+    'clt_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap.nc',
+    'hus_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap.nc',
+    'pr_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_mm_day_noleap.nc',
+    'psl_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap.nc',
+    'ta_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap.nc',
+    'ua_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap.nc',
+    'va_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap.nc'
     ]
-  ground_truth_path: /mimer/NOBACKUP/groups/mlhighres/projects/detex/HCLIM_EC-Earth3-Veg/standardized_new/
+  ground_truth_path: /mimer/NOBACKUP/groups/mlhighres/projects/detex/HCLIM_EC-Earth3-Veg
   ground_truth_files: [
-    'standardized.remapped.pr_EUR-11_EC-Earth3-Veg_historical_r1i1p1f1_HCLIMcom-SMHI_HCLIM43-ALADIN_v1-r1_day_1951-2014_mm_day_noleap.nc',
-    'standardized.remapped.tas_EUR-11_EC-Earth3-Veg_historical_r1i1p1f1_HCLIMcom-SMHI_HCLIM43-ALADIN_v1-r1_day_1951-2014_noleap.nc'
+    'remapped.pr_EUR-11_EC-Earth3-Veg_historical_r1i1p1f1_HCLIMcom-SMHI_HCLIM43-ALADIN_v1-r1_day_1951-2014_mm_day_noleap.nc',
+    'remapped.tas_EUR-12_EC-Earth3-Veg_historical_r2i1p1f1_HCLIMcom-SMHI_HCLIM43-ALADIN_v1-r1_day_1951-2014_noleap.nc'
     ]
   ground_truth_stats_path: '/mimer/NOBACKUP/groups/mlhighres/projects/detex/HCLIM_EC-Earth3-Veg/stats/mean_std/mean_std_pr_EUR-11_EC-Earth3-Veg_historical_r1i1p1f1_HCLIMcom-SMHI_HCLIM43-ALADIN_v1-r1_day_1951-2014_mm_day_noleap.npy'
-  save_path: /mimer/NOBACKUP/groups/mlhighres/users/erifh # Save 2014 of downscaling results here
-  normalize_ground_truth: False # The data on the files is already standardized
+  normalize_ground_truth: True
   name: clim
-  downscaling_idx: [6, 8]
   var_names:
     - clt
     - hus_1000
@@ -34,12 +31,11 @@ dataset:
     - hus_250
     - pr # 6
     - psl
-    - t2m # 8
-    - ta_1000 # 9
+    - ta_1000
     - ta_850
     - ta_700
     - ta_500
-    - ta_250 
+    - ta_250 # 12
     - ua_1000
     - ua_850
     - ua_700
@@ -75,7 +71,6 @@ dataset:
     - UNIT
     - UNIT
     - UNIT
-    - UNIT
   var_longnames:
     - cloud_cover
     - humidity_1000
@@ -85,7 +80,6 @@ dataset:
     - humidity_250
     - precipitation
     - sea_level_pressure
-    - temperature_2m
     - temperature_1000
     - temperature_850
     - temperature_700
@@ -104,10 +98,10 @@ dataset:
   num_forcing_features: 0 # TODO: Update this, all inputs that are not in the output is considered forcing
   num_static_features: 0 # TODO: Update this, land-sea mask, orography, etc.
   FULL_GRID_SHAPE: [400, 550] # TODO: Update this
-# TODO: NOTE: We don't need a projection here, as the data is already in a regular grid.
-# projection:
-#   class: LambertConformal
-#   kwargs:
-#     central_longitude: 15.0
-#     central_latitude: 63.3
-#     standard_parallels: [63.3, 63.3]
+# TODO: Update this
+projection:
+  class: LambertConformal
+  kwargs:
+    central_longitude: 15.0
+    central_latitude: 63.3
+    standard_parallels: [63.3, 63.3]

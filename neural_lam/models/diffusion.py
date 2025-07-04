@@ -24,6 +24,13 @@ class Diffusion(ARModel):
     def __init__(self, args):
         super().__init__(args)
 
+        self.grid_dim = (
+            self.config_loader.num_data_vars()
+            + self.config_loader.dataset.num_static_features
+            + self.config_loader.dataset.num_forcing_features
+            + len(self.config_loader.dataset.downscaling_idx) # Diffusion noise
+        )
+
         # Some dimensionalities that can be useful to have stored
         self.ensemble_size = args.ensemble_size
         self.sigma_min = args.sigma_min
@@ -34,9 +41,14 @@ class Diffusion(ARModel):
         self.save_output = args.save_output
         self.save_output_wandb = args.save_output_wandb
         self.sampler_steps = args.sampler_steps
+        self.save_steps = args.save_steps
+        self.data_std = 1 # We don't rescale the data when plotting, so we can use 1 here
+        self.data_mean = 0 # We don't rescale the data when plotting, so we can use 0 here
+
+        print(f"Diffusion model {args.diffusion_model} with grid_dim {self.grid_dim} and grid_output_dim {self.grid_output_dim}")
 
         if args.diffusion_model == 'edm':
-            self.model = EDMPrecond(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
+            self.model = EDMPrecond(img_resolution=torch.as_tensor(self.config_loader.dataset.FULL_GRID_SHAPE),
                                     in_channels=self.grid_dim, # We have noise and LQ as input
                                     out_channels=self.grid_output_dim,
                                     model_type='SongUNet',
@@ -72,21 +84,27 @@ class Diffusion(ARModel):
         next_state: (B, N_grid, d_state)
         pred_std: None
         """
-        input_grid = LQ # torch.cat((prev_state, prev_prev_state, forcing), dim=-1) # (B, N_grid, d_input)
-        latents = torch.randn_like(LQ) # (B, N_grid, d_state)
 
+        input_grid = LQ # torch.cat((prev_state, prev_prev_state, forcing), dim=-1) # (B, N_grid, d_input)
+        latents = torch.randn([LQ.shape[0], self.grid_output_dim, *constants.FULL_GRID_SHAPE], device=LQ.device) # (B, N_grid, d_state)
+        
         # Run through sampler
         if self.sampler == "heun":
-            next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid, sigma_min=self.sigma_min*1.5)
+            next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid, sigma_min=self.sigma_min*1.5, num_steps=self.sampler_steps)
         elif self.sampler == "edm":
             next_state, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid, sigma_min=self.sigma_min*1.5, num_steps=self.sampler_steps)
         elif self.sampler == "ddpm":
-            next_state, diff_states = self.ddpm_sampler(latents=latents, class_labels=input_grid, sigma_min=self.sigma_min*1.5)
+            next_state, diff_states = self.ddpm_sampler(latents=latents, class_labels=input_grid, sigma_min=self.sigma_min*1.5, num_steps=self.sampler_steps)
+
+        if self.save_steps:
+            # Save the diffusion steps
+            self.plot_diffusion_steps(diff_states, LQ)
 
         # Add residual if needed
         if self.pred_residual:
-            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1)) + self.step_diff_mean[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1) # Unormalize residual
-            next_state = LQ + next_state
+            print(f"Pred residual is not supported as we don't have the residual/normalization in the training data")
+            # next_state = (next_state * self.step_diff_std[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1)) + self.step_diff_mean[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1) # Unormalize residual
+            # next_state = LQ + next_state
         
         return next_state.permute(0, 2, 3, 1).flatten(1, 2), None
 
@@ -100,7 +118,6 @@ class Diffusion(ARModel):
         downscaled_state: (B, N_grid, d_state)
         pred_std: None 
         """
-
         # Sample from F inverse
         rnd_uniform = torch.rand([HQ.shape[0], 1, 1, 1], device=HQ.device)
         rho_inv = 1 / self.rho
@@ -109,12 +126,14 @@ class Diffusion(ARModel):
         sigma = (sigma_max_rho + rnd_uniform * (sigma_min_rho - sigma_max_rho)) ** self.rho
     
         input_grid = LQ # torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
+        y = HQ
 
         # TODO: Pred residual is not supported as we don't have the residual/normalization in the training data
         # Make y residual if needed
         if self.pred_residual:
-            y = HQ - LQ
-            y = (y - self.step_diff_mean[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1)) / self.step_diff_std[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1) # Normalize residual
+            raise NotImplementedError("Pred residual is not supported as we don't have the residual/normalization in the training data")
+        #     y = HQ - LQ
+        #     y = (y - self.step_diff_mean[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1)) / self.step_diff_std[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1) # Normalize residual
 
         n = torch.randn_like(y) * sigma    
         noisy_input = y+n
@@ -122,9 +141,9 @@ class Diffusion(ARModel):
         next_state = self.forward(noisy_input, sigma, input_grid) # Shape (B, d_state, N_x, N_y)
 
         # Add residual if needed
-        if self.pred_residual:
-            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1)) + self.step_diff_mean[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1) # Unormalize residual
-            next_state = LQ + next_state
+        # if self.pred_residual:
+        #     next_state = (next_state * self.step_diff_std[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1)) + self.step_diff_mean[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1) # Unormalize residual
+        #     next_state = LQ + next_state
 
         weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
         
@@ -216,7 +235,7 @@ class Diffusion(ARModel):
         prediction, pred_std, weight = self.unroll_prediction_train(
             LQ, HQ
         )
-
+    
         target = HQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1) # (B, pred_steps, N_grid, d_f)
 
         return prediction, target, pred_std, weight
@@ -229,9 +248,7 @@ class Diffusion(ARModel):
 
         # Compute loss
         batch_loss = torch.mean(
-            self.loss(
-                prediction, target, pred_std, weight=weight
-            )
+            self.loss(prediction, target, pred_std, weight=weight) 
         )  # mean over unrolled times and batch
 
         batch_mse = torch.mean(
@@ -282,9 +299,34 @@ class Diffusion(ARModel):
                 [pred_pair[1] for pred_pair in traj_list], dim=1
             )
         else:
-            traj_stds = self.per_var_std[constants.USED_PARAMS]
+            traj_stds = self.per_var_std
         
         return traj_means, traj_stds
+    
+    # Not the best function, just used for quick debugging
+    def plot_diffusion_steps(self, diff_states, LQ):
+         # Save slices to wandb
+        var_names = [self.config_loader.dataset.var_names[i] for i in self.config_loader.dataset.downscaling_idx]
+        
+        LQ = LQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1)
+
+        for i, diff_state in enumerate(diff_states):
+            diff_state = diff_state.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1) # (B, N_grid, d_f)
+            for var_idx, var_name in enumerate(var_names):
+                fig, axes = plt.subplots(
+                1,
+                2,
+                figsize=(13, 7),
+                )
+                fig.suptitle(f"Diffusion step {i+1} of {len(diff_states)}", fontsize=16)
+                axes[0].set_title("Latent", size=15)
+                vis.plot_on_axis(axes[0], diff_state[0, ..., var_idx])
+                axes[1].set_title("LQ", size=15)
+                vis.plot_on_axis(axes[1], LQ[0, ..., self.config_loader.dataset.downscaling_idx[var_idx]])
+
+                os.makedirs(f"output/diffusion_steps/{var_name}", exist_ok=True)
+                plt.savefig(f"output/diffusion_steps/{var_name}/step_{i+1}.png")
+                plt.close(fig)
     
     def plot_examples(self, batch, n_examples, prediction=None):
         """
@@ -301,11 +343,13 @@ class Diffusion(ARModel):
             trajectories = prediction
         # (B, S, pred_steps, num_grid_nodes, d_f)
 
+        initial_states = LQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1) # (B, 1, num_grid_nodes, d_f)
         target_states = HQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1)
 
         # Rescale to original data scale
-        traj_rescaled = trajectories * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
-        target_rescaled = target_states * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+        traj_rescaled = trajectories # * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+        target_rescaled = target_states # * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+        initial_states_rescaled = initial_states # * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
 
         # Compute mean and std of ensemble
         ens_mean = torch.mean(
@@ -316,7 +360,8 @@ class Diffusion(ARModel):
         )  # (B, pred_steps, num_grid_nodes, d_f)
 
         # Iterate over the examples
-        for traj_slice, target_slice, ens_mean_slice, ens_std_slice in zip(
+        for init_slice, traj_slice, target_slice, ens_mean_slice, ens_std_slice in zip(
+            initial_states_rescaled[:n_examples],
             traj_rescaled[:n_examples],
             target_rescaled[:n_examples],
             ens_mean[:n_examples],
@@ -350,6 +395,7 @@ class Diffusion(ARModel):
                 torch.minimum(
                     traj_slice.flatten(0, 2).min(dim=0)[0],
                     target_slice.flatten(0, 1).min(dim=0)[0],
+                    # init_slice.flatten(0, 1).min(dim=0)[0],
                 )
                 .cpu()
                 .numpy()
@@ -358,17 +404,24 @@ class Diffusion(ARModel):
                 torch.maximum(
                     traj_slice.flatten(0, 2).max(dim=0)[0],
                     target_slice.flatten(0, 1).max(dim=0)[0],
+                    # init_slice.flatten(0, 1).max(dim=0)[0],
                 )
                 .cpu()
                 .numpy()
             )  # (d_f,)
             var_vranges = list(zip(var_vmin, var_vmax))
 
+            # Get only the variables we want to downscale and plot
+            var_names = [self.config_loader.dataset.var_names[i] for i in self.config_loader.dataset.downscaling_idx]
+            var_units = [self.config_loader.dataset.var_units[i] for i in self.config_loader.dataset.downscaling_idx]
+            init_slice = init_slice[:, :, self.config_loader.dataset.downscaling_idx]
+        
             # Iterate over prediction horizon time steps
-            for t_i, (samples_t, target_t, ens_mean_t, ens_std_t) in enumerate(
+            for t_i, (samples_t, init_t, target_t, ens_mean_t, ens_std_t) in enumerate(
                 zip(
-                    traj_slice.transpose(0, 1),
+                    traj_slice.transpose(0, 1), # (n_ens, pred_steps, num_grid_nodes, d_f)
                     # (pred_steps, S, num_grid_nodes, d_f)
+                    init_slice,
                     target_slice,
                     ens_mean_slice,
                     ens_std_slice,
@@ -377,19 +430,21 @@ class Diffusion(ARModel):
             ):
                 time_title_part = f"t={t_i} ({self.step_length*t_i} h)"
                 # Create one figure per variable at this time step
+            
                 var_figs = [
                     vis.plot_ensemble_prediction(
+                        init_t[:, var_i],
                         samples_t[:, :, var_i],
                         target_t[:, var_i],
                         ens_mean_t[:, var_i],
                         ens_std_t[:, var_i],
                         title=f"{var_name} ({var_unit}), {time_title_part}",
-                        vrange=var_vrange,
+                        # vrange=var_vrange,
                     )
                     for var_i, (var_name, var_unit, var_vrange) in enumerate(
                         zip(
-                            constants.PARAM_NAMES_SHORT[constants.USED_PARAMS],
-                            constants.PARAM_UNITS[constants.USED_PARAMS],
+                            var_names,
+                            var_units,
                             var_vranges,
                         )
                     )
@@ -400,7 +455,7 @@ class Diffusion(ARModel):
                     {
                         f"{var_name}_{example_title}": wandb.Image(fig)
                         for var_name, fig in zip(
-                            constants.PARAM_NAMES_SHORT[constants.USED_PARAMS], var_figs
+                            var_names, var_figs
                         )
                     }
                 )
@@ -624,6 +679,7 @@ class Diffusion(ARModel):
         self, latents, class_labels=None, boundary_forcing=None, randn_like=torch.randn_like,
         num_steps=20, sigma_min=0.03, sigma_max=80, rho=7,
     ):
+        diffusion_steps = []
 
         # Adjust noise levels based on what's supported by the network.
         sigma_min = max(sigma_min, self.sigma_min)
@@ -636,6 +692,8 @@ class Diffusion(ARModel):
 
         # Main sampling loop.
         x_next = latents * t_steps[0]
+        diffusion_steps.append(x_next)
+
         for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
             x_cur = x_next
             denoised = self.forward(x_cur, t_cur, class_labels=class_labels)
@@ -647,8 +705,10 @@ class Diffusion(ARModel):
                 denoised = self.forward(x_next, t_next, class_labels=class_labels)
                 d_prime = (x_next - denoised) / t_next   
                 x_next = x_cur + (t_next - t_cur) * (0.5 * d_cur + 0.5 * d_prime)
+            
+            diffusion_steps.append(x_next)
 
-        return x_next, None
+        return x_next, diffusion_steps
 
 #----------------------------------------------------------------------------
 

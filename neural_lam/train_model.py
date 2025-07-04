@@ -46,7 +46,7 @@ def main(input_args=None):
     parser.add_argument(
         "--data_config",
         type=str,
-        default="neural_lam/data_config.yaml",
+        default="neural_lam/clim_config.yaml",
         help="Path to data config file (default: neural_lam/clim_config.yaml)",
     )
     parser.add_argument(
@@ -188,10 +188,10 @@ def main(input_args=None):
     parser.add_argument(
         "--vertical_propnets",
         type=int,
-        default=0, # TODO: Change to 1 as it is used in the paper
+        default=1, # TODO: Change to 1 as it is used in the paper
         help="If PropagationNets should be used for all vertical message "
         "passing (g2m, m2g, up in hierarchy), in deterministic models."
-        "(default: 0 (no))",
+        "(default: 1 (Yes))",
     )
     parser.add_argument(
         "--sampler",
@@ -287,7 +287,7 @@ def main(input_args=None):
     parser.add_argument(
         "--sigma_max",
         type=float,
-        default=10 / 255, # To get the same sigma max as the paper, normalize by 255 to get it into the image domain. TODO: Experiment with this for better results for atmospheric data
+        default=10 / 255, # To get the same sigma max as the paper (IR-SDE), normalize by 255 to get it into the image domain. TODO: Experiment with this for better results for atmospheric data
         help="Sigma max for training. (default: 10)",
     )
     parser.add_argument(
@@ -371,17 +371,6 @@ def main(input_args=None):
         help="Number of sampling steps during inference (default: 20)",
     )
     parser.add_argument(
-        "--plot_diffusion_steps",
-        action="store_true",
-        help="If the diffusion steps should be saved, only one time step is saved",
-    )
-    parser.add_argument(
-        "--noise_aug_prob",
-        type=float,
-        default=0,
-        help="Probability of noise augmentation for training (default: 0)",
-    )
-    parser.add_argument(
         "--save_output",
         action="store_true",
         help="If the model output should be saved to the output folder (default: False)",
@@ -403,7 +392,7 @@ def main(input_args=None):
     parser.add_argument(
         "--wandb_project",
         type=str,
-        default="neural-lam-downscaling",
+        default="clim-downscaling",
         help="Wandb run project (default: 'neural-lam-downscaling')",
     )
     parser.add_argument(
@@ -472,6 +461,7 @@ def main(input_args=None):
             levels=config_loader.dataset.levels,
             is_inference_dataset=False,
             normalize_ground_truth=config_loader.dataset.normalize_ground_truth,
+            subset_ds=args.subset_ds,
         ),
         args.batch_size,
         shuffle=True,
@@ -490,6 +480,7 @@ def main(input_args=None):
             levels=config_loader.dataset.levels,
             is_inference_dataset=False,
             normalize_ground_truth=config_loader.dataset.normalize_ground_truth,
+            subset_ds=args.subset_ds,
         ),
         args.batch_size,
         shuffle=False,
@@ -587,8 +578,8 @@ def main(input_args=None):
         else:  # Test
             eval_loader = torch.utils.data.DataLoader(
                 NetCDFDataset(
-                    start_date=config_loader.dataset.validation_start_date, # TODO: Get test dates from config
-                    end_date=config_loader.dataset.validation_end_date, # TODO: Get test dates from config
+                    start_date=config_loader.dataset.validation_start_date,
+                    end_date=config_loader.dataset.validation_end_date,
                     input_path=config_loader.dataset.input_path,
                     input_files=config_loader.dataset.input_files,
                     ground_truth_path=config_loader.dataset.ground_truth_path,
@@ -597,6 +588,7 @@ def main(input_args=None):
                     levels=config_loader.dataset.levels,
                     is_inference_dataset=False,
                     normalize_ground_truth=config_loader.dataset.normalize_ground_truth,
+                    subset_ds=args.subset_ds,
                 ),
                 args.batch_size,
                 shuffle=False,
@@ -611,7 +603,7 @@ def main(input_args=None):
         # Train model
         trainer.fit(
             model=model,
-            train_dataloaders=train_loader,
+            train_dataloaders=train_loader, 
             # val_dataloaders=val_loader, # No validation during training for diffusion model
             ckpt_path=args.load,
         )

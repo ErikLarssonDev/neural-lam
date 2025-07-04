@@ -318,9 +318,10 @@ class SongUNet(torch.nn.Module):
         for level, mult in enumerate(channel_mult):
             if level == 0:
                 res = img_resolution
+                print(f"res: {res}")
                 cin = cout
                 cout = model_channels
-                self.enc[f'{res[0]}x{res[1]}_conv'] = Conv2d(in_channels=cin, out_channels=cout, kernel=3, **init)
+                self.enc[f'{res[0]}x{res[1]}_conv'] = Conv2d(in_channels=cin, out_channels=cout, kernel=3, padding=1, **init)
             else:
                 res[0] += 1 if res[0] % 2 != 0 else 0
                 res[1] += 1 if res[1] % 2 != 0 else 0

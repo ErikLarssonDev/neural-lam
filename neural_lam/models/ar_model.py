@@ -49,7 +49,7 @@ class ARModel(pl.LightningModule):
             self.grid_output_dim = 2 * self.config_loader.num_data_vars()
         else:
             # Pred. dim. in grid cell
-            self.grid_output_dim = self.config_loader.num_data_vars()
+            self.grid_output_dim = len(self.config_loader.dataset.downscaling_idx) # We only predict 2 fields
             # Store constant per-variable std.-dev. weighting
             # Note that this is the inverse of the multiplicative weighting
             # in wMSE/wMAE
@@ -60,13 +60,11 @@ class ARModel(pl.LightningModule):
             #     self.step_diff_std / torch.sqrt(self.param_weights),
             #     persistent=False,
             # )
-            self.per_var_std = torch.tensor([1]) # Equal weights for all variables
-
-        num_states = 2 if args.model == "diffusion" else 1
+            self.per_var_std = 1 # Equal weights for all variables
 
         # TODO: Check that this is correct with new dataset
         self.grid_dim = (
-            num_states * self.config_loader.num_data_vars()
+            self.config_loader.num_data_vars()
             + self.config_loader.dataset.num_static_features
             + self.config_loader.dataset.num_forcing_features
         )

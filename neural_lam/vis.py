@@ -57,6 +57,9 @@ def plot_error_map(errors, data_config, title=None, step_length=3):
             data_config.dataset.var_names, data_config.dataset.var_units
         )
     ]
+
+    y_ticklabels = [y_ticklabels[i] for i in [6, 12]] # We don't downscale all variables
+
     ax.set_yticklabels(y_ticklabels, rotation=30, size=label_size)
 
     if title:
@@ -80,14 +83,14 @@ def plot_on_axis(
     #     data_config = config.Config.from_file("/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/data_config.yaml")
     # Set up masking of border region
 
-    ax.coastlines()  # Add coastline outlines
+    # ax.coastlines()  # Add coastline outlines
     im = ax.imshow(
         data.reshape(*constants.FULL_GRID_SHAPE).cpu().numpy(),
         origin="lower",
         vmin=vmin,
         vmax=vmax,
         cmap=cmap,
-        extent=grid_limits,
+        # extent=grid_limits,
     )
 
     if ax_title:
@@ -143,7 +146,7 @@ def plot_prediction(
 
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
 def plot_ensemble_prediction(
-    samples, target, ens_mean, ens_std, title=None, vrange=None
+    init, samples, target, ens_mean, ens_std, title=None, vrange=None
 ):
     """
     Plot example predictions, ground truth, mean and std.-dev.
@@ -169,7 +172,7 @@ def plot_ensemble_prediction(
         3,
         3,
         figsize=(15, 15),
-        subplot_kw={"projection": constants.LAMBERT_PROJ},
+        # subplot_kw={"projection": constants.LAMBERT_PROJ},
     )
     axes = axes.flatten()
 
@@ -181,6 +184,7 @@ def plot_ensemble_prediction(
         vmax=vmax,
         ax_title="Ground Truth",
     )
+
     plot_on_axis(
         axes[1],
         ens_mean,
@@ -194,9 +198,17 @@ def plot_ensemble_prediction(
         ax_title="Ens. Std."
     )  # Own vrange
 
+    plot_on_axis(
+        axes[3],
+        init,
+        vmin=vmin,
+        vmax=vmax,
+        ax_title="Low-Res. Init.",
+    )
+
     # Plot samples
     for member_i, (ax, member) in enumerate(
-        zip(axes[3:], samples[:6]), start=1
+        zip(axes[4:], samples[:6]), start=1
     ):
         plot_on_axis(
             ax,

@@ -28,26 +28,31 @@ class SI(ARModel):
     def __init__(self, args):
         super().__init__(args)
 
+        self.grid_dim = (
+            self.config_loader.num_data_vars()
+            + self.config_loader.dataset.num_static_features
+            + self.config_loader.dataset.num_forcing_features
+            + len(self.config_loader.dataset.downscaling_idx) # Diffusion noise
+        )
+
         # Some dimensionalities that can be useful to have stored
         self.ensemble_size = args.ensemble_size
         self.sampler = args.sampler
-        self.max_sigma = args.sigma_max
-        self.noise_aug_prob = args.noise_aug_prob # Probability of augmenting with noise [0, 1]
         self.save_output = args.save_output
         self.save_output_wandb = args.save_output_wandb
-        self.sampler_steps = args.sampler_steps # TODO: Should probably rename this and investigate if we can get continuous time steps for training [0, 1]
+        self.sampler_steps = args.sampler_steps 
         self.save_steps = args.save_steps
 
         if args.diffusion_model == 'song_unet':
             self.model = SongUNet(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
-                                    in_channels=self.grid_output_dim*2, # We have noise and LQ as input
+                                    in_channels=self.grid_dim,
                                     out_channels=self.grid_output_dim,
                                     embedding_type=args.noise_embedding,
                                     resample_filter=args.resample_filter,
                                     channel_mult=args.channel_mult,
                                     encoder_type=args.encoder_type,
                                     attn_resolutions=args.attn_resolutions,
-                                    ir_sde=True,
+                                    ir_sde=False,
                                     )
         else:
             raise ValueError(f"Diffusion model {args.diffusion_model} not recognized")
@@ -239,25 +244,10 @@ class SI(ARModel):
         pred_std: None
         """
         # Prepare batch
-        D = {'z0': LQ, 'label': None, 'N': LQ.shape[0]} # TODO: Check for difference, missing 'z1' and 'HQ'
-
-        # Get random batch of times
-        #D['t'] = torch.rand(LQ.shape[0], device=LQ.device)
+        D = {'z0': LQ[:, [6, 12], ...], 'label': None, 'N': LQ.shape[0]} # We want precipitation (6) and temperature (12)
 
         # Conditioning on LQ
         D['cond'] = LQ
-
-        # Interpolant noise
-        # D['noise'] = torch.rand_like(LQ, device=LQ.device)
-
-        # Get alpha, beta, etc
-        # D = self.I.interpolant_coefs(D)
-
-        # zt
-        # D['zt'] = self.I.compute_zt(D)
-
-        # Target
-        # D['drift_target'] = self.I.compute_target(D)
 
         # definently_sample
         EM_args = {'base': D['z0'], 'label': D['label'], 'cond': D['cond']}
@@ -290,7 +280,7 @@ class SI(ARModel):
         pred_std: None 
         """
         # Prepare batch
-        D = {'z0': LQ, 'z1': HQ, 'label': None, 'N': LQ.shape[0]}   
+        D = {'z0': LQ[:, self.config_loader.dataset.downscaling_idx, ...], 'z1': HQ, 'label': None, 'N': LQ.shape[0]}   
 
         # Get random batch of times
         D['t'] = torch.rand(LQ.shape[0], device=LQ.device)
@@ -299,7 +289,7 @@ class SI(ARModel):
         D['cond'] = LQ
 
         # Interpolant noise
-        D['noise'] = torch.randn_like(LQ, device=LQ.device)
+        D['noise'] = torch.randn_like(HQ, device=HQ.device)
 
         # Get alpha, beta, etc
         D = self.I.interpolant_coefs(D)
@@ -358,7 +348,7 @@ class SI(ARModel):
         Returns:
         prediction: (B, pred_steps, N_grid, d_f)
         pred_std: (B, pred_steps, d_f)
-        weight: (B, pred_steps) ?
+        loss: (B, pred_steps) ?
         """
         prediction_list = []
         pred_std_list = []
@@ -366,10 +356,6 @@ class SI(ARModel):
         loss_list = []
 
         for i in range(pred_steps):
-            # forcing = forcing_features[:, i]
-            # border_state = boundary_forcing[:, i]
-            # true_state = true_states[:, i]
-
             pred_state, pred_std, loss = self.predict_step_train(LQ, HQ)
 
             prediction_list.append(pred_state)
@@ -382,17 +368,13 @@ class SI(ARModel):
         )  # (B, pred_steps, num_grid_nodes, d_f)
 
         loss = torch.stack(
-            loss_list, dim=0 # Changed to dim=0
+            loss_list, dim=0
         )  # (B, pred_steps, num_grid_nodes, d_f)
 
         if self.output_std:
-            # pred_std = torch.stack(
-            #     pred_std_list, dim=1
-            # )  # (B, pred_steps, num_grid_nodes, d_f)
             pred_std = torch.tensor(1, device=LQ.device) # Using the same weights for all variables
         else:
             pred_std = self.per_var_std # (d_f,)
-            # pred_std = 1 # Testing equal weights
 
         return prediction, pred_std, loss
 
@@ -413,11 +395,11 @@ class SI(ARModel):
         prediction, pred_std, loss = self.unroll_prediction_train(
             LQ, HQ
         )
-
+    
         target = HQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1) # (B, pred_steps, N_grid, d_f)
-
+    
         return prediction, target, pred_std, loss
-
+    
     def training_step(self, batch):
         """
         Train on single batch
@@ -425,7 +407,9 @@ class SI(ARModel):
         prediction, target, pred_std, loss = self.common_step_train(batch)
 
         # Compute loss
-        batch_loss = torch.mean(loss)  # mean over unrolled times and batch
+        batch_loss = torch.mean(
+            loss
+        )  # mean over unrolled times and batch
 
         batch_mse = torch.mean(
             metrics.mse(
@@ -433,7 +417,7 @@ class SI(ARModel):
             )
         )  # mean over unrolled times and batch
 
-        log_dict = {"train_loss": batch_loss, "train_mse": batch_mse, "loss": batch_loss} # TODO: Remove "loss" from log_dict if we can see that we get the same results as before
+        log_dict = {"train_loss": batch_loss, "train_mse": batch_mse}
         self.log_dict(
             log_dict, prog_bar=True, on_step=True, on_epoch=True, sync_dist=True
         )
@@ -475,9 +459,34 @@ class SI(ARModel):
                 [pred_pair[1] for pred_pair in traj_list], dim=1
             )
         else:
-            traj_stds = self.per_var_std[constants.USED_PARAMS]
+            traj_stds = self.per_var_std
         
         return traj_means, traj_stds
+    
+       # Not the best function, just used for quick debugging
+    def plot_diffusion_steps(self, diff_states, LQ):
+         # Save slices to wandb
+        var_names = [self.config_loader.dataset.var_names[i] for i in self.config_loader.dataset.downscaling_idx]
+        
+        LQ = LQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1)
+
+        for i, diff_state in enumerate(diff_states):
+            diff_state = diff_state.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1) # (B, N_grid, d_f)
+            for var_idx, var_name in enumerate(var_names):
+                fig, axes = plt.subplots(
+                1,
+                2,
+                figsize=(13, 7),
+                )
+                fig.suptitle(f"Diffusion step {i+1} of {len(diff_states)}", fontsize=16)
+                axes[0].set_title("Latent", size=15)
+                vis.plot_on_axis(axes[0], diff_state[0, ..., var_idx])
+                axes[1].set_title("LQ", size=15)
+                vis.plot_on_axis(axes[1], LQ[0, ..., self.config_loader.dataset.downscaling_idx[var_idx]])
+
+                os.makedirs(f"output/diffusion_steps/{var_name}", exist_ok=True)
+                plt.savefig(f"output/diffusion_steps/{var_name}/step_{i+1}.png")
+                plt.close(fig)
     
     def plot_examples(self, batch, n_examples, prediction=None):
         """
@@ -494,11 +503,13 @@ class SI(ARModel):
             trajectories = prediction
         # (B, S, pred_steps, num_grid_nodes, d_f)
 
+        initial_states = LQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1) # (B, 1, num_grid_nodes, d_f)
         target_states = HQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1)
 
         # Rescale to original data scale
-        traj_rescaled = trajectories * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
-        target_rescaled = target_states * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+        traj_rescaled = trajectories # * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+        target_rescaled = target_states # * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+        initial_states_rescaled = initial_states # * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
 
         # Compute mean and std of ensemble
         ens_mean = torch.mean(
@@ -509,7 +520,8 @@ class SI(ARModel):
         )  # (B, pred_steps, num_grid_nodes, d_f)
 
         # Iterate over the examples
-        for traj_slice, target_slice, ens_mean_slice, ens_std_slice in zip(
+        for init_slice, traj_slice, target_slice, ens_mean_slice, ens_std_slice in zip(
+            initial_states_rescaled[:n_examples],
             traj_rescaled[:n_examples],
             target_rescaled[:n_examples],
             ens_mean[:n_examples],
@@ -543,6 +555,7 @@ class SI(ARModel):
                 torch.minimum(
                     traj_slice.flatten(0, 2).min(dim=0)[0],
                     target_slice.flatten(0, 1).min(dim=0)[0],
+                    # init_slice.flatten(0, 1).min(dim=0)[0],
                 )
                 .cpu()
                 .numpy()
@@ -551,17 +564,24 @@ class SI(ARModel):
                 torch.maximum(
                     traj_slice.flatten(0, 2).max(dim=0)[0],
                     target_slice.flatten(0, 1).max(dim=0)[0],
+                    # init_slice.flatten(0, 1).max(dim=0)[0],
                 )
                 .cpu()
                 .numpy()
             )  # (d_f,)
             var_vranges = list(zip(var_vmin, var_vmax))
 
+            # Get only the variables we want to downscale and plot
+            var_names = [self.config_loader.dataset.var_names[i] for i in self.config_loader.dataset.downscaling_idx]
+            var_units = [self.config_loader.dataset.var_units[i] for i in self.config_loader.dataset.downscaling_idx]
+            init_slice = init_slice[:, :, self.config_loader.dataset.downscaling_idx]
+        
             # Iterate over prediction horizon time steps
-            for t_i, (samples_t, target_t, ens_mean_t, ens_std_t) in enumerate(
+            for t_i, (samples_t, init_t, target_t, ens_mean_t, ens_std_t) in enumerate(
                 zip(
-                    traj_slice.transpose(0, 1),
+                    traj_slice.transpose(0, 1), # (n_ens, pred_steps, num_grid_nodes, d_f)
                     # (pred_steps, S, num_grid_nodes, d_f)
+                    init_slice,
                     target_slice,
                     ens_mean_slice,
                     ens_std_slice,
@@ -570,19 +590,21 @@ class SI(ARModel):
             ):
                 time_title_part = f"t={t_i} ({self.step_length*t_i} h)"
                 # Create one figure per variable at this time step
+            
                 var_figs = [
                     vis.plot_ensemble_prediction(
+                        init_t[:, var_i],
                         samples_t[:, :, var_i],
                         target_t[:, var_i],
                         ens_mean_t[:, var_i],
                         ens_std_t[:, var_i],
                         title=f"{var_name} ({var_unit}), {time_title_part}",
-                        vrange=var_vrange,
+                        # vrange=var_vrange,
                     )
                     for var_i, (var_name, var_unit, var_vrange) in enumerate(
                         zip(
-                            constants.PARAM_NAMES_SHORT[constants.USED_PARAMS],
-                            constants.PARAM_UNITS[constants.USED_PARAMS],
+                            var_names,
+                            var_units,
                             var_vranges,
                         )
                     )
@@ -593,7 +615,7 @@ class SI(ARModel):
                     {
                         f"{var_name}_{example_title}": wandb.Image(fig)
                         for var_name, fig in zip(
-                            constants.PARAM_NAMES_SHORT[constants.USED_PARAMS], var_figs
+                            var_names, var_figs
                         )
                     }
                 )
@@ -617,11 +639,6 @@ class SI(ARModel):
         """
         # Compute and store metrics for ensemble forecast
         LQ, HQ = batch["LQ"], batch["HQ"]
-
-        if self.save_steps:
-            self.GT = HQ
-        else:
-            self.GT = None
 
         target_states = HQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1) # (B, pred_steps, d_f)
 
@@ -938,6 +955,8 @@ class Interpolant:
         return self.wide(t.sqrt()) * self.sigma(t)
 
     def compute_zt(self, D):
+        print(f"D['at'].shape: {D['at'].shape}, D['z0'].shape: {D['z0'].shape}, D['bt'].shape: {D['bt'].shape}, D['z1'].shape: {D['z1'].shape}, D['gamma_t'].shape: {D['gamma_t'].shape}, D['noise'].shape: {D['noise'].shape}")
+
         return D['at'] * D['z0'] + D['bt'] * D['z1'] + D['gamma_t'] * D['noise']
 
     def compute_target(self, D):

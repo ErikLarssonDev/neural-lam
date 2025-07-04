@@ -4,6 +4,7 @@ import torch
 import numpy as np
 import xarray as xr
 from torch.utils.data import DataLoader, Dataset
+import torch.nn.functional as F
 
 class NetCDFDataset(Dataset):
     """PyTorch Dataset for loading NetCDF files lazily."""
@@ -12,7 +13,9 @@ class NetCDFDataset(Dataset):
                  ground_truth_path, ground_truth_files,
                  ground_truth_stats_path,
                  levels=None, is_inference_dataset=False,
-                 normalize_ground_truth=False):
+                 normalize_ground_truth=False,
+                 subset_ds=False):
+        print(f"input_files: {input_files}")
         self.input_paths = [os.path.join(input_path, file) for file in input_files]
         self.ground_truth_paths = [os.path.join(ground_truth_path, file) for file in ground_truth_files]
         self.start_date = start_date
@@ -30,6 +33,8 @@ class NetCDFDataset(Dataset):
         self.is_inference_dataset = is_inference_dataset
         if not self.is_inference_dataset:
             assert len(self.input_datasets[0].time) == len(self.ground_truth_datasets[0].time), "Time dimensions of the input and the ground truth do not match"
+
+        self.subset_ds = subset_ds
     
     def detect_pressure_dim(self, ds):
         """Detects the pressure level dimension name dynamically."""
@@ -70,7 +75,10 @@ class NetCDFDataset(Dataset):
  
     def __len__(self):
         """A required DataLoader method returning the length of the dataset."""
-        return len(self.input_datasets[0].time)  # Assuming all files have the same time dimension
+        if self.subset_ds:
+            return 2
+        else:
+            return len(self.input_datasets[0].time)  # Assuming all files have the same time dimension
   
     def __getitem__(self, idx):
         """Required DataLoader method that serves a batch of data."""
@@ -82,12 +90,11 @@ class NetCDFDataset(Dataset):
             ground_truth_batch_data = (ground_truth_batch_data - self.ground_truth_mean) / self.ground_truth_std
         
         # return input_batch_data, ground_truth_batch_data
-
         states = {
-            "LQ": input_batch_data,
-            "HQ": ground_truth_batch_data,
+            "LQ": F.interpolate(input_batch_data.unsqueeze(0), size=(400, 550), mode='bilinear', align_corners=False).squeeze(0), # [B, 23, 40, 55] -> [B, 23, 400, 550], NOTE: We need the low-res input on the same grid as the high-res output
+            "HQ": ground_truth_batch_data, # [B, 2, 400, 550]
         }
-
+   
         return states
 
         
