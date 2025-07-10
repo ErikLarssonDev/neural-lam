@@ -42,6 +42,7 @@ class SI(ARModel):
         self.save_output_wandb = args.save_output_wandb
         self.sampler_steps = args.sampler_steps 
         self.save_steps = args.save_steps
+        self.data_std = 1
 
         if args.diffusion_model == 'song_unet':
             self.model = SongUNet(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
@@ -52,7 +53,8 @@ class SI(ARModel):
                                     channel_mult=args.channel_mult,
                                     encoder_type=args.encoder_type,
                                     attn_resolutions=args.attn_resolutions,
-                                    ir_sde=False,
+                                    ir_sde=True,
+                                    target_idx=self.config_loader.dataset.downscaling_idx,
                                     )
         else:
             raise ValueError(f"Diffusion model {args.diffusion_model} not recognized")
@@ -139,8 +141,6 @@ class SI(ARModel):
             xt = mu + g * torch.randn_like(mu) * dt.sqrt()
             return xt, mu # return sample and its mean
             
-
-
         for i, tscalar in enumerate(ts):
             
             if i == 0 and (diffusion_fn is not None):
@@ -149,18 +149,16 @@ class SI(ARModel):
                 # if just sampling with "sigma" (the diffusion coefficient you trained with) you
                 # can skip this
                 tscalar = ts[1] # 0 + (1/500)
-
-            if (i+1) % 100 == 0:
-                print("100 sample steps")
             
             if self.sampler == 'euler_2' and i < len(ts) - 1:
-                xt, mu = step_fn_2(xt, tscalar * ones, ts[i+1], label = label)
+                xt, mu = step_fn_2(xt, tscalar * ones, ts[i+1] * ones, label = label)
             else:
+                print(f"Euler step {i+1} of {len(ts)}")
                 xt, mu = step_fn(xt, tscalar * ones, label = label)
             if self.save_steps:
                 save_dir='diffusion_steps'
                 t = len(ts) - i
-                for var_idx, var_name in enumerate(constants.PARAM_NAMES_SHORT):
+                for var_idx, var_name in enumerate(self.config_loader.dataset.var_names):
                     os.makedirs(f"{save_dir}/{var_name}", exist_ok=True) # TODO: Make the saving work for multiple fields, preferably in a subfolders
                     print(f"Saving to {save_dir}/{var_name}/state_{t}.png")
 
@@ -175,7 +173,7 @@ class SI(ARModel):
                         1,
                         4,
                         figsize=(24, 8),
-                        subplot_kw={"projection": constants.LAMBERT_PROJ},
+                        # subplot_kw={"projection": constants.LAMBERT_PROJ},
                     )
 
                     axes[0].coastlines()  # Add coastline outlines
@@ -244,7 +242,7 @@ class SI(ARModel):
         pred_std: None
         """
         # Prepare batch
-        D = {'z0': LQ[:, [6, 12], ...], 'label': None, 'N': LQ.shape[0]} # We want precipitation (6) and temperature (12)
+        D = {'z0': LQ[:, self.config_loader.dataset.downscaling_idx, ...], 'label': None, 'N': LQ.shape[0]} # We want precipitation (6) and temperature (8)
 
         # Conditioning on LQ
         D['cond'] = LQ
@@ -955,8 +953,6 @@ class Interpolant:
         return self.wide(t.sqrt()) * self.sigma(t)
 
     def compute_zt(self, D):
-        print(f"D['at'].shape: {D['at'].shape}, D['z0'].shape: {D['z0'].shape}, D['bt'].shape: {D['bt'].shape}, D['z1'].shape: {D['z1'].shape}, D['gamma_t'].shape: {D['gamma_t'].shape}, D['noise'].shape: {D['noise'].shape}")
-
         return D['at'] * D['z0'] + D['bt'] * D['z1'] + D['gamma_t'] * D['noise']
 
     def compute_target(self, D):

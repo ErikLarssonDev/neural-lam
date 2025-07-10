@@ -24,7 +24,7 @@ dataset:
   save_path: /mimer/NOBACKUP/groups/mlhighres/users/erifh # Save 2014 of downscaling results here
   normalize_ground_truth: False # The data on the files is already standardized
   name: clim
-  downscaling_idx: [6, 8]
+  downscaling_idx: [6,8] # 6,8
   var_names:
     - clt
     - hus_1000

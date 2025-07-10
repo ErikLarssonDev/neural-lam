@@ -267,6 +267,7 @@ class SongUNet(torch.nn.Module):
         hidden_layers       = 1,            # Number of hidden layers in the grid encoding MLPs.
         obs_mask            = None,            # Masking of the observation grid.
         ir_sde              = False,        # Whether to use the improved residual SDE formulation.
+        target_idx          = None,         # Index of the target variable in the input grid.
     ):
         assert embedding_type in ['fourier', 'positional']
         assert encoder_type in ['standard', 'skip', 'residual']
@@ -286,6 +287,7 @@ class SongUNet(torch.nn.Module):
         )
         self.obs_mask = obs_mask
         self.ir_sde = ir_sde
+        self.target_idx = target_idx
         # self.config_loader = config.Config.from_file('neural_lam/data_config.yaml')
 
         # # Load static features for grid/data
@@ -397,10 +399,11 @@ class SongUNet(torch.nn.Module):
         emb = silu(self.map_layer1(emb)).unsqueeze(1)
         emb = emb.squeeze()
     
-        # Create full grid node features of shape (B, num_grid_nodes, grid_dim)
-
         if self.ir_sde:
-            x = x - class_labels
+            if self.target_idx is None:
+                x = x - class_labels
+            else:
+                x = x - class_labels[:, self.target_idx]
         
         x = torch.cat(
             (
