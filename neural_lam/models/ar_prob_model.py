@@ -6,9 +6,7 @@ class ARProbModel(ARModel):
     """
     def __init__(self, args):
         super().__init__(args)
-        self.border_condition = args.border_condition
         self.ensemble_size = args.ensemble_size
-
     
     def predict_step(self, prev_state, prev_prev_state, forcing, boundary_forcing):
         """

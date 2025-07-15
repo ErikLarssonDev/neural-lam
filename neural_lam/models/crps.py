@@ -41,6 +41,10 @@ class CRPS(ARProbModel):
 
         z = torch.randn(prev_state.shape[0], self.model.noise_dim, device=prev_state.device)
         next_state = self.model(x, z, boundary_forcing=boundary_forcing)
+
+        if self.pred_residual:
+            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
+            next_state = prev_state + next_state
         
         return next_state, None
     
