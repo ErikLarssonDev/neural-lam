@@ -289,6 +289,12 @@ def main(input_args=None):
         help="Sigma min for training. (default: 0.002)",
     )
     parser.add_argument(
+        "--sigma_max",
+        type=float,
+        default=88,
+        help="Sigma min for training. (default: 88)",
+    )
+    parser.add_argument(
         "--sigma_coef",
         type=float,
         default=1,
@@ -296,14 +302,12 @@ def main(input_args=None):
     )
 
     # EDM Options
-    # resample_filter=args.resample_filter,
     parser.add_argument(
         "--resample_filter",
         type=list_of_ints,
         default="1,1",
         help="Resample filter for edm model (default: 1,1 or 1,3,3,1)",
     )
-    # channel_mult=args.channel_mult,
     parser.add_argument(
         "--channel_mult",
         type=list_of_ints,
@@ -311,7 +315,6 @@ def main(input_args=None):
         help="Channel multiplier for edm model (depth and width of UNET) (default: 1,2,2,2)",
     )
 
-    # encoder_type=args.encoder_type,
     parser.add_argument(
         "--encoder_type",
         type=str,
@@ -320,7 +323,6 @@ def main(input_args=None):
         "(default: 'standard')",
     )
 
-    # attn_resolutions=args.attn_resolutions
     parser.add_argument(
         "--attn_resolutions",
         type=list_of_ints,
@@ -334,6 +336,14 @@ def main(input_args=None):
         default="fourier",
         help="Type of encoder to use in edm model (positional/fourier)"
         "(default: 'fourier')",
+    )
+
+    # CRPS Options
+    parser.add_argument(
+        "--noise_dim",
+        type=int,
+        default=32,
+        help="Dimension of the noise vector z, 32 in FGN (default: 32)",
     )
 
     # Evaluation options
