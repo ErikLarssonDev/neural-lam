@@ -26,6 +26,8 @@ class ARModel(pl.LightningModule):
         self.save_hyperparameters()
         self.args = args
         self.config_loader = config.Config.from_file(args.data_config)
+        self.border_condition = args.border_condition
+        self.pred_residual = args.pred_residual
 
         # Load static features for grid/data
         static_data_dict = utils.load_static_data(

@@ -52,9 +52,11 @@ FM_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/FM_1200
 # Execute Python script with arguments
 # Train
 # python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 2000 --batch_size 12 --load $EDM_1800e --lr 0.0000001 # --encoder_type residual # --noise_aug_prob 0.5
-python3 neural_lam/train_model.py --model tEDM --diffusion_model edm $RUN_NAME  --n_workers 16 --border_condition --epochs 600 --batch_size 12 --sigma_min 0.00002 --sigma_max 255
+# python3 neural_lam/train_model.py --model tEDM --diffusion_model edm $RUN_NAME  --n_workers 16 --border_condition --epochs 600 --batch_size 12 --sigma_min 0.00002 --sigma_max 255
 # python3 neural_lam/train_model.py --model SI --diffusion_model song_unet $RUN_NAME  --n_workers 16 --border_condition --epochs 1200 --batch_size 12 --load $SI_1000e_weighted --lr 0.00001 
 # python3 neural_lam/train_model.py --model FM --diffusion_model song_unet $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 1200 --batch_size 12 --load $FM_1000e --lr 0.00001
+python3 neural_lam/train_model.py --model CRPS $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 1200 --batch_size 12
+
 
 # Test
 # python3 neural_lam/train_model.py $MODEL $DIFFUSION_MODEL $RUN_NAME --n_workers 2 --pred_residual --border_condition --vertical_propnets 1 --batch_size 18  --processor_layers 2 --hidden_dim 128 --eval val --n_example_pred 0 --ensemble_size 5 --load $level_3_600e
