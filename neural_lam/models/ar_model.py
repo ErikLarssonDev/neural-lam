@@ -28,6 +28,8 @@ class ARModel(pl.LightningModule):
         self.config_loader = config.Config.from_file(args.data_config)
         self.border_condition = args.border_condition
         self.pred_residual = args.pred_residual
+        self.save_output = args.save_output
+        self.save_output_wandb = args.save_output_wandb
 
         # Load static features for grid/data
         static_data_dict = utils.load_static_data(

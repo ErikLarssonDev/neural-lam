@@ -55,7 +55,7 @@ FM_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/FM_1200
 # python3 neural_lam/train_model.py --model tEDM --diffusion_model edm $RUN_NAME  --n_workers 16 --border_condition --epochs 600 --batch_size 12 --sigma_min 0.00002 --sigma_max 255
 # python3 neural_lam/train_model.py --model SI --diffusion_model song_unet $RUN_NAME  --n_workers 16 --border_condition --epochs 1200 --batch_size 12 --load $SI_1000e_weighted --lr 0.00001 
 # python3 neural_lam/train_model.py --model FM --diffusion_model song_unet $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 1200 --batch_size 12 --load $FM_1000e --lr 0.00001
-python3 neural_lam/train_model.py --model CRPS $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 1200 --batch_size 12
+python3 neural_lam/train_model.py --model CRPS $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 600 --batch_size 12
 
 
 # Test
@@ -71,6 +71,7 @@ python3 neural_lam/train_model.py --model CRPS $RUN_NAME  --n_workers 16 --pred_
 # python3 neural_lam/train_model.py --model SI --diffusion_model song_unet --n_workers 16 --border_condition --subset_ds --output_std --load /proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/SI_600e-SI-6x128-05_07_08-7772/last.ckpt
 # python3 neural_lam/train_model.py --model tEDM --diffusion_model edm --n_workers 16 --border_condition --subset_ds
 # python3 neural_lam/train_model.py --model FM --diffusion_model song_unet --n_workers 16 --border_condition --pred_residual --subset_ds
+python3 neural_lam/train_model.py --model CRPS --n_workers 16 --pred_residual --border_condition --epochs 2 --batch_size 4 --subset_ds
 
 # Trial test
 # Batch size 18 for GraphFM

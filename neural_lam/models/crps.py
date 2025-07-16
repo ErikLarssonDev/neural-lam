@@ -1,5 +1,8 @@
+import torch
+
 from neural_lam.models.ar_prob_model import ARProbModel
 from neural_lam.models.edm_networks_2 import SongUNet
+from neural_lam import constants, metrics
 
 class CRPS(ARProbModel):
     """
@@ -12,6 +15,7 @@ class CRPS(ARProbModel):
         self.model = SongUNet(
             img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
             in_channels=self.grid_dim,
+            in_channels_boundary=self.boundary_dim,
             out_channels=self.grid_output_dim,
             embedding_type="linear",
             resample_filter=args.resample_filter,
@@ -52,14 +56,14 @@ class CRPS(ARProbModel):
         """
         Train on single batch
         """
-        init_states, target_states, forcing_features = batch
+        (init_states, target_states, forcing, boundary_forcing) = batch
 
         # Sample trajectories using prior
         pred_traj_means, pred_traj_stds = self.sample_trajectories(
             init_states,
-            forcing_features,
-            target_states,
-            2, # TODO: Always sample 2 trajectories?
+            forcing,
+            boundary_forcing,
+            2, # NOTE: Always sample 2 trajectories? They use N=2 in FGN
         )
         # (B, S=2, pred_steps, num_grid_nodes, d_f), always 2 samples
 
@@ -73,7 +77,8 @@ class CRPS(ARProbModel):
         loss = torch.mean(crps_estimate)
 
 
-        log_dict["train_loss"] = loss
+        log_dict = {"train_loss": loss}
+
         self.log_dict(
             log_dict, prog_bar=True, on_step=True, on_epoch=True, sync_dist=True
         )
