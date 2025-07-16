@@ -1,3 +1,9 @@
+import torch
+import os
+import wandb
+import numpy as np
+
+from neural_lam import constants, metrics, vis
 from neural_lam.models.ar_model import ARModel
 
 class ARProbModel(ARModel):
@@ -7,6 +13,21 @@ class ARProbModel(ARModel):
     def __init__(self, args):
         super().__init__(args)
         self.ensemble_size = args.ensemble_size
+
+        self.val_metrics.update(
+            {
+                "spread_squared": [],
+                "ens_mse": [],
+            }
+        )
+        self.test_metrics.update(
+            {
+                "ens_mae": [],
+                "ens_mse": [],
+                "crps_ens": [],
+                "spread_squared": [],
+            }
+        )
     
     def predict_step(self, prev_state, prev_prev_state, forcing, boundary_forcing):
         """
@@ -296,71 +317,71 @@ class ARProbModel(ARModel):
                     wandb.save(f"output/example_target_{self.plotted_examples}.pt")
                     wandb.save(f"output/example_border_{self.plotted_examples}.pt")
 
-            # Note: min and max values can not be in ensemble mean
-            var_vmin = (
-                torch.minimum(
-                    traj_slice.flatten(0, 2).min(dim=0)[0],
-                    target_slice.flatten(0, 1).min(dim=0)[0],
-                )
-                .cpu()
-                .numpy()
-            )  # (d_f,)
-            var_vmax = (
-                torch.maximum(
-                    traj_slice.flatten(0, 2).max(dim=0)[0],
-                    target_slice.flatten(0, 1).max(dim=0)[0],
-                )
-                .cpu()
-                .numpy()
-            )  # (d_f,)
-            var_vranges = list(zip(var_vmin, var_vmax))
+                    # Note: min and max values can not be in ensemble mean
+                    var_vmin = (
+                        torch.minimum(
+                            traj_slice.flatten(0, 2).min(dim=0)[0],
+                            target_slice.flatten(0, 1).min(dim=0)[0],
+                        )
+                        .cpu()
+                        .numpy()
+                    )  # (d_f,)
+                    var_vmax = (
+                        torch.maximum(
+                            traj_slice.flatten(0, 2).max(dim=0)[0],
+                            target_slice.flatten(0, 1).max(dim=0)[0],
+                        )
+                        .cpu()
+                        .numpy()
+                    )  # (d_f,)
+                    var_vranges = list(zip(var_vmin, var_vmax))
 
-            # Iterate over prediction horizon time steps
-            for t_i, (samples_t, target_t, border_t, ens_mean_t, ens_std_t) in enumerate(
-                zip(
-                    traj_slice.transpose(0, 1),
-                    # (pred_steps, S, num_grid_nodes, d_f)
-                    target_slice,
-                    border_slice,
-                    ens_mean_slice,
-                    ens_std_slice,
-                ),
-                start=1,
-            ):
-                time_title_part = f"t={t_i} ({self.step_length*t_i} h)"
-                # Create one figure per variable at this time step
-                var_figs = [
-                    vis.plot_ensemble_prediction(
-                        samples_t[:, :, var_i],
-                        target_t[:, var_i],
-                        border_t[:, var_i],
-                        ens_mean_t[:, var_i],
-                        ens_std_t[:, var_i],
-                        self.interior_mask,
-                        title=f"{var_name} ({var_unit}), {time_title_part}",
-                        vrange=var_vrange,
-                    )
-                    for var_i, (var_name, var_unit, var_vrange) in enumerate(
+                    # Iterate over prediction horizon time steps
+                    for t_i, (samples_t, target_t, border_t, ens_mean_t, ens_std_t) in enumerate(
                         zip(
-                            constants.PARAM_NAMES_SHORT[constants.USED_PARAMS],
-                            constants.PARAM_UNITS[constants.USED_PARAMS],
-                            var_vranges,
-                        )
-                    )
-                ]
+                            traj_slice.transpose(0, 1),
+                            # (pred_steps, S, num_grid_nodes, d_f)
+                            target_slice,
+                            border_slice,
+                            ens_mean_slice,
+                            ens_std_slice,
+                        ),
+                        start=1,
+                    ):
+                        time_title_part = f"t={t_i} ({self.step_length*t_i} h)"
+                        # Create one figure per variable at this time step
+                        var_figs = [
+                            vis.plot_ensemble_prediction(
+                                samples_t[:, :, var_i],
+                                target_t[:, var_i],
+                                border_t[:, var_i],
+                                ens_mean_t[:, var_i],
+                                ens_std_t[:, var_i],
+                                self.interior_mask,
+                                title=f"{var_name} ({var_unit}), {time_title_part}",
+                                vrange=var_vrange,
+                            )
+                            for var_i, (var_name, var_unit, var_vrange) in enumerate(
+                                zip(
+                                    constants.PARAM_NAMES_SHORT[constants.USED_PARAMS],
+                                    constants.PARAM_UNITS[constants.USED_PARAMS],
+                                    var_vranges,
+                                )
+                            )
+                        ]
 
-                example_title = f"example_{self.plotted_examples}"
-                wandb.log(
-                    {
-                        f"{var_name}_{example_title}": wandb.Image(fig)
-                        for var_name, fig in zip(
-                            constants.PARAM_NAMES_SHORT[constants.USED_PARAMS], var_figs
+                        example_title = f"example_{self.plotted_examples}"
+                        wandb.log(
+                            {
+                                f"{var_name}_{example_title}": wandb.Image(fig)
+                                for var_name, fig in zip(
+                                    constants.PARAM_NAMES_SHORT[constants.USED_PARAMS], var_figs
+                                )
+                            }
                         )
-                    }
-                )
-                plt.close(
-                    "all"
-                )  # Close all figs for this time step, saves memory
+                        plt.close(
+                            "all"
+                        )  # Close all figs for this time step, saves memory
 
     def ensemble_common_step(self, batch):
         """
@@ -415,7 +436,7 @@ class ARProbModel(ARModel):
             ens_mse_batch,
         )
 
-     def validation_step(self, batch, *args):
+    def validation_step(self, batch, *args):
         """
         Run validation on single batch
         """

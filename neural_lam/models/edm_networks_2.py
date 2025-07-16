@@ -265,6 +265,7 @@ class SongUNet(torch.nn.Module):
         img_resolution,                     # Image resolution at input/output.
         in_channels,                        # Number of color channels at input.
         out_channels,                       # Number of color channels at output.
+        in_channels_boundary=None,            # Number of color channels at input for boundary nodes.
         label_dim           = 0,            # Number of class labels, 0 = unconditional.
         augment_dim         = 0,            # Augmentation label dimensionality, 0 = no augmentation.
 
@@ -285,11 +286,13 @@ class SongUNet(torch.nn.Module):
         obs_mask            = None,            # Masking of the observation grid.
         noise_dim           = 32,           # Dimensionality of the noise vector.
     ):
-        assert embedding_type in ['fourier', 'positional']
+        assert embedding_type in ['fourier', 'positional', 'linear']
         assert encoder_type in ['standard', 'skip', 'residual']
         assert decoder_type in ['standard', 'skip']
 
         super().__init__()
+        if in_channels_boundary is None:
+            in_channels_boundary = in_channels
         self.label_dropout = label_dropout
         emb_channels = model_channels * channel_mult_emb
         noise_channels = model_channels * channel_mult_noise
@@ -303,6 +306,7 @@ class SongUNet(torch.nn.Module):
         )
         self.obs_mask = obs_mask
         self.config_loader = config.Config.from_file('neural_lam/data_config.yaml')
+        self.noise_dim = noise_dim
 
         # Load static features for grid/data
         static_data_dict = utils.load_static_data(
@@ -340,7 +344,7 @@ class SongUNet(torch.nn.Module):
         )
         # Separate embedder for boundary nodes
         self.boundary_embedder = utils.make_mlp(
-            [in_channels] + self.mlp_blueprint_end, noise_level_dim=emb_channels # TODO: Make this dynamic
+            [in_channels_boundary] + self.mlp_blueprint_end, noise_level_dim=emb_channels # TODO: Make this dynamic
         )
 
         # Encoder.
@@ -429,7 +433,7 @@ class SongUNet(torch.nn.Module):
         emb = silu(self.map_layer1(emb)).unsqueeze(1)
 
         # Embedd the input tensor
-        batch_size = class_labels.shape[0]
+        batch_size = x.shape[0]
     
         # Create full grid node features of shape (B, num_grid_nodes, grid_dim)
         if class_labels is None:
