@@ -39,6 +39,7 @@ class SI(ARModel):
         self.ensemble_size = args.ensemble_size
         self.sampler = args.sampler
         self.save_output = args.save_output
+        self.output_path = args.output_path
         self.save_output_wandb = args.save_output_wandb
         self.sampler_steps = args.sampler_steps 
         self.save_steps = args.save_steps
@@ -482,11 +483,11 @@ class SI(ARModel):
                 axes[1].set_title("LQ", size=15)
                 vis.plot_on_axis(axes[1], LQ[0, ..., self.config_loader.dataset.downscaling_idx[var_idx]])
 
-                os.makedirs(f"output/diffusion_steps/{var_name}", exist_ok=True)
-                plt.savefig(f"output/diffusion_steps/{var_name}/step_{i+1}.png")
+                os.makedirs(f"{self.output_path}/diffusion_steps/{var_name}", exist_ok=True)
+                plt.savefig(f"{self.output_path}/diffusion_steps/{var_name}/step_{i+1}.png")
                 plt.close(fig)
     
-    def plot_examples(self, batch, n_examples, prediction=None):
+    def plot_examples(self, batch_idx, batch, n_examples, prediction=None):
         """
         Plot ensemble forecast + mean and std
         """
@@ -509,6 +510,8 @@ class SI(ARModel):
         target_rescaled = target_states # * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
         initial_states_rescaled = initial_states # * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
 
+        #print(f"traj_rescaled shape: {traj_rescaled.shape}")
+
         # Compute mean and std of ensemble
         ens_mean = torch.mean(
             traj_rescaled, dim=1
@@ -516,6 +519,8 @@ class SI(ARModel):
         ens_std = torch.std(
             traj_rescaled, dim=1
         )  # (B, pred_steps, num_grid_nodes, d_f)
+
+        #print(f"ens_mean shape: {ens_mean.shape}")
 
         # Iterate over the examples
         for init_slice, traj_slice, target_slice, ens_mean_slice, ens_std_slice in zip(
@@ -525,21 +530,28 @@ class SI(ARModel):
             ens_mean[:n_examples],
             ens_std[:n_examples],
         ):
+            #print(f"traj_slice shape: {traj_slice.shape}")
             # traj_slice is (S, pred_steps, num_grid_nodes, d_f)
             # others are (pred_steps, num_grid_nodes, d_f)
 
             self.plotted_examples += 1  # Increment already here
 
             # Save slices to wandb
-            os.makedirs("output", exist_ok=True)
+            os.makedirs(self.output_path, exist_ok=True)
 
             # TODO: Check that the saving is correct, we want to save one sample and not the entire batch
             # Save predictions to the output folder
             if self.save_output:
-                torch.save(ens_mean_slice[0], f"output/example_ens_mean_{self.plotted_examples}.pt")
-                torch.save(ens_std_slice[0], f"output/example_ens_std_{self.plotted_examples}.pt")
-                torch.save(traj_slice[0], f"output/example_ens_members_{self.plotted_examples}.pt")
-                torch.save(target_slice[0], f"output/example_target_{self.plotted_examples}.pt")
+                torch.save(ens_mean_slice[0].detach().cpu().contiguous(), f"{self.output_path}/example_ens_mean_{batch_idx}.pt")
+                torch.save(ens_std_slice[0].detach().cpu().contiguous(), f"{self.output_path}/example_ens_std_{batch_idx}.pt")
+
+                for ensemble_member in range(len(traj_slice)):
+                    tensor_to_save = traj_slice[ensemble_member][0].detach().cpu().contiguous()
+                    #print(f"traj_slice[ensemble_member][0] shape: {tensor_to_save.shape}")
+                    torch.save(tensor_to_save, f"{self.output_path}/example_ens_members_{batch_idx}_{ensemble_member}.pt")
+
+                #torch.save(init_slice[0].detach().cpu().contiguous(), f"{self.output_path}/example_input_rescaled_{batch_idx}.pt")
+                torch.save(target_slice[0].detach().cpu().contiguous(), f"{self.output_path}/example_target_{batch_idx}.pt")
 
                 # Save files to wandb
                 if self.save_output_wandb:
@@ -767,7 +779,7 @@ class SI(ARModel):
             )
 
             self.plot_examples(
-                batch, n_additional_examples, prediction=trajectories
+                batch_idx, batch, n_additional_examples, prediction=trajectories
             )
 
     def on_test_epoch_end(self):
@@ -777,7 +789,8 @@ class SI(ARModel):
         """
         # super().on_test_epoch_end()
         self.aggregate_and_plot_metrics(self.test_metrics, prefix="test")
-        self.log_spsk_ratio(self.test_metrics, "test")
+        # plot_error_map crashes in my tests, commenting it out
+        #self.log_spsk_ratio(self.test_metrics, "test")
     
 # Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #

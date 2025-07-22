@@ -376,6 +376,12 @@ def main(input_args=None):
         help="If the model output should be saved to the output folder (default: False)",
     )
     parser.add_argument(
+        "--output_path",
+        type=str,
+        default="output",
+        help="Path to the saved output (default: 'output')",
+    )
+    parser.add_argument(
         "--save_steps",
         action="store_true",
         help="If the diffusion steps output of 1 sample should be saved to the folder diffusion_steps (default: False)",
@@ -427,6 +433,7 @@ def main(input_args=None):
     )
 
     args = parser.parse_args(input_args)
+    print(args)
     args.var_leads_metrics_watch = {
         int(k): v for k, v in json.loads(args.var_leads_metrics_watch).items()
     }
