@@ -3,13 +3,13 @@ import netCDF4
 import pandas as pd
 from datetime import datetime
 
-def initialize_output(dataloader, output_path, start_date, end_date, basename):
+def initialize_output(dataloader, output_path, start_date, end_date, basename, var_index):
     """Initializes a netCDF file for the output data."""
     dt = datetime.today().strftime("%Y-%m-%dT%H_%M")
     output_file_path = os.path.join(
         output_path, f"{basename}_{start_date}_{end_date}.nc")
 
-    ground_truth_dataset = dataloader.dataset.ground_truth_datasets[0]
+    ground_truth_dataset = dataloader.dataset.ground_truth_datasets[var_index]
     ground_truth_timestep = ground_truth_dataset.isel(time=0)
     ground_truth_timestep = ground_truth_timestep.expand_dims("time")
     ground_truth_timestep.time.encoding["unlimited"] = True
