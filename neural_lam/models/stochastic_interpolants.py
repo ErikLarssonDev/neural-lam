@@ -8,6 +8,7 @@ import wandb
 import copy
 import math 
 import time
+import datetime
 import os
 import einops
 
@@ -491,7 +492,8 @@ class SI(ARModel):
         """
         Plot ensemble forecast + mean and std
         """
-        LQ, HQ = batch["LQ"], batch["HQ"]
+        #print("\n\nPlotting examples...\n\n")
+        LQ, HQ, date_ordinal = batch["LQ"], batch["HQ"], batch["date"]
         if prediction is None:
             print(f"Sampling new trajectories for plotting!")
             trajectories, _ = self.sample_trajectories(
@@ -541,18 +543,19 @@ class SI(ARModel):
 
             # TODO: Check that the saving is correct, we want to save one sample and not the entire batch
             # Save predictions to the output folder
+            date_str = datetime.date.fromordinal(date_ordinal).strftime("%Y-%m-%d")
             if self.save_output:
-                torch.save(ens_mean_slice[0].detach().cpu().contiguous(), f"{self.output_path}/example_ens_mean_{batch_idx}.pt")
-                torch.save(ens_std_slice[0].detach().cpu().contiguous(), f"{self.output_path}/example_ens_std_{batch_idx}.pt")
+                torch.save(ens_mean_slice[0].detach().cpu().contiguous(), f"{self.output_path}/ens_mean_{date_str}.pt")
+                torch.save(ens_std_slice[0].detach().cpu().contiguous(), f"{self.output_path}/ens_std_{date_str}.pt")
 
                 for ensemble_member in range(len(traj_slice)):
                     tensor_to_save = traj_slice[ensemble_member][0].detach().cpu().contiguous()
                     #print(f"traj_slice[ensemble_member][0] shape: {tensor_to_save.shape}")
-                    torch.save(tensor_to_save, f"{self.output_path}/example_ens_members_{batch_idx}_{ensemble_member}.pt")
+                    torch.save(tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date_str}.pt")
 
-                #torch.save(init_slice[0].detach().cpu().contiguous(), f"{self.output_path}/example_input_rescaled_{batch_idx}.pt")
-                torch.save(target_slice[0].detach().cpu().contiguous(), f"{self.output_path}/example_target_{batch_idx}.pt")
+                torch.save(target_slice[0].detach().cpu().contiguous(), f"{self.output_path}/target_{date_str}.pt")
 
+            if self.trainer.is_global_zero:
                 # Save files to wandb
                 if self.save_output_wandb:
                     wandb.save(f"output/example_ens_mean_{self.plotted_examples}.pt")
@@ -621,14 +624,15 @@ class SI(ARModel):
                 ]
 
                 example_title = f"example_{self.plotted_examples}"
-                wandb.log(
-                    {
-                        f"{var_name}_{example_title}": wandb.Image(fig)
-                        for var_name, fig in zip(
-                            var_names, var_figs
-                        )
-                    }
-                )
+                if self.trainer.is_global_zero:
+                    wandb.log(
+                        {
+                            f"{var_name}_{example_title}": wandb.Image(fig)
+                            for var_name, fig in zip(
+                                var_names, var_figs
+                            )
+                        }
+                    )
                 plt.close(
                     "all"
                 )  # Close all figs for this time step, saves memory
@@ -768,19 +772,15 @@ class SI(ARModel):
         )  # (B, pred_steps, d_f)
         self.test_metrics["crps_ens"].append(crps_batch)
 
-        # Plot example predictions (on rank 0 only)
-        if (
-            self.trainer.is_global_zero
-            and self.plotted_examples < self.n_example_pred
-        ):
-            # Need to plot more example predictions
-            n_additional_examples = min(
-                trajectories.shape[0], self.n_example_pred - self.plotted_examples
-            )
+        # Plot example predictions on every rank
+        # Need to plot more example predictions
+        n_additional_examples = min(
+            trajectories.shape[0], self.n_example_pred - self.plotted_examples
+        )
 
-            self.plot_examples(
-                batch_idx, batch, n_additional_examples, prediction=trajectories
-            )
+        self.plot_examples(
+            batch_idx, batch, n_additional_examples, prediction=trajectories
+        )
 
     def on_test_epoch_end(self):
         """

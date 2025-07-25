@@ -1,19 +1,9 @@
-#!/bin/bash
-#SBATCH -J SI
-#SBATCH -A NAISS2024-22-955 -p alvis
-#SBATCH -N 1 --gpus-per-node=A40:2
-#SBATCH -t 0-04:00:00
-#SBATCH --output=2A40.out
-
 export HDF5_USE_FILE_LOCKING=FALSE
 
 RUN_NAME="--wandb_run_name SI_50e"
 
-# Switch to the correct directory
-cd /mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam
-
 # Activate wandb
-apptainer exec ~/neural-lam.sif wandb off
+#apptainer exec ~/neural-lam.sif wandb off
 
 # Saved models
 SI_50e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_50e-SI-6x128-07_10_12-7283/last.ckpt"
@@ -29,12 +19,12 @@ apptainer exec \
   --model SI \
   --data_config neural_lam/clim_config_inference.yaml \
   --diffusion_model song_unet \
-  --output_path output/scaling-tests/2gpu/pt \
+  --output_path output \
   --n_workers 16 \
   --eval test \
   --n_example_pred 99999 \
   --batch_size 1 \
-  --ensemble_size 16 \
+  --ensemble_size 4 \
   --sampler_steps 10 \
   --load $SI_50e \
   --sampler euler_2 \

@@ -1,4 +1,5 @@
 import os
+import datetime
 import toml
 import torch
 import numpy as np
@@ -58,6 +59,13 @@ class NetCDFDataset(Dataset):
             ds = ds.sel({pressure_dim: self.levels})  # Dynamically select the correct dimension
 
         return ds
+    
+    def get_current_ordinal_date(self, idx):
+        """
+        Returns the number of days since the 1st of January of 1 AD for the current date.
+        Works only for unshuffled datasets!
+        """
+        return (self.start_date + datetime.timedelta(days=idx)).toordinal()
 
     def get_batch(self, datasets, idx):
         """Converts a batch of data into torch tensor of the correct shape."""
@@ -89,10 +97,13 @@ class NetCDFDataset(Dataset):
         if self.normalize_ground_truth:
             ground_truth_batch_data = (ground_truth_batch_data - self.ground_truth_mean) / self.ground_truth_std
         
+        current_date = self.get_current_ordinal_date(idx)
+
         # return input_batch_data, ground_truth_batch_data
         states = {
             "LQ": F.interpolate(input_batch_data.unsqueeze(0), size=(400, 550), mode='bilinear', align_corners=False).squeeze(0), # [B, 23, 40, 55] -> [B, 23, 400, 550], NOTE: We need the low-res input on the same grid as the high-res output
             "HQ": ground_truth_batch_data, # [B, 2, 400, 550]
+            "date": current_date
         }
    
         return states
