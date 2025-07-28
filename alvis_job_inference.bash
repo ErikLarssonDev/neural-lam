@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH -J SI
 #SBATCH -A NAISS2024-22-955 -p alvis
-#SBATCH -N 1 --gpus-per-node=A40:4
-#SBATCH -t 1-00:00:00
-#SBATCH --output=exp8.out
+#SBATCH -N 1 --gpus-per-node=A40:1
+#SBATCH -t 0-01:00:00
+###SBATCH --output=exp4.out
 
 export HDF5_USE_FILE_LOCKING=FALSE
 
@@ -12,13 +12,13 @@ RUN_NAME="--wandb_run_name SI_50e"
 # Switch to the correct directory
 cd /mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam
 
-output_path="output/250725/exp8"
-ensemble_size=25
-sampler_steps=100
-sampler="euler"
+output_path="output/250725/exp3"
+ensemble_size=50
+sampler_steps=50
+sampler="euler_2"
 
-mkdir -p $output_path
-cp alvis_job_inference.bash $output_path
+#mkdir -p $output_path
+#cp alvis_job_inference.bash $output_path
 
 # Saved models
 SI_50e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_50e-SI-6x128-07_10_12-7283/last.ckpt"

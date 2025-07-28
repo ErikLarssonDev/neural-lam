@@ -1,4 +1,5 @@
 ### Project Specific ###
+*out
 wandb
 slurm_log*
 saved_models
