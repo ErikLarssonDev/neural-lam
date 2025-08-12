@@ -1,18 +1,13 @@
 #!/bin/bash
-#SBATCH -J netcdf-write
-#SBATCH -A NAISS2024-22-955 -p alvis
-#SBATCH -N 1 --gpus-per-node=A40:1
-#SBATCH -t 0-01:00:00
-
 export HDF5_USE_FILE_LOCKING=FALSE
 
 # Define the local repository path
 REPO_PATH="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam"
 
 n_workers=16
-pt_data_path="output/250725/exp6/pt"
-output_path="output/250725/exp6"
-ensemble_size=100
+pt_data_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/120825/batch_size_experiments/8"
+output_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/120825/batch_size_experiments/8"
+ensemble_size=4
 var_index=0
 variable_name="pr"
 variable_units="kg m-2"

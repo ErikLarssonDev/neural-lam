@@ -155,7 +155,7 @@ class SI(ARModel):
             if self.sampler == 'euler_2' and i < len(ts) - 1:
                 xt, mu = step_fn_2(xt, tscalar * ones, ts[i+1] * ones, label = label)
             else:
-                print(f"Euler step {i+1} of {len(ts)}")
+                #print(f"Euler step {i+1} of {len(ts)}")
                 xt, mu = step_fn(xt, tscalar * ones, label = label)
             if self.save_steps:
                 save_dir='diffusion_steps'
@@ -488,7 +488,7 @@ class SI(ARModel):
                 plt.savefig(f"{self.output_path}/diffusion_steps/{var_name}/step_{i+1}.png")
                 plt.close(fig)
     
-    def plot_examples(self, batch_idx, batch, n_examples, prediction=None):
+    def plot_examples(self, batch, prediction=None):
         """
         Plot ensemble forecast + mean and std
         """
@@ -503,7 +503,6 @@ class SI(ARModel):
         else:
             trajectories = prediction
         # (B, S, pred_steps, num_grid_nodes, d_f)
-
         initial_states = LQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1) # (B, 1, num_grid_nodes, d_f)
         target_states = HQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1)
 
@@ -524,13 +523,18 @@ class SI(ARModel):
 
         #print(f"ens_mean shape: {ens_mean.shape}")
 
+        dates = []
+        for date in date_ordinal:
+            dates.append(datetime.date.fromordinal(date).strftime("%Y-%m-%d"))
+
         # Iterate over the examples
-        for init_slice, traj_slice, target_slice, ens_mean_slice, ens_std_slice in zip(
-            initial_states_rescaled[:n_examples],
-            traj_rescaled[:n_examples],
-            target_rescaled[:n_examples],
-            ens_mean[:n_examples],
-            ens_std[:n_examples],
+        for init_slice, traj_slice, target_slice, ens_mean_slice, ens_std_slice, date in zip(
+            initial_states_rescaled,
+            traj_rescaled,
+            target_rescaled,
+            ens_mean,
+            ens_std,
+            dates
         ):
             #print(f"traj_slice shape: {traj_slice.shape}")
             # traj_slice is (S, pred_steps, num_grid_nodes, d_f)
@@ -541,19 +545,16 @@ class SI(ARModel):
             # Save slices to wandb
             os.makedirs(self.output_path, exist_ok=True)
 
-            # TODO: Check that the saving is correct, we want to save one sample and not the entire batch
             # Save predictions to the output folder
-            date_str = datetime.date.fromordinal(date_ordinal).strftime("%Y-%m-%d")
             if self.save_output:
-                torch.save(ens_mean_slice[0].detach().cpu().contiguous(), f"{self.output_path}/ens_mean_{date_str}.pt")
-                torch.save(ens_std_slice[0].detach().cpu().contiguous(), f"{self.output_path}/ens_std_{date_str}.pt")
+                torch.save(ens_mean_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_mean_{date}.pt")
+                torch.save(ens_std_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_std_{date}.pt")
 
                 for ensemble_member in range(len(traj_slice)):
-                    tensor_to_save = traj_slice[ensemble_member][0].detach().cpu().contiguous()
-                    #print(f"traj_slice[ensemble_member][0] shape: {tensor_to_save.shape}")
-                    torch.save(tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date_str}.pt")
+                    tensor_to_save = traj_slice[ensemble_member].detach().cpu().contiguous()
+                    torch.save(tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
 
-                torch.save(target_slice[0].detach().cpu().contiguous(), f"{self.output_path}/target_{date_str}.pt")
+                torch.save(target_slice.detach().cpu().contiguous(), f"{self.output_path}/target_{date}.pt")
 
             if self.trainer.is_global_zero:
                 # Save files to wandb
@@ -774,12 +775,12 @@ class SI(ARModel):
 
         # Plot example predictions on every rank
         # Need to plot more example predictions
-        n_additional_examples = min(
-            trajectories.shape[0], self.n_example_pred - self.plotted_examples
-        )
+        #n_additional_examples = min(
+        #    trajectories.shape[0], self.n_example_pred - self.plotted_examples
+        #)
 
         self.plot_examples(
-            batch_idx, batch, n_additional_examples, prediction=trajectories
+            batch, prediction=trajectories
         )
 
     def on_test_epoch_end(self):
