@@ -37,6 +37,9 @@ MODELS = {
 def list_of_ints(arg):
     return list(map(int, arg.split(',')))
 
+def list_of_ints(arg):
+    return list(map(int, arg.split(',')))
+
 
 def main(input_args=None):
     """
@@ -508,11 +511,13 @@ def main(input_args=None):
     # Instantiate model + trainer
     if torch.cuda.is_available():
         device_name = "cuda"
-        torch.set_float32_matmul_precision(
-            "high"
-        )  # Allows using Tensor Cores on A100s
+        torch.set_float32_matmul_precision("high")  # Allows using Tensor Cores on A100s
+    # elif torch.backends.mps.is_available():
+    #     device_name = "gpu"
     else:
         device_name = "cpu"
+
+
 
     # Load model parameters Use new args for model
     model_class = MODELS[args.model]
@@ -612,6 +617,11 @@ def main(input_args=None):
         print(f"Running evaluation on {args.eval}")
         trainer.test(model=model, dataloaders=eval_loader, ckpt_path=args.load)
     else:
+        print("Starting training")
+        # for n, p in model.named_parameters():
+        #     if p.grad is None:
+        #         print(f'{n} has no grad')
+
         # Train model
         trainer.fit(
             model=model,
