@@ -55,7 +55,7 @@ class WeatherDataset(torch.utils.data.Dataset):
         # Now on form "yyymmddhh_mbrXXX"
 
         if subset:
-            self.sample_names = self.sample_names[:1]  # Limit to 50 samples, changed to 1
+            self.sample_names = self.sample_names[:1]  # Limit to 1 sample
 
         self.sample_length = pred_length + 2  # 2 init states
         self.subsample_step = subsample_step
