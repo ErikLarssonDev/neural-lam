@@ -1,21 +1,25 @@
+# Standard library
+import copy
+import math
+import os
+import time
+
+# Third-party
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.functional import silu
-import matplotlib.pyplot as plt
-import numpy as np
 import wandb
-import copy
-import math 
-import time
-import os
+from torch.nn.functional import silu
 
-from neural_lam.models.ar_model import ARModel
+# First-party
 from neural_lam import constants, metrics, utils, vis
-
+from neural_lam.models.ar_model import ARModel
+from neural_lam.models.edm_networks_2 import tEDMPrecond
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
-from neural_lam.models.edm_networks_2 import tEDMPrecond
+
 
 class tEDM(ARModel):
     """
@@ -63,7 +67,7 @@ class tEDM(ARModel):
 
         if args.diffusion_model != 'edm':
             self.map_noise = NoiseEmbedding()
-            
+
         if args.diffusion_model == 'graph_fm':
             self.model = GraphFM(args)
         elif args.diffusion_model == 'edm':
@@ -84,7 +88,7 @@ class tEDM(ARModel):
                                     )
         else:
             raise ValueError(f"Diffusion model {args.diffusion_model} not recognized")
-            
+
         self.pred_residual = args.pred_residual # Whether to predict the residual instead of the next state
         self.diffusion_model = args.diffusion_model
 
@@ -131,7 +135,7 @@ class tEDM(ARModel):
         if self.pred_residual:
             next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
             next_state = prev_state + next_state
-        
+
         return next_state, None
 
     def predict_step_train(self, prev_state, prev_prev_state, forcing, true_state, boundary_forcing):
@@ -149,7 +153,7 @@ class tEDM(ARModel):
         pred_std: None or (B, N_grid, d_state), predicted standard-deviations
                     (pred_std can be ignored by just returning None)
         """
-        
+
         # Sample from F inverse
         rnd_uniform = torch.rand([prev_state.shape[0], 1, 1], device=prev_state.device)
         rho_inv = 1 / self.rho
@@ -158,7 +162,7 @@ class tEDM(ARModel):
         sigma = (sigma_max_rho + rnd_uniform * (sigma_min_rho - sigma_max_rho)) ** self.rho
         self.v.to(sigma.device)
         y = true_state # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
-      
+
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
 
         # Make y residual if needed
@@ -166,7 +170,7 @@ class tEDM(ARModel):
             y = y - prev_state
             y = (y - self.step_diff_mean[constants.USED_PARAMS]) / self.step_diff_std[constants.USED_PARAMS] # Normalize residual
 
-        # n = torch.randn_like(y) * sigma    
+        # n = torch.randn_like(y) * sigma
         n = torch.distributions.studentT.StudentT(torch.tensor(self.v, device=sigma.device)).rsample(y.shape)* sigma # NOTE: tEDM uses student-t noise
         sigma = sigma * torch.sqrt(self.v / (self.v - 2)) # NOTE: Change for tEDM
         noisy_input = y+n
@@ -181,9 +185,9 @@ class tEDM(ARModel):
 
         c_out = torch.sqrt(self.v / (self.v - 2)) * sigma * self.sigma_data / ((self.v / (self.v - 2)) * sigma ** 2 + self.sigma_data ** 2).sqrt()
         weight = 1 / c_out ** 2 # (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
-        
+
         return next_state, None, weight
-    
+
     def unroll_prediction(self, init_states, forcing_features, boundary_forcing):
             """
             Roll out prediction taking multiple autoregressive steps with model
@@ -203,9 +207,9 @@ class tEDM(ARModel):
                 pred_state, pred_std = self.predict_step(
                     prev_state, prev_prev_state, forcing, border_state
                 )
-        
+
                 new_state = pred_state
-        
+
                 prediction_list.append(new_state)
                 if self.output_std:
                     pred_std_list.append(pred_std)
@@ -325,7 +329,7 @@ class tEDM(ARModel):
             log_dict, prog_bar=True, on_step=True, on_epoch=True, sync_dist=True
         )
         return batch_loss
-    
+
 
     def sample_trajectories(
         self,
@@ -353,13 +357,13 @@ class tEDM(ARModel):
         for i in range(num_traj):
             # print(f"Starting trajectory {i + 1}/{num_traj}...")
             # start_time = time.time()
-            
+
             traj = unroll_func(
                 init_states,
                 forcing_features,
                 boundary_forcing,
             )
-            
+
             traj_list.append(traj)
 
         # List of tuples, each containing
@@ -375,9 +379,9 @@ class tEDM(ARModel):
             )
         else:
             traj_stds = self.per_var_std[constants.USED_PARAMS] # TODO: Check if this is correct, self.per_var_std = self.step_diff_std / torch.sqrt(self.param_weights)
-        
+
         return traj_means, traj_stds
-    
+
     def plot_examples(self, batch, n_examples, prediction=None):
         """
         Plot ensemble forecast + mean and std
@@ -697,7 +701,7 @@ class tEDM(ARModel):
         # super().on_test_epoch_end()
         self.aggregate_and_plot_metrics(self.test_metrics, prefix="test")
         self.log_spsk_ratio(self.test_metrics, "test")
-    
+
 # Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # This work is licensed under a Creative Commons
@@ -771,13 +775,13 @@ class tEDM(ARModel):
         for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
             x_cur = x_next
             denoised = self.forward(x_cur, t_cur, class_labels=class_labels, boundary_forcing=boundary_forcing)
-            d_cur = (x_cur - denoised) / t_cur      
+            d_cur = (x_cur - denoised) / t_cur
             x_next = x_cur + (t_next - t_cur) * d_cur
 
             # Apply 2nd order correction.
             if i < num_steps - 1:
                 denoised = self.forward(x_next, t_next, class_labels=class_labels, boundary_forcing=boundary_forcing)
-                d_prime = (x_next - denoised) / t_next   
+                d_prime = (x_next - denoised) / t_next
                 x_next = x_cur + (t_next - t_cur) * (0.5 * d_cur + 0.5 * d_prime)
 
         return x_next, None
@@ -809,7 +813,7 @@ class tEDM(ARModel):
 
             sigma_hat = sigmas[i] * (gamma + 1)
             if gamma > 0:
-                x = x + (sigma_hat**2 - sigmas[i] ** 2) ** 0.5 * noise            
+                x = x + (sigma_hat**2 - sigmas[i] ** 2) ** 0.5 * noise
             denoised = self.forward(x, sigma_hat, class_labels=class_labels, boundary_forcing=boundary_forcing)
 
             if i == len(sigmas) - 2:
@@ -831,7 +835,7 @@ class tEDM(ARModel):
                 x = sigmas[i + 1] / sigma_hat * x - (torch.exp(-h) - 1) * D
 
         return x, None
-        
+
 
     def forward(self, x, sigma, class_labels=None, boundary_forcing=None, force_fp32=False, **model_kwargs):
         if self.diffusion_model == "edm":
@@ -843,11 +847,11 @@ class tEDM(ARModel):
         c_out = sigma * self.sigma_data / (sigma ** 2 + self.sigma_data ** 2).sqrt()
         c_in = 1 / (self.sigma_data ** 2 + sigma ** 2).sqrt()
         c_noise = sigma.log() / 4
-      
+
         F_x = self.model_forward((c_in * x), c_noise.flatten(), class_labels=class_labels, boundary_forcing=boundary_forcing, **model_kwargs)
         D_x = c_skip * x + c_out * F_x
         return D_x
-    
+
     def model_forward(self, x, noise_labels, class_labels, boundary_forcing):
         # Mapping.
         emb = self.map_noise(noise_labels).unsqueeze(1).expand(x.shape[0], 1, -1)
@@ -855,7 +859,7 @@ class tEDM(ARModel):
         next_state, _ = self.model.predict_step(x, class_labels[:, :, :len(constants.USED_PARAMS)*2], class_labels[:, :, len(constants.USED_PARAMS)*2:], boundary_forcing, emb)
 
         return next_state
-    
+
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
 
@@ -881,7 +885,7 @@ class NoiseEmbedding(nn.Module):
         fourier_features = self.fourier_transform(log_noise_levels)
         noise_level_encoding = self.mlp(fourier_features)
         return noise_level_encoding
-    
+
 #----------------------------------------------------------------------------
 # Timestep embedding used in the DDPM++ and ADM architectures.
 
@@ -912,4 +916,4 @@ class FourierEmbedding(torch.nn.Module):
         x = x.ger((2 * np.pi * self.freqs).to(x.dtype))
         x = torch.cat([x.cos(), x.sin()], dim=1)
         return x
-    
+

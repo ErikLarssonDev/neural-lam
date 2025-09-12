@@ -1,21 +1,24 @@
+# Standard library
+import copy
+import math
+import os
+import time
+
+# Third-party
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.functional import silu
-import matplotlib.pyplot as plt
-import numpy as np
 import wandb
-import copy
-import math 
-import time
-import os
+from torch.nn.functional import silu
 
-from neural_lam.models.ar_model import ARModel
+# First-party
 from neural_lam import constants, metrics, utils, vis
-
-from neural_lam.models.graph_fm import GraphFM
-from neural_lam.models.graphcast import GraphCast
+from neural_lam.models.ar_model import ARModel
 from neural_lam.models.edm_networks_2 import EDMPrecond
+from neural_lam.models.graph_fm import GraphFM
+
 
 class Diffusion(ARModel):
     """

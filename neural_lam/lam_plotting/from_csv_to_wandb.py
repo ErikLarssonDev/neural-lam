@@ -1,8 +1,9 @@
+# Third-party
 import numpy as np
 import wandb
 
 # First-party
-from neural_lam import constants, utils, config
+from neural_lam import config, constants, utils
 
 # Load static features for grid/data
 static_data_dict = utils.load_static_data("meps")

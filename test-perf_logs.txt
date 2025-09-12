@@ -5896,5 +5896,3 @@ Profile stats for: [LightningModule]Diffusion.teardown
         1    0.000    0.000    0.000    0.000 hooks.py:397(teardown)
         1    0.000    0.000    0.000    0.000 {method 'get' of 'dict' objects}
         1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
-
-

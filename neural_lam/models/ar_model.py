@@ -9,7 +9,7 @@ import torch
 import wandb
 
 # Local
-from .. import config, metrics, utils, vis, constants
+from .. import config, constants, metrics, utils, vis
 
 
 class ARModel(pl.LightningModule):
@@ -85,7 +85,7 @@ class ARModel(pl.LightningModule):
             self.boundary_dim = self.grid_dim if args.model == "diffusion" else self.grid_dim + self.config_loader.num_data_vars()
         else:
             self.boundary_dim = self.grid_dim - self.config_loader.num_data_vars() if args.model == "diffusion" else self.grid_dim
-    
+
         # Instantiate loss function
         self.loss = metrics.get_metric(args.loss)
 
@@ -412,7 +412,7 @@ class ARModel(pl.LightningModule):
                 .cpu()
                 .numpy()
             )  # (d_f,)
-     
+
             var_vranges = list(zip(var_vmin, var_vmax))
 
             # Iterate over prediction horizon time steps
@@ -502,7 +502,7 @@ class ARModel(pl.LightningModule):
                 metric_tensor.cpu().numpy(),
                 delimiter=",",
             )
-        
+
         metric_np = metric_tensor.cpu().numpy()
 
         # Get mean for the metric over all variables

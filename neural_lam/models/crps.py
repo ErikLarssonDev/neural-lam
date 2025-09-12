@@ -1,8 +1,11 @@
+# Third-party
 import torch
 
+# First-party
+from neural_lam import constants, metrics
 from neural_lam.models.ar_prob_model import ARProbModel
 from neural_lam.models.edm_networks_2 import SongUNet
-from neural_lam import constants, metrics
+
 
 class CRPS(ARProbModel):
     """
@@ -49,9 +52,9 @@ class CRPS(ARProbModel):
         if self.pred_residual:
             next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
             next_state = prev_state + next_state
-        
+
         return next_state, None
-    
+
     # TODO: Implement the validation step, we need the full validation step since the loss requires multiple samples
 
     def training_step(self, batch):

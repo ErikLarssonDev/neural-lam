@@ -1,7 +1,7 @@
 # Standard library
 import os
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 # Third-party
 import numpy as np
@@ -313,7 +313,7 @@ class MLP(nn.Module):
                 layers.append(nn.SiLU())  # Swish activation
 
         self.mlp_layers = nn.Sequential(*layers)
-         
+
         # Optionally add layer norm to output
         if layer_norm:
             # self.layer_norm = (nn.LayerNorm(blueprint[-1]))
@@ -328,7 +328,7 @@ class MLP(nn.Module):
             # x = self.layer_norm(x+self.affine(emb))
             x = self.layer_norm(x, emb)
         return x
-    
+
 def make_mlp(blueprint, layer_norm=True, noise_level_dim=16):
     """
     Create MLP from list blueprint, with

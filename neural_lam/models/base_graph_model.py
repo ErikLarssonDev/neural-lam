@@ -1,6 +1,8 @@
+# Standard library
+import time
+
 # Third-party
 import torch
-import time
 
 # First-party
 from neural_lam import utils

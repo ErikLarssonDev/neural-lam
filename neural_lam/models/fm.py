@@ -1,24 +1,28 @@
+# Standard library
+import copy
+import math
+import os
+import time
+
+# Third-party
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.functional import silu
-import matplotlib.pyplot as plt
-import numpy as np
 import wandb
-import copy
-import math 
-import time
-import os
+from torch.nn.functional import silu
 
-from neural_lam.models.ar_model import ARModel
+# First-party
 from neural_lam import constants, metrics, utils, vis
-
+from neural_lam.models.ar_model import ARModel
+from neural_lam.models.edm_networks_2 import EDMPrecond, SongUNet
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
-from neural_lam.models.edm_networks_2 import EDMPrecond, SongUNet
+
 
 def bad(x):
-    return torch.any(torch.isnan(x)) or torch.any(torch.isinf(x)) 
+    return torch.any(torch.isnan(x)) or torch.any(torch.isinf(x))
 
 class FM(ARModel):
     """
@@ -68,7 +72,7 @@ class FM(ARModel):
         self.pred_residual = args.pred_residual # Whether to predict the residual instead of the next state
         self.diffusion_model = args.diffusion_model
 
-        self.t_min_sampling = 0.0  
+        self.t_min_sampling = 0.0
         self.t_max_sampling = 1.0
 
         self.test_metrics = {
@@ -108,7 +112,7 @@ class FM(ARModel):
         if self.pred_residual:
             next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
             next_state = prev_state + next_state
-        
+
         return next_state, None
 
     def predict_step_train(self, prev_state, prev_prev_state, forcing, true_state, boundary_forcing):
@@ -132,15 +136,15 @@ class FM(ARModel):
         if self.pred_residual:
             y = y - prev_state
             y = (y - self.step_diff_mean[constants.USED_PARAMS]) / self.step_diff_std[constants.USED_PARAMS] # Normalize residual
-      
+
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
 
         z0 = torch.randn_like(true_state, device=true_state.device) # (B, N_grid, d_state)
         z1 = y
-    
+
         t =  torch.rand([prev_state.shape[0], 1, 1], device=prev_state.device)
         zt = (1 - t) * z0 + t * z1
-    
+
         next_state = self.model(zt, t, input_grid, boundary_forcing)
 
         loss =  (next_state - (z1-z0)) ** 2
@@ -153,7 +157,7 @@ class FM(ARModel):
             next_state = prev_state + next_state
 
         return next_state, None, loss.unsqueeze(0)
-    
+
     def unroll_prediction(self, init_states, forcing_features, boundary_forcing):
             """
             Roll out prediction taking multiple autoregressive steps with model
@@ -173,9 +177,9 @@ class FM(ARModel):
                 pred_state, pred_std = self.predict_step(
                     prev_state, prev_prev_state, forcing, border_state
                 )
-        
+
                 new_state = pred_state
-        
+
                 prediction_list.append(new_state)
                 if self.output_std:
                     pred_std_list.append(pred_std)
@@ -296,7 +300,7 @@ class FM(ARModel):
             log_dict, prog_bar=True, on_step=True, on_epoch=True, sync_dist=True
         )
         return batch_loss
-    
+
 
     def sample_trajectories(
         self,
@@ -324,13 +328,13 @@ class FM(ARModel):
         for i in range(num_traj):
             # print(f"Starting trajectory {i + 1}/{num_traj}...")
             # start_time = time.time()
-            
+
             traj = unroll_func(
                 init_states,
                 forcing_features,
                 boundary_forcing,
             )
-            
+
             traj_list.append(traj)
 
         # List of tuples, each containing
@@ -346,9 +350,9 @@ class FM(ARModel):
             )
         else:
             traj_stds = self.per_var_std[constants.USED_PARAMS] # TODO: Check if this is correct, self.per_var_std = self.step_diff_std / torch.sqrt(self.param_weights)
-        
+
         return traj_means, traj_stds
-    
+
     def plot_examples(self, batch, n_examples, prediction=None):
         """
         Plot ensemble forecast + mean and std
@@ -673,7 +677,7 @@ class FM(ARModel):
         # super().on_test_epoch_end()
         self.aggregate_and_plot_metrics(self.test_metrics, prefix="test")
         self.log_spsk_ratio(self.test_metrics, "test")
-    
+
 # Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # This work is licensed under a Creative Commons
@@ -696,7 +700,7 @@ class FM(ARModel):
             half_step = (t_next - t_cur) / 2
             mid =  half_step * self.model(latents, t_cur, class_labels=class_labels, boundary_forcing=boundary_forcing)
             x_t = x_t + (t_next - t_cur) * self.model(mid, t_cur+half_step, class_labels=class_labels, boundary_forcing=boundary_forcing)
-        
+
         return x_t, None
 
     """Generate random images using the techniques described in the paper
@@ -738,6 +742,6 @@ class FM(ARModel):
 
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
-    
 
-    
+
+

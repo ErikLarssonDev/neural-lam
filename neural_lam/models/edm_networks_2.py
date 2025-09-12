@@ -8,13 +8,19 @@
 """Model architectures and preconditioning schemes used in the paper
 "Elucidating the Design Space of Diffusion-Based Generative Models"."""
 
+# Standard library
+from collections import OrderedDict
+
+# Third-party
 import numpy as np
 import torch
-from collections import OrderedDict
 import torch.nn as nn
+
 # from torch_utils import persistence
 from torch.nn.functional import silu
-from neural_lam import utils, constants, config
+
+# First-party
+from neural_lam import config, constants, utils
 
 #----------------------------------------------------------------------------
 # Unified routine for initializing weights and biases.
@@ -175,7 +181,7 @@ class UNetBlock(torch.nn.Module):
         if out_channels != in_channels or up or down:
             kernel = 1 if resample_proj or out_channels!= in_channels else 0
             self.skip = Conv2d(in_channels=in_channels, out_channels=out_channels, kernel=kernel, up=up, down=down, resample_filter=resample_filter, **init)
-        
+
         if self.num_heads:
             self.norm2 = GroupNorm(num_channels=out_channels, eps=eps)
             self.qkv = Conv2d(in_channels=out_channels, out_channels=out_channels*3, kernel=1, **(init_attn if init_attn is not None else init))
@@ -415,7 +421,7 @@ class SongUNet(torch.nn.Module):
                     self.dec[f'{res[0]}x{res[1]}_aux_up'] = Conv2d(in_channels=out_channels, out_channels=out_channels, kernel=0, up=True, resample_filter=resample_filter)
                 self.dec[f'{res[0]}x{res[1]}_aux_norm'] = GroupNorm(num_channels=cout, eps=1e-6)
                 self.dec[f'{res[0]}x{res[1]}_aux_conv'] = Conv2d(in_channels=cout, out_channels=out_channels, kernel=3, **init_zero)
-                
+
     @staticmethod
     def expand_to_batch(x, batch_size):
         """
@@ -425,9 +431,9 @@ class SongUNet(torch.nn.Module):
         if x.dim() == 3:
             return x
         return x.unsqueeze(0).expand(batch_size, -1, -1).contiguous()
-    
+
     def forward(self, x, noise_labels, class_labels=None, boundary_forcing=None):
-        
+
         # Mapping.
         emb = self.map_noise(noise_labels)
         emb = emb.reshape(emb.shape[0], 2, -1).flip(1).reshape(*emb.shape).contiguous() # swap sin/cos
@@ -439,7 +445,7 @@ class SongUNet(torch.nn.Module):
 
         if self.remove_cond:
             x = x - class_labels[:, :, :x.shape[-1]]  # NOTE: We assume that prev_state is first in class_labels
-    
+
         # Create full grid node features of shape (B, num_grid_nodes, grid_dim)
         if class_labels is None:
             grid_features = torch.cat(
@@ -458,7 +464,7 @@ class SongUNet(torch.nn.Module):
                 ),
                 dim=-1,
             )
-        
+
         # Create full boundary node features of shape
         # (B, num_boundary_nodes, boundary_dim)
 
@@ -525,7 +531,7 @@ class SongUNet(torch.nn.Module):
 
         # Reshape back to nodes
         aux = aux.permute(0, 2, 3, 1).contiguous().flatten(1, 2)
-        aux = aux[:, self.interior_mask, :] 
+        aux = aux[:, self.interior_mask, :]
 
         return aux
 
