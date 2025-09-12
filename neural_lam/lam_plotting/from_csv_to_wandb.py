@@ -11,7 +11,7 @@ config_loader = config.Config.from_file("/proj/berzelius-2022-164/users/x_erila/
 WANDB_PROJECT = "neural-lam_prob_eval"
 
 PREFIX = "val" # "test" or "val"
-RUN_NAME = f"FM_1200e_{PREFIX}_5_ens"
+RUN_NAME = f"SI_1200e_{PREFIX}_5_ens"
 METRIC_NAMES = ["ens_rmse", "crps_ens", "spsk_ratio"]  # or "ens_rmse" "crps_ens", "spsk_ratio" "spread", etc.
 
 # CSV_PATH = f"/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/lam_plotting/lam_eval/prob_hi_spskr.csv"
@@ -19,7 +19,7 @@ METRIC_NAMES = ["ens_rmse", "crps_ens", "spsk_ratio"]  # or "ens_rmse" "crps_ens
 wandb.init(project=WANDB_PROJECT, name=RUN_NAME)
 
 for METRIC_NAME in METRIC_NAMES:
-    CSV_PATH = f"/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/lam_plotting/lam_eval/FM_1200_{PREFIX}_5_{METRIC_NAME}.csv"
+    CSV_PATH = f"/proj/berzelius-2022-164/users/x_erila/neural-lam/neural_lam/lam_plotting/lam_eval/SI_1200_{PREFIX}_5_{METRIC_NAME}.csv"
     full_log_name = f"{PREFIX}_{METRIC_NAME}"
 
     # Read metrics from csv file

@@ -540,17 +540,19 @@ def main(input_args=None):
         )
     )
     callbacks.append(LearningRateMonitor(logging_interval='epoch'))
-    # Save checkpoints for minimum loss at specific lead times
-    # for unroll_time in constants.VAL_STEP_CHECKPOINTS:
-    #     metric_name = f"val_loss_unroll{unroll_time}"
-    #     callbacks.append(
-    #         pl.callbacks.ModelCheckpoint(
-    #             dirpath=f"saved_models/{run_name}",
-    #             filename=f"min_{metric_name}",
-    #             monitor=metric_name,
-    #             mode="min",
-    #         )
-    #     )
+
+    callbacks.append(
+        pl.callbacks.ModelCheckpoint(
+            dirpath=f"saved_models/{run_name}",
+            filename="last_epoch",
+            monitor="epoch",
+            save_on_train_epoch_end=True,
+            enable_version_counter=False, # We want to overwrite last_epoch.ckpt
+            save_top_k=-1,  # Save all epochs
+            every_n_epochs=1,
+            save_last=True,  # Optionally also save the last epoch
+        )
+    )
 
     wandb_project = args.wandb_project if args.eval is None else f"{args.wandb_project}_eval" # Saving the evalua
     logger = pl.loggers.WandbLogger(
@@ -607,7 +609,6 @@ def main(input_args=None):
                 pin_memory=True,
                 persistent_workers=True,
             )
-    
         print(f"Running evaluation on {args.eval}")
         trainer.test(model=model, dataloaders=eval_loader, ckpt_path=args.load)
     else:
@@ -615,7 +616,7 @@ def main(input_args=None):
         trainer.fit(
             model=model,
             train_dataloaders=train_loader,
-            # val_dataloaders=val_loader, # No validation during training for diffusion model
+            # val_dataloaders=val_loader, # No validation during training for diffusion model # TODO: Add validation 
             ckpt_path=args.load,
         )
 

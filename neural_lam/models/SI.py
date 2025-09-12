@@ -48,6 +48,7 @@ class SI(ARModel):
                                     channel_mult=args.channel_mult,
                                     encoder_type=args.encoder_type,
                                     attn_resolutions=args.attn_resolutions,
+                                    remove_cond=args.pred_residual,
                                     )
         else:
             raise ValueError(f"Diffusion model {args.diffusion_model} not recognized")
@@ -120,8 +121,6 @@ class SI(ARModel):
             xt = mu + g * torch.randn_like(mu) * dt.sqrt()
             return xt, mu # return sample and its mean
             
-
-
         for i, tscalar in enumerate(ts):
             
             if i == 0 and (diffusion_fn is not None):
@@ -228,20 +227,6 @@ class SI(ARModel):
                     (pred_std can be ignored by just returning None)
         """
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1) # (B, N_grid, d_input)
-        # latents = torch.randn_like(input_grid[:, :, :self.grid_output_dim]) # (B, N_grid, d_state)
-
-        # # Run through sampler
-        # if self.sampler == "heun":
-        #     next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
-        # elif self.sampler == "edm":
-        #     next_state, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5, num_steps=self.sampler_steps)
-        # elif self.sampler == "ddpm":
-        #     next_state, diff_states = self.ddpm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
-
-        # # Add residual if needed
-        # if self.pred_residual:
-        #     next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
-        #     next_state = prev_state + next_state
 
         # definently_sample
         EM_args = {'base': prev_state, 'cond': input_grid, 'boundary': boundary_forcing}
@@ -253,7 +238,6 @@ class SI(ARModel):
             'g_sigma_01': lambda t: self.sigma_coef * self.wide(1-t) * 0.1,
             'g_other': lambda t: self.sigma_coef * self.wide(1-t).pow(4),
         }
-
 
         next_state = self.EM(diffusion_fn=None, **EM_args) # None because we want to use the diffusion function we trained with, TODO: Experiment with this later
         
@@ -274,12 +258,6 @@ class SI(ARModel):
         pred_std: None or (B, N_grid, d_state), predicted standard-deviations
                     (pred_std can be ignored by just returning None)
         """
-
-        # y = true_state # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
-        # Make y residual if needed
-        # if self.pred_residual:
-        #     y = y - prev_state
-        #     y = (y - self.step_diff_mean[constants.USED_PARAMS]) / self.step_diff_std[constants.USED_PARAMS] # Normalize residual
       
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
 
@@ -303,12 +281,6 @@ class SI(ARModel):
         
         output = self.model(D['zt'], D['t'].reshape(D['zt'].shape[0]), input_grid, boundary_forcing) # Shape (B, d_state, N_x, N_y)
 
-        # Add residual if needed
-        # if self.pred_residual:
-        #     next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
-        #     next_state = prev_state + next_state
-
-        # weight = (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
         # Calculate loss
         loss = F.mse_loss(output, D['drift_target'], reduction='none')
 
@@ -441,11 +413,6 @@ class SI(ARModel):
 
         # Compute loss
         batch_loss = torch.mean(loss)  # mean over unrolled times and batch
-        # batch_loss = torch.mean(
-        #     self.loss(
-        #         prediction, target, pred_std, weight=weight # mask=self.interior_mask_bool
-        #     )
-        # )  # mean over unrolled times and batch
 
         batch_mse = torch.mean(
             metrics.mse(

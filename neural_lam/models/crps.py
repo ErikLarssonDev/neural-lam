@@ -52,6 +52,8 @@ class CRPS(ARProbModel):
         
         return next_state, None
     
+    # TODO: Implement the validation step, we need the full validation step since the loss requires multiple samples
+
     def training_step(self, batch):
         """
         Train on single batch
@@ -67,7 +69,7 @@ class CRPS(ARProbModel):
         )
         # (B, S=2, pred_steps, num_grid_nodes, d_f), always 2 samples
 
-        # Compute CRPS
+        # Compute CRPS, TODO: Should we include some weighting of the variables?
         crps_estimate = metrics.crps_ens( # TODO: Should we use this CRPS version?
             pred_traj_means,
             target_states,
@@ -76,9 +78,10 @@ class CRPS(ARProbModel):
         )  # (B, pred_steps)
         loss = torch.mean(crps_estimate)
 
-
         log_dict = {"train_loss": loss}
 
         self.log_dict(
             log_dict, prog_bar=True, on_step=True, on_epoch=True, sync_dist=True
         )
+
+        return loss

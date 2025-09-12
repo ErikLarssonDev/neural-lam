@@ -285,6 +285,7 @@ class SongUNet(torch.nn.Module):
         hidden_layers       = 1,            # Number of hidden layers in the grid encoding MLPs.
         obs_mask            = None,            # Masking of the observation grid.
         noise_dim           = 32,           # Dimensionality of the noise vector.
+        remove_cond         = False,        # Whether to remove the conditioning from x at inference with the model.
     ):
         assert embedding_type in ['fourier', 'positional', 'linear']
         assert encoder_type in ['standard', 'skip', 'residual']
@@ -307,6 +308,7 @@ class SongUNet(torch.nn.Module):
         self.obs_mask = obs_mask
         self.config_loader = config.Config.from_file('neural_lam/data_config.yaml')
         self.noise_dim = noise_dim
+        self.remove_cond = remove_cond
 
         # Load static features for grid/data
         static_data_dict = utils.load_static_data(
@@ -434,6 +436,9 @@ class SongUNet(torch.nn.Module):
 
         # Embedd the input tensor
         batch_size = x.shape[0]
+
+        if self.remove_cond:
+            x = x - class_labels[:, :, :x.shape[-1]]  # NOTE: We assume that prev_state is first in class_labels
     
         # Create full grid node features of shape (B, num_grid_nodes, grid_dim)
         if class_labels is None:
