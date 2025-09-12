@@ -1,10 +1,13 @@
+# Standard library
+import time
+
 # Third-party
 import torch
 
-# Local
-from .. import utils
-from ..interaction_net import InteractionNet
-from .ar_model import ARModel
+# First-party
+from neural_lam import utils
+from neural_lam.interaction_net import InteractionNet, PropagationNet
+from neural_lam.models.ar_model import ARModel
 
 
 class BaseGraphModel(ARModel):
@@ -17,8 +20,6 @@ class BaseGraphModel(ARModel):
         super().__init__(args)
 
         # Load graph with static features
-        # NOTE: (IMPORTANT!) mesh nodes MUST have the first
-        # num_mesh_nodes indices,
         self.hierarchical, graph_ldict = utils.load_graph(args.graph)
         for name, attr_value in graph_ldict.items():
             # Make BufferLists module members and register tensors as buffers
@@ -31,7 +32,8 @@ class BaseGraphModel(ARModel):
         self.num_mesh_nodes, _ = self.get_num_mesh()
         print(
             f"Loaded graph with {self.num_grid_nodes + self.num_mesh_nodes} "
-            f"nodes ({self.num_grid_nodes} grid, {self.num_mesh_nodes} mesh)"
+            f"nodes ({self.num_grid_nodes} grid, {self.num_mesh_nodes} mesh), "
+            f"input nodes {self.num_input_nodes}"
         )
 
         # grid_dim from data + static
@@ -44,12 +46,28 @@ class BaseGraphModel(ARModel):
         self.grid_embedder = utils.make_mlp(
             [self.grid_dim] + self.mlp_blueprint_end
         )
+        # Optional separate embedder for boundary nodes
+        if args.shared_grid_embedder:
+            assert self.grid_dim == self.boundary_dim, (
+                "Grid and boundary input dimension must be the same when using "
+                f"the same embedder, got grid_dim={self.grid_dim}, "
+                f"boundary_dim={self.boundary_dim}"
+            )
+            self.boundary_embedder = self.grid_embedder
+        else:
+            print("Using separate boundary embedder")
+            print(f"Boundary dim: {self.boundary_dim}")
+            self.boundary_embedder = utils.make_mlp(
+                [self.boundary_dim] + self.mlp_blueprint_end
+            )
+
         self.g2m_embedder = utils.make_mlp([g2m_dim] + self.mlp_blueprint_end)
         self.m2g_embedder = utils.make_mlp([m2g_dim] + self.mlp_blueprint_end)
 
         # GNNs
+        gnn_class = PropagationNet if args.vertical_propnets else InteractionNet
         # encoder
-        self.g2m_gnn = InteractionNet(
+        self.g2m_gnn = gnn_class(
             self.g2m_edge_index,
             args.hidden_dim,
             hidden_layers=args.hidden_layers,
@@ -60,7 +78,7 @@ class BaseGraphModel(ARModel):
         )
 
         # decoder
-        self.m2g_gnn = InteractionNet(
+        self.m2g_gnn = gnn_class(
             self.m2g_edge_index,
             args.hidden_dim,
             hidden_layers=args.hidden_layers,
@@ -98,14 +116,20 @@ class BaseGraphModel(ARModel):
         """
         raise NotImplementedError("process_step not implemented")
 
-    def predict_step(self, prev_state, prev_prev_state, forcing):
+    def predict_step(
+        self, prev_state, prev_prev_state, forcing, boundary_forcing, emb=None
+    ):
         """
         Step state one step ahead using prediction model, X_{t-1}, X_t -> X_t+1
         prev_state: (B, num_grid_nodes, feature_dim), X_t
         prev_prev_state: (B, num_grid_nodes, feature_dim), X_{t-1}
         forcing: (B, num_grid_nodes, forcing_dim)
+        boundary_forcing: (B, num_boundary_nodes, boundary_forcing_dim)
         """
+        # start_time = time.time()
         batch_size = prev_state.shape[0]
+        if emb is None:
+            emb = torch.zeros(prev_state.shape[0], 16)
 
         # Create full grid node features of shape (B, num_grid_nodes, grid_dim)
         grid_features = torch.cat(
@@ -117,12 +141,28 @@ class BaseGraphModel(ARModel):
             ),
             dim=-1,
         )
+        # Create full boundary node features of shape
+        # (B, num_boundary_nodes, boundary_dim)
+        boundary_features = torch.cat(
+            (
+                boundary_forcing,
+                self.expand_to_batch(self.boundary_static_features, batch_size),
+            ),
+            dim=-1,
+        )
 
         # Embed all features
-        grid_emb = self.grid_embedder(grid_features)  # (B, num_grid_nodes, d_h)
-        g2m_emb = self.g2m_embedder(self.g2m_features)  # (M_g2m, d_h)
-        m2g_emb = self.m2g_embedder(self.m2g_features)  # (M_m2g, d_h)
-        mesh_emb = self.embedd_mesh_nodes()
+        grid_emb = self.grid_embedder(grid_features, emb)  # (B, num_grid_nodes, d_h)
+        boundary_emb = self.boundary_embedder(boundary_features, emb)
+        # (B, num_boundary_nodes, d_h)
+        g2m_emb = self.g2m_embedder(self.g2m_features, emb)  # (M_g2m, d_h)
+        m2g_emb = self.m2g_embedder(self.m2g_features, emb)  # (M_m2g, d_h)
+
+        mesh_emb = self.embedd_mesh_nodes(emb)
+
+        # Merge interior and boundary emb into input embedding
+        # We enforce ordering (interior, boundary) of nodes
+        input_emb = torch.cat((grid_emb, boundary_emb), dim=1)
 
         # Map from grid to mesh
         mesh_emb_expanded = self.expand_to_batch(
@@ -130,27 +170,27 @@ class BaseGraphModel(ARModel):
         )  # (B, num_mesh_nodes, d_h)
         g2m_emb_expanded = self.expand_to_batch(g2m_emb, batch_size)
 
-        # This also splits representation into grid and mesh
+        # Encode to mesh
         mesh_rep = self.g2m_gnn(
-            grid_emb, mesh_emb_expanded, g2m_emb_expanded
+            input_emb, mesh_emb_expanded, g2m_emb_expanded, emb
         )  # (B, num_mesh_nodes, d_h)
         # Also MLP with residual for grid representation
         grid_rep = grid_emb + self.encoding_grid_mlp(
-            grid_emb
+            grid_emb, emb
         )  # (B, num_grid_nodes, d_h)
 
         # Run processor step
-        mesh_rep = self.process_step(mesh_rep)
+        mesh_rep = self.process_step(mesh_rep, emb)
 
         # Map back from mesh to grid
         m2g_emb_expanded = self.expand_to_batch(m2g_emb, batch_size)
         grid_rep = self.m2g_gnn(
-            mesh_rep, grid_rep, m2g_emb_expanded
+            mesh_rep, grid_rep, m2g_emb_expanded, emb
         )  # (B, num_grid_nodes, d_h)
 
         # Map to output dimension, only for grid
         net_output = self.output_map(
-            grid_rep
+            grid_rep, emb
         )  # (B, num_grid_nodes, d_grid_out)
 
         if self.output_std:
@@ -165,10 +205,13 @@ class BaseGraphModel(ARModel):
             pred_delta_mean = net_output
             pred_std = None
 
-        # Rescale with one-step difference statistics
-        rescaled_delta_mean = (
-            pred_delta_mean * self.step_diff_std + self.step_diff_mean
-        )
+        # print(f"Prediction Graph_FM step took {time.time() - start_time:.2f}s")
 
-        # Residual connection for full state
-        return prev_state + rescaled_delta_mean, pred_std
+        return pred_delta_mean, pred_std
+        # # Rescale with one-step difference statistics
+        # rescaled_delta_mean = (
+        #     pred_delta_mean * self.step_diff_std + self.step_diff_mean
+        # )
+
+        # # Residual connection for full state
+        # return prev_state + rescaled_delta_mean, pred_std

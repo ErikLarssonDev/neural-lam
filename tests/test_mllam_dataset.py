@@ -7,10 +7,11 @@ import pooch
 import pytest
 
 # First-party
+from neural_lam.build_graph import main as build_graph
 from neural_lam.config import Config
-from neural_lam.create_mesh import main as create_mesh
 from neural_lam.train_model import main as train_model
 from neural_lam.utils import load_static_data
+from neural_lam.vis import plot_prediction
 from neural_lam.weather_dataset import WeatherDataset
 
 # Disable weights and biases to avoid unnecessary logging
@@ -66,14 +67,17 @@ def test_load_reduced_meps_dataset(meps_example_reduced_filepath):
     n_state_features = len(var_names)
     n_prediction_timesteps = dataset.sample_length - n_input_steps
 
+    static_data = load_static_data(dataset_name)
     nx, ny = config.values["grid_shape_state"]
     n_grid = nx * ny
+    static_data["interior_mask"].sum().item()
+    n_boundary = static_data["boundary_mask"].sum().item()
 
     # check that the dataset is not empty
     assert len(dataset) > 0
 
     # get the first item
-    init_states, target_states, forcing = dataset[0]
+    init_states, target_states, forcing, boundary_forcing = dataset[0]
 
     # check that the shapes of the tensors are correct
     assert init_states.shape == (n_input_steps, n_grid, n_state_features)
@@ -87,42 +91,54 @@ def test_load_reduced_meps_dataset(meps_example_reduced_filepath):
         n_grid,
         n_forcing_features,
     )
-
-    static_data = load_static_data(dataset_name=dataset_name)
+    assert boundary_forcing.shape == (
+        n_prediction_timesteps,
+        n_boundary,
+        2 * n_state_features + n_forcing_features,  # TODO Adjust dimensionality
+    )
 
     required_props = {
-        "border_mask",
+        "boundary_mask",
+        "interior_mask",
         "grid_static_features",
+        "boundary_static_features",
         "step_diff_mean",
         "step_diff_std",
         "data_mean",
         "data_std",
         "param_weights",
+        "grid_limits",
     }
 
     # check the sizes of the props
-    assert static_data["border_mask"].shape == (n_grid, 1)
     assert static_data["grid_static_features"].shape == (
         n_grid,
         n_grid_static_features,
+    )
+    assert static_data["boundary_static_features"].shape == (
+        n_boundary,
+        n_grid_static_features,  # TODO Adjust dimensionality
     )
     assert static_data["step_diff_mean"].shape == (n_state_features,)
     assert static_data["step_diff_std"].shape == (n_state_features,)
     assert static_data["data_mean"].shape == (n_state_features,)
     assert static_data["data_std"].shape == (n_state_features,)
     assert static_data["param_weights"].shape == (n_state_features,)
+    assert len(static_data["grid_limits"]) == 4
 
     assert set(static_data.keys()) == required_props
 
 
 def test_create_graph_reduced_meps_dataset():
     args = [
-        "--graph=hierarchical",
-        "--hierarchical",
+        "--output_dir=graphs/reduced_meps_hierarchical",
+        "--archetype=hierarchical",
         "--data_config=data/meps_example_reduced/data_config.yaml",
-        "--levels=2",
+        "--max_num_levels=2",
+        "--mesh_node_distance=0.05",
+        # Distance for normalized data, might need adjustment
     ]
-    create_mesh(args)
+    build_graph(args)
 
 
 def test_train_model_reduced_meps_dataset():
@@ -131,7 +147,7 @@ def test_train_model_reduced_meps_dataset():
         "--data_config=data/meps_example_reduced/data_config.yaml",
         "--n_workers=4",
         "--epochs=1",
-        "--graph=hierarchical",
+        "--graph=reduced_meps_hierarchical",
         "--hidden_dim=16",
         "--hidden_layers=1",
         "--processor_layers=1",
@@ -140,3 +156,20 @@ def test_train_model_reduced_meps_dataset():
         "--n_example_pred=0",
     ]
     train_model(args)
+
+
+def test_vis_reduced_meps_dataset(meps_example_reduced_filepath):
+    data_config_file = meps_example_reduced_filepath / "data_config.yaml"
+    dataset_name = meps_example_reduced_filepath.name
+
+    config = Config.from_file(str(data_config_file))
+
+    static_data = load_static_data(dataset_name)
+    geopotential = static_data["grid_static_features"][..., 2]
+
+    plot_prediction(
+        geopotential,
+        geopotential,
+        config,
+        grid_limits=static_data["grid_limits"],
+    )

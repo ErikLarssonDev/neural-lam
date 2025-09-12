@@ -1,20 +1,24 @@
 # Standard library
 import os
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 # Third-party
 import numpy as np
 import torch
+import torch_geometric as pyg
 from torch import nn
 from tueplots import bundles, figsizes
+
+# First-party
+from neural_lam import constants
 
 
 def load_dataset_stats(dataset_name, data_path="data", device="cpu"):
     """
     Load arrays with stored dataset statistics from pre-processing
     """
-    static_dir_path = os.path.join(data_path, dataset_name, "static")
+    static_dir_path = os.path.join(constants.DATA_PATH, dataset_name, "static")
 
     def loads_file(fn):
         return torch.load(
@@ -39,9 +43,7 @@ def load_static_data(dataset_name, data_path="data", device="cpu"):
     """
     Load static files related to dataset
     """
-    print(f"Loading static data for {dataset_name}")
-    print(f"Data path: {data_path}")
-    static_dir_path = os.path.join(data_path, dataset_name, "static")
+    static_dir_path = os.path.join(constants.DATA_PATH, dataset_name, "static")
 
     def loads_file(fn):
         return torch.load(
@@ -49,16 +51,22 @@ def load_static_data(dataset_name, data_path="data", device="cpu"):
         )
 
     # Load border mask, 1. if node is part of border, else 0.
-    border_mask_np = np.load(os.path.join(static_dir_path, "border_mask.npy"))
-    border_mask = (
-        torch.tensor(border_mask_np, dtype=torch.float32, device=device)
+    boundary_mask_np = np.load(os.path.join(static_dir_path, "border_mask.npy"))
+    boundary_mask = (
+        torch.tensor(boundary_mask_np, dtype=torch.float32, device=device)
         .flatten(0, 1)
-        .unsqueeze(1)
-    )  # (N_grid, 1)
+        .to(torch.bool)
+    )  # (N_grid,)
+    interior_mask = torch.logical_not(boundary_mask)
 
-    grid_static_features = loads_file(
+    full_grid_static_features = loads_file(
         "grid_features.pt"
-    )  # (N_grid, d_grid_static)
+    )  # (N_full_grid, d_grid_static)
+
+    grid_static_features = full_grid_static_features[interior_mask]
+    # (num_grid_nodes, d_grid_static)
+    boundary_static_features = full_grid_static_features[boundary_mask]
+    # (num_boundary_nodes, d_grid_static)
 
     # Load step diff stats
     step_diff_mean = loads_file("diff_mean.pt")  # (d_f,)
@@ -75,14 +83,26 @@ def load_static_data(dataset_name, data_path="data", device="cpu"):
         device=device,
     )  # (d_f,)
 
+    raw_coords = np.load(os.path.join(static_dir_path, "nwp_xy.npy"))
+    interior_coords = raw_coords.reshape(2, -1)[:, interior_mask.numpy()]
+    grid_limits = [
+        interior_coords[0].min(),
+        interior_coords[0].max(),
+        interior_coords[1].min(),
+        interior_coords[1].max(),
+    ]
+
     return {
-        "border_mask": border_mask,
+        "boundary_mask": boundary_mask,
+        "interior_mask": interior_mask,
         "grid_static_features": grid_static_features,
+        "boundary_static_features": boundary_static_features,
         "step_diff_mean": step_diff_mean,
         "step_diff_std": step_diff_std,
         "data_mean": data_mean,
         "data_std": data_std,
         "param_weights": param_weights,
+        "grid_limits": grid_limits,
     }
 
 
@@ -111,6 +131,13 @@ class BufferList(nn.Module):
         return (self[i] for i in range(len(self)))
 
 
+def zero_index_edge_index(edge_index):
+    """
+    Make both sender and receiver indices of edge_index start at 0
+    """
+    return edge_index - edge_index.min(dim=1, keepdim=True)[0]
+
+
 def load_graph(graph_name, device="cpu"):
     """
     Load all tensors representing the graph
@@ -121,12 +148,48 @@ def load_graph(graph_name, device="cpu"):
     def loads_file(fn):
         return torch.load(os.path.join(graph_dir_path, fn), map_location=device)
 
+    # Load static node features
+    mesh_static_features = loads_file(
+        "m2m_node_features.pt"
+    )  # List of (N_mesh[l], d_mesh_static)
+
     # Load edges (edge_index)
     m2m_edge_index = BufferList(
-        loads_file("m2m_edge_index.pt"), persistent=False
+        [zero_index_edge_index(ei) for ei in loads_file("m2m_edge_index.pt")],
+        persistent=False,
     )  # List of (2, M_m2m[l])
     g2m_edge_index = loads_file("g2m_edge_index.pt")  # (2, M_g2m)
     m2g_edge_index = loads_file("m2g_edge_index.pt")  # (2, M_m2g)
+
+    # Change first indices to 0
+    g2m_edge_index = zero_index_edge_index(g2m_edge_index)
+    # m2g has to be handled specially as not all mesh nodes might be indexed in
+    # m2g_edge_index
+    m2g_min_indices = m2g_edge_index.min(dim=1, keepdim=True)[0]
+    if m2g_min_indices[0] < m2g_min_indices[1]:
+        # mesh has the first indices
+        # Number of mesh nodes at level that connects to grid
+        num_mesh_nodes = mesh_static_features[0].shape[0]
+
+        m2g_edge_index = torch.stack(
+            (
+                m2g_edge_index[0],
+                m2g_edge_index[1] - num_mesh_nodes,
+            ),
+            dim=0,
+        )
+    else:
+        # grid (interior) has the first indices
+        # NOTE: Below works, but would be good with a better way to get this
+        num_interior_nodes = m2g_edge_index[1].max() + 1
+
+        m2g_edge_index = torch.stack(
+            (
+                m2g_edge_index[0] - num_interior_nodes,
+                m2g_edge_index[1],
+            ),
+            dim=0,
+        )
 
     n_levels = len(m2m_edge_index)
     hierarchical = n_levels > 1  # Nor just single level mesh graph
@@ -147,11 +210,6 @@ def load_graph(graph_name, device="cpu"):
     g2m_features = g2m_features / longest_edge
     m2g_features = m2g_features / longest_edge
 
-    # Load static node features
-    mesh_static_features = loads_file(
-        "mesh_features.pt"
-    )  # List of (N_mesh[l], d_mesh_static)
-
     # Some checks for consistency
     assert (
         len(m2m_features) == n_levels
@@ -163,10 +221,18 @@ def load_graph(graph_name, device="cpu"):
     if hierarchical:
         # Load up and down edges and features
         mesh_up_edge_index = BufferList(
-            loads_file("mesh_up_edge_index.pt"), persistent=False
+            [
+                zero_index_edge_index(ei)
+                for ei in loads_file("mesh_up_edge_index.pt")
+            ],
+            persistent=False,
         )  # List of (2, M_up[l])
         mesh_down_edge_index = BufferList(
-            loads_file("mesh_down_edge_index.pt"), persistent=False
+            [
+                zero_index_edge_index(ei)
+                for ei in loads_file("mesh_down_edge_index.pt")
+            ],
+            persistent=False,
         )  # List of (2, M_down[l])
 
         mesh_up_features = loads_file(
@@ -222,8 +288,48 @@ def load_graph(graph_name, device="cpu"):
         "mesh_static_features": mesh_static_features,
     }
 
+class ConditionalLayerNorm(nn.Module):
+    def __init__(self, normalized_shape, noise_level_dim=16):
+        super(ConditionalLayerNorm, self).__init__()
+        self.layer_norm = nn.LayerNorm(normalized_shape, elementwise_affine=False)
+        self.scale_layer = nn.Linear(noise_level_dim, normalized_shape)
+        self.offset_layer = nn.Linear(noise_level_dim, normalized_shape)
 
-def make_mlp(blueprint, layer_norm=True):
+    def forward(self, x, noise_level_encoding):
+        scale = self.scale_layer(noise_level_encoding)  # (batch_size, normalized_shape)
+        offset = self.offset_layer(noise_level_encoding)  # (batch_size, normalized_shape)
+        return self.layer_norm(x) * scale + offset
+
+class MLP(nn.Module):
+    def __init__(self, blueprint, layer_norm, noise_level_dim=16):
+        super(MLP, self).__init__()
+        hidden_layers = len(blueprint) - 2
+        assert hidden_layers >= 0, "Invalid MLP blueprint"
+
+        layers = []
+        for layer_i, (dim1, dim2) in enumerate(zip(blueprint[:-1], blueprint[1:])):
+            layers.append(nn.Linear(dim1, dim2))
+            if layer_i != hidden_layers:
+                layers.append(nn.SiLU())  # Swish activation
+
+        self.mlp_layers = nn.Sequential(*layers)
+
+        # Optionally add layer norm to output
+        if layer_norm:
+            # self.layer_norm = (nn.LayerNorm(blueprint[-1]))
+            # self.affine = nn.Linear(16, blueprint[-1]) # 16 is the embedding size of the noise vector
+            self.layer_norm = ConditionalLayerNorm(blueprint[-1], noise_level_dim)
+        else:
+            self.layer_norm = None
+
+    def forward(self, x, emb=0):
+        x = self.mlp_layers(x)
+        if self.layer_norm is not None:
+            # x = self.layer_norm(x+self.affine(emb))
+            x = self.layer_norm(x, emb)
+        return x
+
+def make_mlp(blueprint, layer_norm=True, noise_level_dim=16):
     """
     Create MLP from list blueprint, with
     input dimensionality: blueprint[0]
@@ -233,20 +339,21 @@ def make_mlp(blueprint, layer_norm=True):
     if layer_norm is True, includes a LayerNorm layer at
     the output (as used in GraphCast)
     """
-    hidden_layers = len(blueprint) - 2
-    assert hidden_layers >= 0, "Invalid MLP blueprint"
 
-    layers = []
-    for layer_i, (dim1, dim2) in enumerate(zip(blueprint[:-1], blueprint[1:])):
-        layers.append(nn.Linear(dim1, dim2))
-        if layer_i != hidden_layers:
-            layers.append(nn.SiLU())  # Swish activation
+    # hidden_layers = len(blueprint) - 2
+    # assert hidden_layers >= 0, "Invalid MLP blueprint"
 
-    # Optionally add layer norm to output
-    if layer_norm:
-        layers.append(nn.LayerNorm(blueprint[-1]))
+    # layers = []
+    # for layer_i, (dim1, dim2) in enumerate(zip(blueprint[:-1], blueprint[1:])):
+    #     layers.append(nn.Linear(dim1, dim2))
+    #     if layer_i != hidden_layers:
+    #         layers.append(nn.SiLU())  # Swish activation
 
-    return nn.Sequential(*layers)
+    # # Optionally add layer norm to output
+    # if layer_norm:
+    #     layers.append(nn.LayerNorm(blueprint[-1]))
+
+    return MLP(blueprint, layer_norm, noise_level_dim) # nn.Sequential(*layers)
 
 
 def fractional_plot_bundle(fraction):
@@ -257,8 +364,8 @@ def fractional_plot_bundle(fraction):
     # If latex is not available, some visualizations might not render correctly,
     # but will at least not raise an error.
     # Alternatively, use unicode raised numbers.
-    usetex = False # Removed this line to remove latex errors # True if shutil.which("latex") else False
-    bundle = bundles.neurips2023(usetex=usetex, family="serif")
+    usetex = True if shutil.which("latex") else False
+    bundle = bundles.neurips2023(usetex=False, family="serif")
     bundle.update(figsizes.neurips2023())
     original_figsize = bundle["figure.figsize"]
     bundle["figure.figsize"] = (
@@ -276,3 +383,18 @@ def init_wandb_metrics(wandb_logger, val_steps):
     experiment.define_metric("val_mean_loss", summary="min")
     for step in val_steps:
         experiment.define_metric(f"val_loss_unroll{step}", summary="min")
+
+def get_reordered_grid_pos(dataset_name, device="cpu"):
+    """
+    Interior nodes first, then boundary
+    """
+    static_data = load_static_data(dataset_name, device=device)
+
+    return torch.cat(
+        (
+            static_data["grid_static_features"][:, :2],
+            static_data["boundary_static_features"][:, :2],
+        ),
+        dim=0,
+    )
+    # (num_total_grid_nodes, 2)
