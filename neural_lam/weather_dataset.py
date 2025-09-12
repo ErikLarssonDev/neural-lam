@@ -69,7 +69,7 @@ class WeatherDataset(torch.utils.data.Dataset):
         # Set up for standardization
         self.standardize = standardize
         if standardize:
-            ds_stats = utils.load_dataset_stats(dataset_name, "cpu")
+            ds_stats = utils.load_dataset_stats(dataset_name, data_path=data_path, device="cpu")
             self.data_mean, self.data_std, self.flux_mean, self.flux_std = (
                 ds_stats["data_mean"],
                 ds_stats["data_std"],

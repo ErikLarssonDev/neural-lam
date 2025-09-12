@@ -34,7 +34,7 @@ class ARModel(pl.LightningModule):
 
         # Load static features for grid/data
         static_data_dict = utils.load_static_data(
-            self.config_loader.dataset.name
+            self.config_loader.dataset.name, self.config_loader.dataset.data_path
         )
 
         for static_data_name, static_data in static_data_dict.items():

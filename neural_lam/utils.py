@@ -1,5 +1,6 @@
 # Standard library
 import os
+from pathlib import Path
 import shutil
 
 # Third-party
@@ -13,7 +14,7 @@ from tueplots import bundles, figsizes
 from neural_lam import constants
 
 
-def load_dataset_stats(dataset_name, device="cpu"):
+def load_dataset_stats(dataset_name, data_path="data", device="cpu"):
     """
     Load arrays with stored dataset statistics from pre-processing
     """
@@ -38,7 +39,7 @@ def load_dataset_stats(dataset_name, device="cpu"):
     }
 
 
-def load_static_data(dataset_name, device="cpu"):
+def load_static_data(dataset_name, data_path="data", device="cpu"):
     """
     Load static files related to dataset
     """
