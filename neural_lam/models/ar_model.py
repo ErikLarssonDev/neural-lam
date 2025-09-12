@@ -30,6 +30,7 @@ class ARModel(pl.LightningModule):
         self.pred_residual = args.pred_residual
         self.save_output = args.save_output
         self.save_output_wandb = args.save_output_wandb
+        self.eval_split = args.eval
 
         # Load static features for grid/data
         static_data_dict = utils.load_static_data(
@@ -353,19 +354,20 @@ class ARModel(pl.LightningModule):
         self.spatial_loss_maps.append(log_spatial_losses)
         # (B, N_log, num_grid_nodes)
 
+        # NOTE: Plot examples in ARProbModel instead
         # Plot example predictions (on rank 0 only)
-        if (
-            self.trainer.is_global_zero
-            and self.plotted_examples < self.n_example_pred
-        ):
-            # Need to plot more example predictions
-            n_additional_examples = min(
-                prediction.shape[0], self.n_example_pred - self.plotted_examples
-            )
+        # if (
+        #     self.trainer.is_global_zero
+        #     and self.plotted_examples < self.n_example_pred
+        # ):
+        #     # Need to plot more example predictions
+        #     n_additional_examples = min(
+        #         prediction.shape[0], self.n_example_pred - self.plotted_examples
+        #     )
 
-            self.plot_examples(
-                batch, n_additional_examples, prediction=prediction
-            )
+        #     self.plot_examples(
+        #         batch, n_additional_examples, prediction=prediction
+        #     )
 
     def plot_examples(self, batch, n_examples, prediction=None):
         """
@@ -484,10 +486,12 @@ class ARModel(pl.LightningModule):
             self.config_loader,
             step_length=self.step_length,
         )
+
+        prefix = self.eval_split if self.eval_split is not None else prefix
         full_log_name = f"{prefix}_{metric_name}"
         log_dict[full_log_name] = wandb.Image(metric_fig)
 
-        if prefix == "test":
+        if self.eval_split == "test":
             # Save pdf
             metric_fig.savefig(
                 os.path.join(wandb.run.dir, f"{full_log_name}.pdf")
@@ -514,7 +518,7 @@ class ARModel(pl.LightningModule):
         for i, varname in enumerate(metric_names):  # adjust var names as needed
             wandb.log({f"{full_log_name}_{varname}_lineplot": wandb.plot.line_series(
                 xs=list(range(metric_np.shape[0])),
-                ys=metric_np[:, i].tolist(),
+                ys=[metric_np[:, i].tolist()],
                 keys=[wandb.run.name],
                 title=f"{full_log_name} {varname}",
                 xname="Time Step"
