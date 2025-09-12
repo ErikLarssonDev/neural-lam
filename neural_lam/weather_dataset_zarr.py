@@ -1,10 +1,15 @@
+# Standard library
 import os
-import zarr
-import torch
-import numpy as np
 
-from neural_lam import constants
+# Third-party
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import zarr
+
+# First-party
+from neural_lam import constants
+
 
 class WeatherDataset(torch.utils.data.Dataset):
     """

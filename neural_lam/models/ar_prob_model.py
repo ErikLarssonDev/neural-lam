@@ -1,11 +1,16 @@
-import torch
+# Standard library
 import os
-import wandb
-import numpy as np
-import matplotlib.pyplot as plt
 
+# Third-party
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import wandb
+
+# First-party
 from neural_lam import constants, metrics, vis
 from neural_lam.models.ar_model import ARModel
+
 
 class ARProbModel(ARModel):
     """
@@ -29,7 +34,7 @@ class ARProbModel(ARModel):
                 "spread_squared": [],
             }
         )
-    
+
     def predict_step(self, prev_state, prev_prev_state, forcing, boundary_forcing):
         """
         Predict weather state one time step ahead
@@ -87,7 +92,7 @@ class ARProbModel(ARModel):
                 pred_state, pred_std = self.predict_step(
                     prev_state, prev_prev_state, forcing, border_state
                 )
-        
+
                 new_state = pred_state
                 prediction_list.append(new_state)
 
@@ -182,7 +187,7 @@ class ARProbModel(ARModel):
         # pred_std: (B, pred_steps, num_grid_nodes, d_f) or (d_f,)
 
         return prediction, target_states, pred_std, loss
-    
+
     def training_step(self, batch):
         """
         Train on single batch
@@ -204,7 +209,7 @@ class ARProbModel(ARModel):
         )
         return batch_loss
 
-    
+
     def sample_trajectories(
         self,
         init_states,
@@ -228,13 +233,13 @@ class ARProbModel(ARModel):
         unroll_func = self.unroll_prediction
 
         traj_list = []
-        for i in range(num_traj):     
+        for i in range(num_traj):
             traj = unroll_func(
                 init_states,
                 forcing_features,
                 boundary_forcing,
             )
-            
+
             traj_list.append(traj)
 
         # List of tuples, each containing
@@ -250,7 +255,7 @@ class ARProbModel(ARModel):
             )
         else:
             traj_stds = self.per_var_std[constants.USED_PARAMS] # TODO: Check if this is correct, self.per_var_std = self.step_diff_std / torch.sqrt(self.param_weights)
-        
+
         return traj_means, traj_stds
 
     def plot_examples(self, batch, n_examples, prediction=None):

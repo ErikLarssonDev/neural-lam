@@ -1,7 +1,10 @@
 # https://pythonprogramming.altervista.org/png-to-gif/
-from PIL import Image
+# Standard library
 import glob
 import os
+
+# Third-party
+from PIL import Image
 
 N_frames = 19
 duration=700

@@ -1,4 +1,7 @@
+# Standard library
 from collections import OrderedDict
+
+# Third-party
 from plotting_scripts.plot_error_lines import plot_error_lines
 
 config = "lam"
@@ -44,14 +47,14 @@ elif config == "lam":
         "r_65", "t_2", "t_65", "t_500", "t_850", "u_65", "u_850", "v_65",
         "v_850", "wvint_0", "z_1000", "z_500",]
     # kwargs["plot_ylabel"] = True # Only for Run where I want to plot the mean metrics.
-    
+
     metric_lookup["rmse"] = "RMSE"
     metric_lookup["crps"] = "CRPS"
     metric_lookup["spskr"] = "SSR"
 
     # Deterministic models
-    # model_lookup["det_ms"] = ("GraphCast*", "#00B9E7", ":") 
-    # model_lookup["det_hi"] = ("Graph-FM", "#8981d3", "-.") 
+    # model_lookup["det_ms"] = ("GraphCast*", "#00B9E7", ":")
+    # model_lookup["det_hi"] = ("Graph-FM", "#8981d3", "-.")
 
     # Probabilistic models
     # model_lookup["prob_ms"] = ("Graph-EFM (ms) (100 ens.)", "#003f5c", "-") # 100 ensemble members
@@ -64,10 +67,10 @@ elif config == "lam":
 
     # #000000 - No border :
     # #008744 - Shared encoder .
-    model_lookup["no_border"] = ("Diffusion-LAM (5 ens. no border)", "#000000", ":") 
-    # model_lookup["shared"] = ("Diffusion-LAM (5 ens. shared encoder)", "#008744", "-") 
+    model_lookup["no_border"] = ("Diffusion-LAM (5 ens. no border)", "#000000", ":")
+    # model_lookup["shared"] = ("Diffusion-LAM (5 ens. shared encoder)", "#008744", "-")
     model_lookup["edm_1200_test_5"] = ("Diffusion-LAM (5 ens.)", "#ee9923", "--")
-    model_lookup["edm_1200_test_25"] = ("Diffusion-LAM (25 ens.)", "#d6002d", "-") 
+    model_lookup["edm_1200_test_25"] = ("Diffusion-LAM (25 ens.)", "#d6002d", "-")
 
     kwargs["legend_cols"] = 3 # len(model_lookup)+1 # Add one for "Calibrated for SSR"
 
@@ -257,6 +260,6 @@ plot_error_lines(
     line_width=0.8,
     unitless_metrics=["spskr",],
     step_length=step_length,
-    separate_legend=True, 
+    separate_legend=True,
     **kwargs
 )

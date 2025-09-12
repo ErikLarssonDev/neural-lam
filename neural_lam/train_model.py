@@ -12,16 +12,16 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.profilers import AdvancedProfiler
 
 # First-party
-from neural_lam import constants, utils, config
-from neural_lam.weather_dataset import WeatherDataset
+from neural_lam import config, constants, utils
+from neural_lam.models.crps import CRPS
+from neural_lam.models.diffusion import Diffusion
+from neural_lam.models.fm import FM
 from neural_lam.models.graph_efm import GraphEFM
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
-from neural_lam.models.diffusion import Diffusion
 from neural_lam.models.SI import SI
 from neural_lam.models.tEDM import tEDM
-from neural_lam.models.fm import FM
-from neural_lam.models.crps import CRPS
+from neural_lam.weather_dataset import WeatherDataset
 
 MODELS = {
     "graphcast": GraphCast,
@@ -486,7 +486,7 @@ def main(input_args=None):
     max_pred_length = (65 // args.step_length) - 2  # 19
     if args.plot_diffusion_steps:
         max_pred_length = 1
-    
+
     if args.model == "diffusion" and args.eval is None:
         max_pred_length_val = 1
     else:
@@ -526,7 +526,7 @@ def main(input_args=None):
     prefix = "subset-" if args.subset_ds else ""
     if args.eval:
         prefix = prefix + f"eval-{args.eval}-"
-    
+
     prefix = f"{args.wandb_run_name}-{prefix}" if args.wandb_run_name else prefix
     run_name = (
         f"{prefix}{args.model}-{args.processor_layers}x{args.hidden_dim}-"
@@ -626,7 +626,7 @@ def main(input_args=None):
         trainer.fit(
             model=model,
             train_dataloaders=train_loader,
-            # val_dataloaders=val_loader, # No validation during training for diffusion model # TODO: Add validation 
+            # val_dataloaders=val_loader, # No validation during training for diffusion model # TODO: Add validation
             ckpt_path=args.load,
         )
 

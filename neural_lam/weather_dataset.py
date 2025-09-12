@@ -7,8 +7,8 @@ import os
 import numpy as np
 import torch
 
-# Local
-from neural_lam import utils, constants
+# First-party
+from neural_lam import constants, utils
 
 
 class WeatherDataset(torch.utils.data.Dataset):
@@ -37,9 +37,9 @@ class WeatherDataset(torch.utils.data.Dataset):
     ):
         super().__init__()
         self.border_condition = border_condition
-        
+
         assert split in ("train", "val", "test"), "Unknown dataset split"
-        
+
         self.model_name = model_name
 
         self.sample_dir_path = os.path.join(
@@ -166,7 +166,7 @@ class WeatherDataset(torch.utils.data.Dataset):
         boundary_forcing_sample = sample[:, self.boundary_mask]
         # (sample_len, N_boundary, d_features)
         sample = sample[:, self.interior_mask]
-      
+
         # Split up sample in init. states and target states
         init_states = sample[:2]  # (2, N_grid, d_features), prev_prev, prev
         target_states = sample[2:]  # (sample_length-2, N_grid, d_features)

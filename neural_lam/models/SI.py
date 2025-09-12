@@ -1,24 +1,28 @@
+# Standard library
+import copy
+import math
+import os
+import time
+
+# Third-party
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.functional import silu
-import matplotlib.pyplot as plt
-import numpy as np
 import wandb
-import copy
-import math 
-import time
-import os
+from torch.nn.functional import silu
 
-from neural_lam.models.ar_model import ARModel
+# First-party
 from neural_lam import constants, metrics, utils, vis
-
+from neural_lam.models.ar_model import ARModel
+from neural_lam.models.edm_networks_2 import EDMPrecond, SongUNet
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
-from neural_lam.models.edm_networks_2 import EDMPrecond, SongUNet
+
 
 def bad(x):
-    return torch.any(torch.isnan(x)) or torch.any(torch.isinf(x)) 
+    return torch.any(torch.isnan(x)) or torch.any(torch.isinf(x))
 
 class SI(ARModel):
     """
@@ -53,7 +57,7 @@ class SI(ARModel):
         else:
             raise ValueError(f"Diffusion model {args.diffusion_model} not recognized")
 
-            
+
         self.pred_residual = args.pred_residual # Whether to predict the residual instead of the next state
         self.diffusion_model = args.diffusion_model
 
@@ -75,7 +79,7 @@ class SI(ARModel):
         ts = torch.linspace(tmin, tmax, steps).type_as(base)
         dt = ts[1] - ts[0]
         ones = torch.ones(base.shape[0]).type_as(base)
- 
+
         # initial condition
         xt = base
 
@@ -89,7 +93,7 @@ class SI(ARModel):
             bF = self.model(xt, t, cond, boundary)
             D['bF'] = bF
             sigma = self.I.sigma(t)
-           
+
             # specified diffusion func
             if diffusion_fn is not None:
                 g = diffusion_fn(t)
@@ -120,16 +124,16 @@ class SI(ARModel):
             mu = xt + f * dt
             xt = mu + g * torch.randn_like(mu) * dt.sqrt()
             return xt, mu # return sample and its mean
-            
+
         for i, tscalar in enumerate(ts):
-            
+
             if i == 0 and (diffusion_fn is not None):
                 # only need to do this when using other diffusion coefficients that you didn't train with
                 # because the drift-to-score conversion has a denominator that features 0 at time 0
                 # if just sampling with "sigma" (the diffusion coefficient you trained with) you
                 # can skip this
                 tscalar = ts[1] # 0 + (1/500)
-            
+
             if self.sampler == 'euler_2' and i < len(ts) - 1:
                 xt, mu = step_fn_2(xt, tscalar * ones, ts[i+1] * ones)
             else:
@@ -165,7 +169,7 @@ class SI(ARModel):
                         vmax=vmax,
                         cmap="plasma",
                     )
-          
+
                     axes[0].set_title(f"X_t", size=15)
 
                     axes[1].coastlines()  # Add coastline outlines
@@ -177,7 +181,7 @@ class SI(ARModel):
                         cmap="plasma",
 
                     )
-       
+
                     axes[1].set_title(f"mu", size=15)
 
                     axes[2].coastlines()  # Add coastline outlines
@@ -188,10 +192,10 @@ class SI(ARModel):
                         vmax=vmax,
                         cmap="plasma",
                     )
- 
+
                     axes[2].set_title(f"Initial State", size=15)
-                    
-                    if self.GT is not None: 
+
+                    if self.GT is not None:
                         axes[3].coastlines()  # Add coastline outlines
                         im = vis.plot_on_axis(
                             axes[3],
@@ -200,13 +204,13 @@ class SI(ARModel):
                             vmax=vmax,
                             cmap="plasma",
                         )
-        
+
                         axes[3].set_title(f"Ground Truth", size=15)
                     fig.colorbar(im, ax=axes, orientation="horizontal")
                     fig.suptitle(f"{var_name} at time {t}", size=20)
                     fig.savefig(f"{save_dir}/{var_name}/state_{t}.png", bbox_inches='tight') # TODO: Should log to wandb
                     plt.close(fig)
-                
+
         self.save_steps = False # Only save the first time
         assert not bad(mu)
         return mu
@@ -230,7 +234,7 @@ class SI(ARModel):
 
         # definently_sample
         EM_args = {'base': prev_state, 'cond': input_grid, 'boundary': boundary_forcing}
-       
+
         # list diffusion funcs
         # None means use the one you trained with
         diffusion_fns = {
@@ -240,7 +244,7 @@ class SI(ARModel):
         }
 
         next_state = self.EM(diffusion_fn=None, **EM_args) # None because we want to use the diffusion function we trained with, TODO: Experiment with this later
-        
+
         return next_state, None
 
     def predict_step_train(self, prev_state, prev_prev_state, forcing, true_state, boundary_forcing):
@@ -258,11 +262,11 @@ class SI(ARModel):
         pred_std: None or (B, N_grid, d_state), predicted standard-deviations
                     (pred_std can be ignored by just returning None)
         """
-      
+
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
 
         # Prepare batch
-        D = {'z0': prev_state, 'z1': true_state, 'label': None, 'N': prev_state.shape[0]}   
+        D = {'z0': prev_state, 'z1': true_state, 'label': None, 'N': prev_state.shape[0]}
 
         # Get random batch of times
         D['t'] = torch.rand(prev_state.shape[0], device=prev_state.device)
@@ -272,13 +276,13 @@ class SI(ARModel):
 
         # Get alpha, beta, etc
         D = self.I.interpolant_coefs(D)
-        
+
         # zt
         D['zt'] = self.I.compute_zt(D)
 
         # Target
         D['drift_target'] = self.I.compute_target(D)
-        
+
         output = self.model(D['zt'], D['t'].reshape(D['zt'].shape[0]), input_grid, boundary_forcing) # Shape (B, d_state, N_x, N_y)
 
         # Calculate loss
@@ -287,7 +291,7 @@ class SI(ARModel):
         loss = loss / (self.per_var_std**2)
 
         return output, None, loss
-    
+
     def unroll_prediction(self, init_states, forcing_features, boundary_forcing):
             """
             Roll out prediction taking multiple autoregressive steps with model
@@ -307,9 +311,9 @@ class SI(ARModel):
                 pred_state, pred_std = self.predict_step(
                     prev_state, prev_prev_state, forcing, border_state
                 )
-        
+
                 new_state = pred_state
-        
+
                 prediction_list.append(new_state)
                 if self.output_std:
                     pred_std_list.append(pred_std)
@@ -425,7 +429,7 @@ class SI(ARModel):
             log_dict, prog_bar=True, on_step=True, on_epoch=True, sync_dist=True
         )
         return batch_loss
-    
+
 
     def sample_trajectories(
         self,
@@ -453,13 +457,13 @@ class SI(ARModel):
         for i in range(num_traj):
             # print(f"Starting trajectory {i + 1}/{num_traj}...")
             # start_time = time.time()
-            
+
             traj = unroll_func(
                 init_states,
                 forcing_features,
                 boundary_forcing,
             )
-            
+
             traj_list.append(traj)
 
         # List of tuples, each containing
@@ -475,9 +479,9 @@ class SI(ARModel):
             )
         else:
             traj_stds = self.per_var_std[constants.USED_PARAMS] # TODO: Check if this is correct, self.per_var_std = self.step_diff_std / torch.sqrt(self.param_weights)
-        
+
         return traj_means, traj_stds
-    
+
     def plot_examples(self, batch, n_examples, prediction=None):
         """
         Plot ensemble forecast + mean and std
@@ -802,7 +806,7 @@ class SI(ARModel):
         # super().on_test_epoch_end()
         self.aggregate_and_plot_metrics(self.test_metrics, prefix="test")
         self.log_spsk_ratio(self.test_metrics, "test")
-    
+
 # Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # This work is licensed under a Creative Commons
@@ -876,13 +880,13 @@ class SI(ARModel):
         for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
             x_cur = x_next
             denoised = self.forward(x_cur, t_cur, class_labels=class_labels, boundary_forcing=boundary_forcing)
-            d_cur = (x_cur - denoised) / t_cur      
+            d_cur = (x_cur - denoised) / t_cur
             x_next = x_cur + (t_next - t_cur) * d_cur
 
             # Apply 2nd order correction.
             if i < num_steps - 1:
                 denoised = self.forward(x_next, t_next, class_labels=class_labels, boundary_forcing=boundary_forcing)
-                d_prime = (x_next - denoised) / t_next   
+                d_prime = (x_next - denoised) / t_next
                 x_next = x_cur + (t_next - t_cur) * (0.5 * d_cur + 0.5 * d_prime)
 
         return x_next, None
@@ -914,7 +918,7 @@ class SI(ARModel):
 
             sigma_hat = sigmas[i] * (gamma + 1)
             if gamma > 0:
-                x = x + (sigma_hat**2 - sigmas[i] ** 2) ** 0.5 * noise            
+                x = x + (sigma_hat**2 - sigmas[i] ** 2) ** 0.5 * noise
             denoised = self.forward(x, sigma_hat, class_labels=class_labels, boundary_forcing=boundary_forcing)
 
             if i == len(sigmas) - 2:
@@ -936,7 +940,7 @@ class SI(ARModel):
                 x = sigmas[i + 1] / sigma_hat * x - (torch.exp(-h) - 1) * D
 
         return x, None
-        
+
 
     def forward(self, x, sigma, class_labels=None, boundary_forcing=None, force_fp32=False, **model_kwargs):
         if self.diffusion_model == "edm":
@@ -948,11 +952,11 @@ class SI(ARModel):
         c_out = sigma * self.sigma_data / (sigma ** 2 + self.sigma_data ** 2).sqrt()
         c_in = 1 / (self.sigma_data ** 2 + sigma ** 2).sqrt()
         c_noise = sigma.log() / 4
-      
+
         F_x = self.model_forward((c_in * x), c_noise.flatten(), class_labels=class_labels, boundary_forcing=boundary_forcing, **model_kwargs)
         D_x = c_skip * x + c_out * F_x
         return D_x
-    
+
     def model_forward(self, x, noise_labels, class_labels, boundary_forcing):
         # Mapping.
         emb = self.map_noise(noise_labels).unsqueeze(1).expand(x.shape[0], 1, -1)
@@ -960,7 +964,7 @@ class SI(ARModel):
         next_state, _ = self.model.predict_step(x, class_labels[:, :, :len(constants.USED_PARAMS)*2], class_labels[:, :, len(constants.USED_PARAMS)*2:], boundary_forcing, emb)
 
         return next_state
-    
+
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
 
@@ -986,7 +990,7 @@ class NoiseEmbedding(nn.Module):
         fourier_features = self.fourier_transform(log_noise_levels)
         noise_level_encoding = self.mlp(fourier_features)
         return noise_level_encoding
-    
+
 #----------------------------------------------------------------------------
 # Timestep embedding used in the DDPM++ and ADM architectures.
 
@@ -1017,7 +1021,7 @@ class FourierEmbedding(torch.nn.Module):
         x = x.ger((2 * np.pi * self.freqs).to(x.dtype))
         x = torch.cat([x.cos(), x.sin()], dim=1)
         return x
-    
+
 # Stochastic interpolant for the diffusion process
 class Interpolant:
 
@@ -1029,7 +1033,7 @@ class Interpolant:
         return t[:, None, None]
 
     def alpha(self, t):
-        return self.wide(1-t) 
+        return self.wide(1-t)
 
     def alpha_dot(self, t):
         return self.wide(-1.0 * torch.ones_like(t))
@@ -1042,15 +1046,15 @@ class Interpolant:
         is_squared = self.beta_fn == 't^2'
         return self.wide(2.0 * t if is_squared else torch.ones_like(t))
 
-    # we sometimes multiply sigma + sigma_dot by avg pixel norm, 
-    # but when standardized (centered cifar), 
+    # we sometimes multiply sigma + sigma_dot by avg pixel norm,
+    # but when standardized (centered cifar),
     # or when norm 1 (we rescale nse), not needed
     def sigma(self, t):
-        return self.sigma_coef * self.wide(1-t) 
+        return self.sigma_coef * self.wide(1-t)
 
     def sigma_dot(self, t):
-        return self.sigma_coef * self.wide(-torch.ones_like(t)) 
-    
+        return self.sigma_coef * self.wide(-torch.ones_like(t))
+
     def gamma(self, t):
         return self.wide(t.sqrt()) * self.sigma(t)
 
@@ -1059,7 +1063,7 @@ class Interpolant:
 
     def compute_target(self, D):
         return D['adot'] * D['z0'] + D['bdot'] * D['z1'] +  (D['sdot'] * D['root_t']) * D['noise']
-    
+
     def interpolant_coefs(self, D):
         return self(D)
 
@@ -1073,4 +1077,4 @@ class Interpolant:
         D['st'] = self.sigma(D['t'])
         D['sdot'] = self.sigma_dot(D['t'])
         return D
-    
+

@@ -6,9 +6,9 @@ import os
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 import xarray as xa
 from tueplots import figsizes
-import torch
 
 # First-party
 from neural_lam import constants, utils
@@ -57,7 +57,7 @@ def plot_error_lines(
         if file_paths:  # Only for metrics that exist
             # Some files with this error exists
             err_array_dict = {}
-                                            
+
             for file_path in file_paths:
                 base_file_name = os.path.basename(file_path)
                 model_name = "_".join(base_file_name.split("_")[:-1])
@@ -124,7 +124,7 @@ def plot_error_lines(
                     errors[:, var_i],
                     default_lead_times,
                 )
-               
+
             # Add error curves from xa_results
             for model_name, res_xds in xa_results.items():
                 if var_name in res_xds:
@@ -166,7 +166,7 @@ def plot_error_lines(
             # Plot all curves
             lines = []
             for model_name in sorted(
-                (m for m in model_curves if m in model_order_index), 
+                (m for m in model_curves if m in model_order_index),
                 key=lambda m: model_order_index[m]
             ):
 

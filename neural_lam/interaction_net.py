@@ -3,7 +3,7 @@ import torch
 import torch_geometric as pyg
 from torch import nn
 
-# Local
+# First-party
 from neural_lam import utils
 
 

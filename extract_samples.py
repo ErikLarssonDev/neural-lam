@@ -1,6 +1,9 @@
-from PIL import Image
+# Standard library
 import glob
 import os
+
+# Third-party
+from PIL import Image
 
 N_frames = 1
 EXPERIMENT_NAME="EDM_1200e_test_5"
