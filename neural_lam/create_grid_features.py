@@ -6,8 +6,8 @@ from argparse import ArgumentParser
 import numpy as np
 import torch
 
-# Local
-from . import config
+# First-party
+from neural_lam import config
 
 
 def main():
@@ -24,7 +24,7 @@ def main():
     args = parser.parse_args()
     config_loader = config.Config.from_file(args.data_config)
 
-    static_dir_path = os.path.join(config_loader.dataset.data_path, config_loader.dataset.name, "static")
+    static_dir_path = os.path.join("/proj/berzelius-2022-164/weather/neural_lam_datasets", config_loader.dataset.name, "static")
 
     # -- Static grid node features --
     grid_xy = torch.tensor(
@@ -55,6 +55,8 @@ def main():
     grid_features = torch.cat(
         (grid_xy, geopotential, grid_border_mask), dim=1
     )  # (N_grid, 4)
+
+    print(f"Grid features shape: {grid_features.shape}")
 
     torch.save(grid_features, os.path.join(static_dir_path, "grid_features.pt"))
 

@@ -11,6 +11,14 @@ test_*.sh
 .vscode
 *slurm*
 .DS_Store
+*DS_Store
+gifs
+lam_eval
+plots
+samples
+predictions
+output/
+diffusion_steps/
 
 ### Python ###
 # Byte-compiled / optimized / DLL files

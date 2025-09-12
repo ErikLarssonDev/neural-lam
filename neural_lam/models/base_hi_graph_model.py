@@ -110,16 +110,16 @@ class BaseHiGraphModel(BaseGraphModel):
         )
         return num_mesh_nodes, num_mesh_nodes_ignore
 
-    def embedd_mesh_nodes(self):
+    def embedd_mesh_nodes(self, emb=None):
         """
         Embed static mesh features
         This embeds only bottom level, rest is done at beginning of
         processing step
         Returns tensor of shape (num_mesh_nodes[0], d_h)
         """
-        return self.mesh_embedders[0](self.mesh_static_features[0])
+        return self.mesh_embedders[0](self.mesh_static_features[0], emb)
 
-    def process_step(self, mesh_rep):
+    def process_step(self, mesh_rep, emb=None):
         """
         Process step of embedd-process-decode framework
         Processes the representation on the mesh, possible in multiple steps
@@ -133,8 +133,8 @@ class BaseHiGraphModel(BaseGraphModel):
         # Create list of mesh node representations for each level,
         # each of size (B, num_mesh_nodes[l], d_h)
         mesh_rep_levels = [mesh_rep] + [
-            self.expand_to_batch(emb(node_static_features), batch_size)
-            for emb, node_static_features in zip(
+            self.expand_to_batch(embedder(node_static_features, emb), batch_size)
+            for embedder, node_static_features in zip(
                 list(self.mesh_embedders)[1:],
                 list(self.mesh_static_features)[1:],
             )
@@ -143,20 +143,20 @@ class BaseHiGraphModel(BaseGraphModel):
         # - EMBED EDGES -
         # Embed edges, expand with batch dimension
         mesh_same_rep = [
-            self.expand_to_batch(emb(edge_feat), batch_size)
-            for emb, edge_feat in zip(
+            self.expand_to_batch(embedder(edge_feat, emb), batch_size)
+            for embedder, edge_feat in zip(
                 self.mesh_same_embedders, self.m2m_features
             )
         ]
         mesh_up_rep = [
-            self.expand_to_batch(emb(edge_feat), batch_size)
-            for emb, edge_feat in zip(
+            self.expand_to_batch(embedder(edge_feat, emb), batch_size)
+            for embedder, edge_feat in zip(
                 self.mesh_up_embedders, self.mesh_up_features
             )
         ]
         mesh_down_rep = [
-            self.expand_to_batch(emb(edge_feat), batch_size)
-            for emb, edge_feat in zip(
+            self.expand_to_batch(embedder(edge_feat, emb), batch_size)
+            for embedder, edge_feat in zip(
                 self.mesh_down_embedders, self.mesh_down_features
             )
         ]
@@ -175,7 +175,7 @@ class BaseHiGraphModel(BaseGraphModel):
 
             # Apply GNN
             new_node_rep, new_edge_rep = gnn(
-                send_node_rep, rec_node_rep, edge_rep
+                send_node_rep, rec_node_rep, edge_rep, emb
             )
 
             # Update node and edge vectors in lists
@@ -186,7 +186,7 @@ class BaseHiGraphModel(BaseGraphModel):
 
         # - PROCESSOR -
         mesh_rep_levels, _, _, mesh_down_rep = self.hi_processor_step(
-            mesh_rep_levels, mesh_same_rep, mesh_up_rep, mesh_down_rep
+            mesh_rep_levels, mesh_same_rep, mesh_up_rep, mesh_down_rep, emb
         )
 
         # - MESH READ OUT. -
@@ -204,7 +204,7 @@ class BaseHiGraphModel(BaseGraphModel):
             edge_rep = mesh_down_rep[level_l]
 
             # Apply GNN
-            new_node_rep = gnn(send_node_rep, rec_node_rep, edge_rep)
+            new_node_rep = gnn(send_node_rep, rec_node_rep, edge_rep, emb)
 
             # Update node and edge vectors in lists
             mesh_rep_levels[

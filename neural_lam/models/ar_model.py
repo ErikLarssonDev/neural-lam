@@ -9,7 +9,7 @@ import torch
 import wandb
 
 # Local
-from .. import config, metrics, utils, vis
+from .. import config, constants, metrics, utils, vis
 
 
 class ARModel(pl.LightningModule):
@@ -26,15 +26,25 @@ class ARModel(pl.LightningModule):
         self.save_hyperparameters()
         self.args = args
         self.config_loader = config.Config.from_file(args.data_config)
+        self.border_condition = args.border_condition
+        self.pred_residual = args.pred_residual
+        self.save_output = args.save_output
+        self.save_output_wandb = args.save_output_wandb
+        self.eval_split = args.eval
 
         # Load static features for grid/data
         static_data_dict = utils.load_static_data(
             self.config_loader.dataset.name, self.config_loader.dataset.data_path
         )
-        for static_data_name, static_data_tensor in static_data_dict.items():
-            self.register_buffer(
-                static_data_name, static_data_tensor, persistent=False
-            )
+
+        for static_data_name, static_data in static_data_dict.items():
+            if isinstance(static_data, torch.Tensor):
+                self.register_buffer(
+                    static_data_name, static_data, persistent=False
+                )
+            else:
+                # Non-tensor static can not and should not be buffers
+                setattr(self, static_data_name, static_data)
 
         # Double grid output dim. to also output std.-dev.
         self.output_std = bool(args.output_std)
@@ -57,21 +67,27 @@ class ARModel(pl.LightningModule):
         (
             self.num_grid_nodes,
             grid_static_dim,
-        ) = self.grid_static_features.shape
-        num_states_in = 3 if args.model == "diffusion" else 2
+        ) = self.grid_static_features.shape  # 63784 = 268x238
+
+        num_states = 3 if args.model == "diffusion" or args.model == "SI" else 2
+        (
+            self.num_boundary_nodes,
+            boundary_static_dim,  # TODO Will need for computation below
+        ) = self.boundary_static_features.shape
+        self.num_input_nodes = self.num_grid_nodes + self.num_boundary_nodes
+
         self.grid_dim = (
-            num_states_in * self.config_loader.num_data_vars() 
+            num_states * self.config_loader.num_data_vars()
             + grid_static_dim
             + self.config_loader.dataset.num_forcing_features
         )
+        if args.border_condition:
+            self.boundary_dim = self.grid_dim if args.model == "diffusion" else self.grid_dim + self.config_loader.num_data_vars()
+        else:
+            self.boundary_dim = self.grid_dim - self.config_loader.num_data_vars() if args.model == "diffusion" else self.grid_dim
 
         # Instantiate loss function
         self.loss = metrics.get_metric(args.loss)
-
-        # Pre-compute interior mask for use in loss function
-        self.register_buffer(
-            "interior_mask", 1.0 - self.border_mask, persistent=False
-        )  # (num_grid_nodes, 1), 1 for non-border
 
         self.step_length = args.step_length  # Number of hours per pred. step
         self.val_metrics = {
@@ -94,27 +110,39 @@ class ARModel(pl.LightningModule):
         # For storing spatial loss maps during evaluation
         self.spatial_loss_maps = []
 
-    def configure_optimizers(self):
-        opt = torch.optim.AdamW(
-            self.parameters(), lr=self.args.lr, betas=(0.9, 0.95)
-        )
-        return opt
+        self.lr = args.lr
+        self.weight_decay = args.weight_decay
+        self.lr_scheduler = args.lr_scheduler
 
-    @property
-    def interior_mask_bool(self):
-        """
-        Get the interior mask as a boolean (N,) mask.
-        """
-        return self.interior_mask[:, 0].to(torch.bool)
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, betas=(0.9, 0.95), weight_decay=self.weight_decay)
+        if self.lr_scheduler == "cosine": # Cosine annealing
+            print("Using cosine annealing learning rate scheduler")
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.trainer.estimated_stepping_batches, eta_min=0) # self.trainer.estimated_stepping_batches, self.trainer.max_epochs
+            return {
+                'optimizer': optimizer,
+                'lr_scheduler': {
+                    'scheduler': scheduler,
+                    'interval': 'epoch',  # Can also be 'step' for finer control
+                    'frequency': 1,
+                }
+            } # Maybe have to return [optimizer, scheduler]
+        else:
+            return {'optimizer': optimizer}
 
     @staticmethod
     def expand_to_batch(x, batch_size):
         """
         Expand tensor with initial batch dimension
         """
+        # If we already have batch dimension, return as is
+        if x.dim() == 3:
+            return x
         return x.unsqueeze(0).expand(batch_size, -1, -1)
 
-    def predict_step(self, prev_state, prev_prev_state, forcing):
+    def predict_step(
+        self, prev_state, prev_prev_state, forcing, boundary_forcing
+    ):
         """
         Step state one step ahead using prediction model, X_{t-1}, X_t -> X_t+1
         prev_state: (B, num_grid_nodes, feature_dim), X_t
@@ -123,42 +151,36 @@ class ARModel(pl.LightningModule):
         """
         raise NotImplementedError("No prediction step implemented")
 
-    def unroll_prediction(self, init_states, forcing_features, true_states):
+    def unroll_prediction(self, init_states, forcing, boundary_forcing):
         """
         Roll out prediction taking multiple autoregressive steps with model
         init_states: (B, 2, num_grid_nodes, d_f)
         forcing_features: (B, pred_steps, num_grid_nodes, d_static_f)
-        true_states: (B, pred_steps, num_grid_nodes, d_f)
+        boundary_forcing: (B, pred_steps, num_boundary_nodes, d_boundary_f)
         """
         prev_prev_state = init_states[:, 0]
         prev_state = init_states[:, 1]
         prediction_list = []
         pred_std_list = []
-        pred_steps = forcing_features.shape[1]
+        pred_steps = forcing.shape[1]
 
         for i in range(pred_steps):
-            forcing = forcing_features[:, i]
-            border_state = true_states[:, i]
+            forcing_step = forcing[:, i]
+            boundary_forcing_step = boundary_forcing[:, i]
 
             pred_state, pred_std = self.predict_step(
-                prev_state, prev_prev_state, forcing
+                prev_state, prev_prev_state, forcing_step, boundary_forcing_step
             )
             # state: (B, num_grid_nodes, d_f)
             # pred_std: (B, num_grid_nodes, d_f) or None
 
-            # Overwrite border with true state
-            new_state = (
-                self.border_mask * border_state
-                + self.interior_mask * pred_state
-            )
-
-            prediction_list.append(new_state)
+            prediction_list.append(pred_state)
             if self.output_std:
                 pred_std_list.append(pred_std)
 
             # Update conditioning states
             prev_prev_state = prev_state
-            prev_state = new_state
+            prev_state = pred_state
 
         prediction = torch.stack(
             prediction_list, dim=1
@@ -178,17 +200,15 @@ class ARModel(pl.LightningModule):
         batch consists of:
         init_states: (B, 2, num_grid_nodes, d_features)
         target_states: (B, pred_steps, num_grid_nodes, d_features)
-        forcing_features: (B, pred_steps, num_grid_nodes, d_forcing),
+        forcing: (B, pred_steps, num_grid_nodes, d_forcing),
+        boundary_forcing:
+            (B, pred_steps, num_boundary_nodes, d_boundary_forcing),
             where index 0 corresponds to index 1 of init_states
         """
-        (
-            init_states,
-            target_states,
-            forcing_features,
-        ) = batch
+        (init_states, target_states, forcing, boundary_forcing) = batch
 
         prediction, pred_std = self.unroll_prediction(
-            init_states, forcing_features, target_states
+            init_states, forcing, boundary_forcing
         )  # (B, pred_steps, num_grid_nodes, d_f)
         # prediction: (B, pred_steps, num_grid_nodes, d_f)
         # pred_std: (B, pred_steps, num_grid_nodes, d_f) or (d_f,)
@@ -204,7 +224,9 @@ class ARModel(pl.LightningModule):
         # Compute loss
         batch_loss = torch.mean(
             self.loss(
-                prediction, target, pred_std, mask=self.interior_mask_bool
+                prediction,
+                target,
+                pred_std,
             )
         )  # mean over unrolled times and batch
 
@@ -235,7 +257,9 @@ class ARModel(pl.LightningModule):
 
         time_step_loss = torch.mean(
             self.loss(
-                prediction, target, pred_std, mask=self.interior_mask_bool
+                prediction,
+                target,
+                pred_std,
             ),
             dim=0,
         )  # (time_steps-1)
@@ -256,7 +280,6 @@ class ARModel(pl.LightningModule):
             prediction,
             target,
             pred_std,
-            mask=self.interior_mask_bool,
             sum_vars=False,
         )  # (B, pred_steps, d_f)
         self.val_metrics["mse"].append(entry_mses)
@@ -283,7 +306,9 @@ class ARModel(pl.LightningModule):
 
         time_step_loss = torch.mean(
             self.loss(
-                prediction, target, pred_std, mask=self.interior_mask_bool
+                prediction,
+                target,
+                pred_std,
             ),
             dim=0,
         )  # (time_steps-1,)
@@ -310,16 +335,13 @@ class ARModel(pl.LightningModule):
                 prediction,
                 target,
                 pred_std,
-                mask=self.interior_mask_bool,
                 sum_vars=False,
             )  # (B, pred_steps, d_f)
             self.test_metrics[metric_name].append(batch_metric_vals)
 
         if self.output_std:
             # Store output std. per variable, spatially averaged
-            mean_pred_std = torch.mean(
-                pred_std[..., self.interior_mask_bool, :], dim=-2
-            )  # (B, pred_steps, d_f)
+            mean_pred_std = torch.mean(pred_std, dim=-2)  # (B, pred_steps, d_f)
             self.test_metrics["output_std"].append(mean_pred_std)
 
         # Save per-sample spatial loss for specific times
@@ -332,19 +354,20 @@ class ARModel(pl.LightningModule):
         self.spatial_loss_maps.append(log_spatial_losses)
         # (B, N_log, num_grid_nodes)
 
+        # NOTE: Plot examples in ARProbModel instead
         # Plot example predictions (on rank 0 only)
-        if (
-            self.trainer.is_global_zero
-            and self.plotted_examples < self.n_example_pred
-        ):
-            # Need to plot more example predictions
-            n_additional_examples = min(
-                prediction.shape[0], self.n_example_pred - self.plotted_examples
-            )
+        # if (
+        #     self.trainer.is_global_zero
+        #     and self.plotted_examples < self.n_example_pred
+        # ):
+        #     # Need to plot more example predictions
+        #     n_additional_examples = min(
+        #         prediction.shape[0], self.n_example_pred - self.plotted_examples
+        #     )
 
-            self.plot_examples(
-                batch, n_additional_examples, prediction=prediction
-            )
+        #     self.plot_examples(
+        #         batch, n_additional_examples, prediction=prediction
+        #     )
 
     def plot_examples(self, batch, n_examples, prediction=None):
         """
@@ -359,14 +382,16 @@ class ARModel(pl.LightningModule):
             prediction, target = self.common_step(batch)
 
         target = batch[1]
+        border = batch[3][..., :len(constants.USED_PARAMS)]
 
         # Rescale to original data scale
         prediction_rescaled = prediction * self.data_std + self.data_mean
         target_rescaled = target * self.data_std + self.data_mean
+        border_rescaled = border * self.data_std + self.data_mean
 
         # Iterate over the examples
-        for pred_slice, target_slice in zip(
-            prediction_rescaled[:n_examples], target_rescaled[:n_examples]
+        for pred_slice, target_slice, border_slice in zip(
+            prediction_rescaled[:n_examples], target_rescaled[:n_examples], border_rescaled[:n_examples]
         ):
             # Each slice is (pred_steps, num_grid_nodes, d_f)
             self.plotted_examples += 1  # Increment already here
@@ -387,22 +412,25 @@ class ARModel(pl.LightningModule):
                 .cpu()
                 .numpy()
             )  # (d_f,)
+
             var_vranges = list(zip(var_vmin, var_vmax))
 
             # Iterate over prediction horizon time steps
-            for t_i, (pred_t, target_t) in enumerate(
-                zip(pred_slice, target_slice), start=1
+            for t_i, (pred_t, target_t, border_t) in enumerate(
+                zip(pred_slice, target_slice, border_slice), start=1
             ):
                 # Create one figure per variable at this time step
                 var_figs = [
                     vis.plot_prediction(
                         pred_t[:, var_i],
                         target_t[:, var_i],
-                        self.interior_mask[:, 0],
+                        border_t[:, var_i],
                         self.config_loader,
+                        self.interior_mask,
                         title=f"{var_name} ({var_unit}), "
                         f"t={t_i} ({self.step_length * t_i} h)",
                         vrange=var_vrange,
+                        grid_limits=self.grid_limits,
                     )
                     for var_i, (var_name, var_unit, var_vrange) in enumerate(
                         zip(
@@ -454,12 +482,16 @@ class ARModel(pl.LightningModule):
         """
         log_dict = {}
         metric_fig = vis.plot_error_map(
-            metric_tensor, self.config_loader, step_length=self.step_length
+            metric_tensor,
+            self.config_loader,
+            step_length=self.step_length,
         )
+
+        prefix = self.eval_split if self.eval_split is not None else prefix
         full_log_name = f"{prefix}_{metric_name}"
         log_dict[full_log_name] = wandb.Image(metric_fig)
 
-        if prefix == "test":
+        if self.eval_split == "test":
             # Save pdf
             metric_fig.savefig(
                 os.path.join(wandb.run.dir, f"{full_log_name}.pdf")
@@ -471,6 +503,31 @@ class ARModel(pl.LightningModule):
                 delimiter=",",
             )
 
+        metric_np = metric_tensor.cpu().numpy()
+
+        # Get mean for the metric over all variables
+        metric_mean = torch.mean(metric_tensor / self.data_std, dim=1).cpu().numpy()  # (pred_steps,)
+
+        # Add the mean to the log dict and the metric name "Mean"
+        metric_names = self.config_loader.dataset.var_names + ["Mean"]
+        metric_np = np.column_stack(
+            [metric_np, metric_mean]
+        )
+
+        # Logging all of the metrics as line plots
+        for i, varname in enumerate(metric_names):  # adjust var names as needed
+            wandb.log({f"{full_log_name}_{varname}_lineplot": wandb.plot.line_series(
+                xs=list(range(metric_np.shape[0])),
+                ys=[metric_np[:, i].tolist()],
+                keys=[wandb.run.name],
+                title=f"{full_log_name} {varname}",
+                xname="Time Step"
+            )})
+
+        print(
+            f"Logged {full_log_name} with shape {metric_tensor.shape}, {metric_np.shape}"
+            f"to wandb"
+        )
         # Check if metrics are watched, log exact values for specific vars
         if full_log_name in self.args.metrics_watch:
             for var_i, timesteps in self.args.var_leads_metrics_watch.items():
@@ -504,10 +561,13 @@ class ARModel(pl.LightningModule):
                 metric_tensor_averaged = torch.mean(metric_tensor, dim=0)
                 # (pred_steps, d_f)
 
-                # Take square root after all averaging to change MSE to RMSE
+                # Take square root after averaging to change squared metrics
                 if "mse" in metric_name:
                     metric_tensor_averaged = torch.sqrt(metric_tensor_averaged)
                     metric_name = metric_name.replace("mse", "rmse")
+                elif metric_name.endswith("_squared"):
+                    metric_tensor_averaged = torch.sqrt(metric_tensor_averaged)
+                    metric_name = metric_name[: -len("_squared")]
 
                 # Note: we here assume rescaling for all metrics is linear
                 metric_rescaled = metric_tensor_averaged * self.data_std
@@ -542,9 +602,9 @@ class ARModel(pl.LightningModule):
             loss_map_figs = [
                 vis.plot_spatial_error(
                     loss_map,
-                    self.interior_mask[:, 0],
                     self.config_loader,
                     title=f"Test loss, t={t_i} ({self.step_length * t_i} h)",
+                    grid_limits=self.grid_limits,
                 )
                 for t_i, loss_map in zip(
                     self.args.val_steps_to_log, mean_spatial_loss
@@ -558,7 +618,7 @@ class ARModel(pl.LightningModule):
             # also make without title and save as pdf
             pdf_loss_map_figs = [
                 vis.plot_spatial_error(
-                    loss_map, self.interior_mask[:, 0], self.config_loader
+                    loss_map, self.config_loader, grid_limits=self.grid_limits
                 )
                 for loss_map in mean_spatial_loss
             ]
@@ -595,6 +655,16 @@ class ARModel(pl.LightningModule):
                 )
                 loaded_state_dict[new_key] = loaded_state_dict[old_key]
                 del loaded_state_dict[old_key]
+
         if not self.restore_opt:
             opt = self.configure_optimizers()
-            checkpoint["optimizer_states"] = [opt.state_dict()]
+            checkpoint["optimizer_states"] = [opt["optimizer"].state_dict()]
+
+    # def on_after_backward(self):
+    #     """
+    #     Checks so that there are no gradients that are None, this will cause an issue with the ddp training strategy in pytorch lightning
+    #     """
+    #     for name, param in self.named_parameters():
+    #         if param.grad is None:
+    #             print(name, "has no gradient!")
+    #             print(param.grad)

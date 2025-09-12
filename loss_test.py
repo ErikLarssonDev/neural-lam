@@ -1,9 +1,15 @@
-from scipy.stats import wasserstein_distance_nd
-import torch
+# Standard library
 import time
+
+# Third-party
+import torch
+from scipy.stats import wasserstein_distance_nd
+
 tensor_1 = torch.randn(17, 268, 238)
 tensor_2 = torch.randn(17, 268, 238)
+# Third-party
 from geomloss import SamplesLoss
+
 loss = SamplesLoss("sinkhorn", p=2)
 start_time = time.time()
 

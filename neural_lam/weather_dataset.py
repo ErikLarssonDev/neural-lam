@@ -7,8 +7,8 @@ import os
 import numpy as np
 import torch
 
-# Local
-from . import utils
+# First-party
+from neural_lam import constants, utils
 
 
 class WeatherDataset(torch.utils.data.Dataset):
@@ -32,15 +32,19 @@ class WeatherDataset(torch.utils.data.Dataset):
         standardize=True,
         subset=False,
         control_only=False,
-        data_path="data"
+        border_condition=False,
+        model_name="",
     ):
         super().__init__()
+        self.border_condition = border_condition
 
         assert split in ("train", "val", "test"), "Unknown dataset split"
-        self.sample_dir_path = os.path.join(
-            data_path, dataset_name, "samples", split
-        )
 
+        self.model_name = model_name
+
+        self.sample_dir_path = os.path.join(
+            constants.DATA_PATH, dataset_name, "samples", split
+        )
         member_file_regexp = (
             "nwp*mbr000.npy" if control_only else "nwp*mbr*.npy"
         )
@@ -51,7 +55,7 @@ class WeatherDataset(torch.utils.data.Dataset):
         # Now on form "yyymmddhh_mbrXXX"
 
         if subset:
-            self.sample_names = self.sample_names[:50]  # Limit to 50 samples
+            self.sample_names = self.sample_names[:1]  # Limit to 1 sample
 
         self.sample_length = pred_length + 2  # 2 init states
         self.subsample_step = subsample_step
@@ -75,6 +79,11 @@ class WeatherDataset(torch.utils.data.Dataset):
 
         # If subsample index should be sampled (only duing training)
         self.random_subsample = split == "train"
+
+        # Unnecessary to load all static data, but this is just dummy
+        static_data = utils.load_static_data(dataset_name)
+        self.boundary_mask = static_data["boundary_mask"]
+        self.interior_mask = static_data["interior_mask"]
 
     def __len__(self):
         return len(self.sample_names)
@@ -153,8 +162,13 @@ class WeatherDataset(torch.utils.data.Dataset):
             # Standardize sample
             sample = (sample - self.data_mean) / self.data_std
 
+        # Sample should only contain interior
+        boundary_forcing_sample = sample[:, self.boundary_mask]
+        # (sample_len, N_boundary, d_features)
+        sample = sample[:, self.interior_mask]
+
         # Split up sample in init. states and target states
-        init_states = sample[:2]  # (2, N_grid, d_features)
+        init_states = sample[:2]  # (2, N_grid, d_features), prev_prev, prev
         target_states = sample[2:]  # (sample_length-2, N_grid, d_features)
 
         # === Forcing features ===
@@ -260,4 +274,31 @@ class WeatherDataset(torch.utils.data.Dataset):
         forcing = torch.cat((water_cover_expanded, forcing_windowed), dim=2)
         # (sample_len-2, N_grid, forcing_dim)
 
-        return init_states, target_states, forcing
+        # Forcing should only contain interior
+        boundary_forcing_forcing = forcing[:, self.boundary_mask]
+        # (sample_len-2, N_boundary, forcing_dim)
+        forcing = forcing[:, self.interior_mask]
+
+        # === Boundary Forcing ===
+
+        # To match current setup, allowing for same grid encoder also for
+        # boundary, boundary forcing should contain (in order) prev_state,
+        # prev_prev_state, forcing (and later added on static features).
+
+        boundary_forcing = torch.cat(
+            (
+                boundary_forcing_sample[1:-1], # prev_state
+                boundary_forcing_sample[:-2], # prev_prev_state
+                boundary_forcing_forcing,
+            ),
+            dim=-1,
+        )  # (sample_len-2, N_boundary, boundary_forcing_dim)
+        # with boundary_forcing_dim = 2 x d_features + d_forcing
+
+        if self.border_condition:
+            boundary_forcing = torch.cat(
+                (boundary_forcing_sample[2:], # next_state
+                boundary_forcing), dim=-1
+            )
+
+        return init_states, target_states, forcing, boundary_forcing
