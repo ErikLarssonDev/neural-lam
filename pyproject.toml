@@ -1,6 +1,6 @@
 [project]
 name = "neural-lam"
-version = "0.1.0"
+version = "0.2.0"
 description = "LAM-based data-driven forecasting"
 authors = [
     {name = "Joel Oskarsson", email = "joel.oskarsson@liu.se"},
@@ -24,6 +24,7 @@ dependencies = [
     "plotly>=5.15.0",
     "torch>=2.3.0",
     "torch-geometric==2.3.1",
+    "weather-model-graphs>=0.2.0"
 ]
 requires-python = ">=3.9"
 
@@ -89,8 +90,10 @@ generated-members = [
 [tool.pylint.'MESSAGES CONTROL']
 disable = [
     "C0114", # 'missing-module-docstring', Do not require module docstrings
+    "C0302", # 'too-many-lines ', Allow longer files
     "R0901", # 'too-many-ancestors', Allow many layers of sub-classing
     "R0902", # 'too-many-instance-attribtes', Allow many attributes
+    "R0912", # 'too-many-branches', Allow more branching
     "R0913", # 'too-many-arguments', Allow many function arguments
     "R0914", # 'too-many-locals', Allow many local variables
     "W0223", # 'abstract-method', Subclasses do not have to override all abstract methods

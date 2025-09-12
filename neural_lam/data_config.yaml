@@ -1,6 +1,5 @@
 dataset:
   name: meps
-  data_path: /proj/berzelius-2022-164/weather/neural_lam_datasets
   var_names:
     - pres_0g
     - pres_0s
@@ -56,7 +55,9 @@ dataset:
     - z_isobaricInhPa_1000_instant
     - z_isobaricInhPa_500_instant
   num_forcing_features: 16
-grid_shape_state: [268, 238]
+grid_shape_state: [248, 218] # Using the smaller grid for now, not plotting the border
+full_grid_shape_state: [268, 238]
+# grid_shape_state: [268, 238]
 projection:
   class: LambertConformal
   kwargs:

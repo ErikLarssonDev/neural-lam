@@ -8,35 +8,35 @@ from argparse import ArgumentParser
 import pytorch_lightning as pl
 import torch
 from lightning_fabric.utilities import seed
+from pytorch_lightning.callbacks import LearningRateMonitor
+from pytorch_lightning.profilers import AdvancedProfiler
 
-<<<<<<< HEAD:train_model.py
 # First-party
-from neural_lam import config, utils
-from neural_lam.models.graph_lam import GraphLAM
-from neural_lam.models.hi_lam import HiLAM
-from neural_lam.models.hi_lam_parallel import HiLAMParallel
-from neural_lam.weather_dataset import WeatherDataset
-from neural_lam.models.WNO import WNO2d
-from neural_lam.models.UNet2D import UNet2D
-from neural_lam.models.Neural_Operator import Neural_Operator
+from neural_lam import config, constants, utils
+from neural_lam.models.crps import CRPS
 from neural_lam.models.diffusion import Diffusion
-from neural_lam.models.GenCast import GenCast
-=======
-# Local
-from . import WeatherDataset, config, utils
-from .models import GraphLAM, HiLAM, HiLAMParallel
->>>>>>> 4969f92ad974f136089d15e7e2e2e9d73a43590d:neural_lam/train_model.py
+from neural_lam.models.fm import FM
+from neural_lam.models.graph_efm import GraphEFM
+from neural_lam.models.graph_fm import GraphFM
+from neural_lam.models.graphcast import GraphCast
+from neural_lam.models.SI import SI
+from neural_lam.models.tEDM import tEDM
+from neural_lam.weather_dataset import WeatherDataset
 
 MODELS = {
-    "graph_lam": GraphLAM,
-    "hi_lam": HiLAM,
-    "hi_lam_parallel": HiLAMParallel,
-    "WNO2d": WNO2d,
-    "UNet2d": UNet2D,
-    "N_O": Neural_Operator,
+    "graphcast": GraphCast,
+    "graph_fm": GraphFM,
+    "graph_efm": GraphEFM,
     "diffusion": Diffusion,
-    "GenCast": GenCast,
+    "SI": SI,
+    "tEDM": tEDM,
+    "FM": FM,
+    "CRPS": CRPS,
 }
+
+def list_of_ints(arg):
+    return list(map(int, arg.split(',')))
+
 
 
 def main(input_args=None):
@@ -60,10 +60,9 @@ def main(input_args=None):
     )
     parser.add_argument(
         "--subset_ds",
-        type=int,
-        default=0,
+        action="store_true",
         help="Use only a small subset of the dataset, for debugging"
-        "(default: 0=false)",
+        "(default: false)",
     )
     parser.add_argument(
         "--seed", type=int, default=42, help="random seed (default: 42)"
@@ -90,10 +89,9 @@ def main(input_args=None):
     )
     parser.add_argument(
         "--restore_opt",
-        type=int,
-        default=0,
+        action="store_true",
         help="If optimizer state should be restored with model "
-        "(default: 0 (false))",
+        "(default: false)",
     )
     parser.add_argument(
         "--precision",
@@ -111,10 +109,24 @@ def main(input_args=None):
         "(default: multiscale)",
     )
     parser.add_argument(
+        "--diffusion_model",
+        type=str,
+        default="graphcast",
+        help="Model to use in the diffusion model"
+        "(default: graphcast)",
+    )
+    parser.add_argument(
         "--hidden_dim",
         type=int,
-        default=64,
+        default=128,
         help="Dimensionality of all hidden representations (default: 64)",
+    )
+    parser.add_argument(
+        "--latent_dim",
+        type=int,
+        default=None,
+        help="Dimensionality of latent R.V. at each node (if different than"
+        " hidden_dim) (default: None (same as hidden_dim))",
     )
     parser.add_argument(
         "--hidden_layers",
@@ -125,8 +137,21 @@ def main(input_args=None):
     parser.add_argument(
         "--processor_layers",
         type=int,
-        default=4,
-        help="Number of GNN layers in processor GNN (default: 4)",
+        default=6,
+        help="Number of GNN layers in processor GNN (for prob. model: in "
+        "decoder) (default: 6)",
+    )
+    parser.add_argument(
+        "--encoder_processor_layers",
+        type=int,
+        default=1,
+        help="Number of on-mesh GNN layers in encoder GNN (default: 2)",
+    )
+    parser.add_argument(
+        "--prior_processor_layers",
+        type=int,
+        default=1,
+        help="Number of on-mesh GNN layers in prior GNN (default: 2)",
     )
     parser.add_argument(
         "--mesh_aggr",
@@ -137,33 +162,46 @@ def main(input_args=None):
     )
     parser.add_argument(
         "--output_std",
-        type=int,
-        default=0,
+        action="store_true",
         help="If models should additionally output std.-dev. per "
         "output dimensions "
+        "(default: False (no))",
+    )
+    parser.add_argument(
+        "--shared_grid_embedder",
+        action="store_true",  # Default to separate embedders
+        help="If the same embedder MLP should be used for interior and boundary"
+        " grid nodes. Note that this requires the same dimensionality for "
+        "both kinds of grid inputs. (default: False (no))",
+    )
+    parser.add_argument(
+        "--prior_dist",
+        type=str,
+        default="isotropic",
+        help="Structure of Gaussian distribution in prior network output "
+        "(isotropic/diagonal) (default: isotropic)",
+    )
+    parser.add_argument(
+        "--learn_prior",
+        type=int,
+        default=1,
+        help="If the prior should be learned as a mapping from previous state "
+        "and forcing, otherwise static with mean 0 (default: 1 (yes))",
+    )
+    parser.add_argument(
+        "--vertical_propnets",
+        type=int,
+        default=0, # TODO: Change to 1 as it is used in the paper
+        help="If PropagationNets should be used for all vertical message "
+        "passing (g2m, m2g, up in hierarchy), in deterministic models."
         "(default: 0 (no))",
     )
     parser.add_argument(
-        "--neural_operator",
+        "--sampler",
         type=str,
-        default="FNO",
-        help="The neural operator to use in the model (default: 'FNO')",
-    )
-    parser.add_argument(
-        "--diffusion_model",
-        type=str,
-        default="graph_lam",
-        help="The model to use in the diffusion process (default: 'graph_lam')",
-    )
-    parser.add_argument(
-        "--pred_residual",
-        action="store_true",
-        help="If models should predict residuals instead of absolute values (needs to be handled in the model) ",
-    )
-    parser.add_argument(
-        "--border_condition",
-        action="store_true",
-        help="If models should predict residuals instead of absolute values (needs to be handled in the model) ",
+        default="heun",
+        help="The sampler to use when generating trajectories with a diffusion model"
+        "(heun/edm) (default: heun)",
     )
 
     # Training options
@@ -176,10 +214,9 @@ def main(input_args=None):
     )
     parser.add_argument(
         "--control_only",
-        type=int,
-        default=0,
+        action="store_true",
         help="Train only on control member of ensemble data "
-        "(default: 0 (False))",
+        "(default: False)",
     )
     parser.add_argument(
         "--loss",
@@ -204,6 +241,113 @@ def main(input_args=None):
         help="Number of epochs training between each validation run "
         "(default: 1)",
     )
+    parser.add_argument(
+        "--kl_beta",
+        type=float,
+        default=1.0,
+        help="Beta weighting in front of kl-term in ELBO (default: 1)",
+    )
+    parser.add_argument(
+        "--crps_weight",
+        type=float,
+        default=0,
+        help="Weighting for CRPS term of loss, not computed if = 0. CRPS is "
+        "computed based on trajectories sampled using prior distribution. "
+        "(default: 0)",
+    )
+    parser.add_argument(
+        "--sample_obs_noise",
+        type=int,
+        default=0,
+        help="If observation noise should be sampled during rollouts (both "
+        "training and eval), or just mean prediction used "
+        "(default: 0 (no))",
+    )
+    parser.add_argument(
+        "--border_condition",
+        action="store_true",
+        help="If border condition should be used in diffusion model ",
+    )
+
+    parser.add_argument(
+        "--pred_residual",
+        action="store_true",
+        help="If the model should predict residuals instead of absolute values",
+    )
+    parser.add_argument(
+        "--weight_decay",
+        type=float,
+        default=0.01,
+        help="Weight decay for training. (default: 0.01)",
+    )
+    parser.add_argument(
+        "--lr_scheduler",
+        type=str,
+        help="Learning rate scheduler to use, supported (cosine), (default: None)",
+    )
+    parser.add_argument(
+        "--sigma_min",
+        type=float,
+        default=0.002,
+        help="Sigma min for training. (default: 0.002)",
+    )
+    parser.add_argument(
+        "--sigma_max",
+        type=float,
+        default=88,
+        help="Sigma min for training. (default: 88)",
+    )
+    parser.add_argument(
+        "--sigma_coef",
+        type=float,
+        default=1,
+        help="Sigma coefficient for stochatic interpolants (default: 1)",
+    )
+
+    # EDM Options
+    parser.add_argument(
+        "--resample_filter",
+        type=list_of_ints,
+        default="1,1",
+        help="Resample filter for edm model (default: 1,1 or 1,3,3,1)",
+    )
+    parser.add_argument(
+        "--channel_mult",
+        type=list_of_ints,
+        default="1,2,2,2",
+        help="Channel multiplier for edm model (depth and width of UNET) (default: 1,2,2,2)",
+    )
+
+    parser.add_argument(
+        "--encoder_type",
+        type=str,
+        default="standard",
+        help="Type of encoder to use in edm model (standard/residual/skip)"
+        "(default: 'standard')",
+    )
+
+    parser.add_argument(
+        "--attn_resolutions",
+        type=list_of_ints,
+        default="1",
+        help="Resolutions to apply attention to in edm model (default: '1')",
+    )
+
+    parser.add_argument(
+        "--noise_embedding",
+        type=str,
+        default="fourier",
+        help="Type of encoder to use in edm model (positional/fourier)"
+        "(default: 'fourier')",
+    )
+
+    # CRPS Options
+    parser.add_argument(
+        "--noise_dim",
+        type=int,
+        default=32,
+        help="Dimension of the noise vector z, 32 in FGN (default: 32)",
+    )
 
     # Evaluation options
     parser.add_argument(
@@ -216,16 +360,58 @@ def main(input_args=None):
         "--n_example_pred",
         type=int,
         default=1,
-        help="Number of example predictions to plot during evaluation "
+        help="Number of example predictions to plot during val/test "
         "(default: 1)",
     )
+    parser.add_argument(
+        "--ensemble_size",
+        type=int,
+        default=5,
+        help="Number of ensemble members during evaluation (default: 5)",
+    )
+    parser.add_argument(
+        "--sampler_steps",
+        type=int,
+        default=20,
+        help="Number of sampling steps during inference (default: 20)",
+    )
+    parser.add_argument(
+        "--plot_diffusion_steps",
+        action="store_true",
+        help="If the diffusion steps should be saved, only one time step is saved",
+    )
+    parser.add_argument(
+        "--noise_aug_prob",
+        type=float,
+        default=0,
+        help="Probability of noise augmentation for training (default: 0)",
+    )
+    parser.add_argument(
+        "--save_output",
+        action="store_true",
+        help="If the model output should be saved to the output folder (default: False)",
+    )
+    parser.add_argument(
+        "--save_steps",
+        action="store_true",
+        help="If the model output should be saved to the output folder (default: False)",
+    )
+
+    # tEDM Options
+    parser.add_argument(
+        "--v",
+        type=float, # TODO: Could be tensor with different values for each variable
+        default=3.0, # 3, 5 in the paper
+        help="v > 2 parameter for tEDM (default: 3)", # NOTE: Heavier tails for lower v, gaussian for v -> ∞
+    )
+
 
     # Logger Settings
     parser.add_argument(
         "--wandb_project",
         type=str,
-        default="neural_lam",
-        help="Wandb project name (default: neural_lam)",
+        default="neural-lam_prob",
+        help="Wandb run project (default: 'neural-lam_prob')",
     )
     parser.add_argument(
         "--wandb_run_name",
@@ -252,6 +438,12 @@ def main(input_args=None):
         help="""JSON string with variable-IDs and lead times to log watched
              metrics (e.g. '{"1": [1, 2], "3": [3, 4]}')""",
     )
+    parser.add_argument(
+        "--save_output_wandb",
+        action="store_true",
+        help="If the model output should be saved to wandb (save_output has to be enabled)",
+    )
+
     args = parser.parse_args(input_args)
     args.var_leads_metrics_watch = {
         int(k): v for k, v in json.loads(args.var_leads_metrics_watch).items()
@@ -280,24 +472,34 @@ def main(input_args=None):
             pred_length=args.ar_steps,
             split="train",
             subsample_step=args.step_length,
-            subset=bool(args.subset_ds),
+            subset=args.subset_ds,
             control_only=args.control_only,
-            data_path=config_loader.dataset.data_path,
+            model_name=args.diffusion_model,
+            border_condition=args.border_condition,
         ),
         args.batch_size,
         shuffle=True,
         num_workers=args.n_workers,
     )
     max_pred_length = (65 // args.step_length) - 2  # 19
+    if args.plot_diffusion_steps:
+        max_pred_length = 1
+
+    if args.model == "diffusion" and args.eval is None:
+        max_pred_length_val = 1
+    else:
+        max_pred_length_val = max_pred_length
+
     val_loader = torch.utils.data.DataLoader(
         WeatherDataset(
             config_loader.dataset.name,
-            pred_length=max_pred_length,
-            split="val", # TODO: Change to val
+            pred_length=max_pred_length_val,
+            split="val",
             subsample_step=args.step_length,
-            subset=bool(args.subset_ds),
+            subset=args.subset_ds,
             control_only=args.control_only,
-            data_path=config_loader.dataset.data_path,
+            model_name=args.diffusion_model,
+            border_condition=args.border_condition,
         ),
         args.batch_size,
         shuffle=False,
@@ -322,33 +524,63 @@ def main(input_args=None):
     prefix = "subset-" if args.subset_ds else ""
     if args.eval:
         prefix = prefix + f"eval-{args.eval}-"
-    
-    prefix = f"{args.wandb_run_name}-{prefix}" if args.wandb_run_name else prefix
 
+    prefix = f"{args.wandb_run_name}-{prefix}" if args.wandb_run_name else prefix
     run_name = (
         f"{prefix}{args.model}-{args.processor_layers}x{args.hidden_dim}-"
         f"{time.strftime('%m_%d_%H')}-{random_run_id:04d}"
     )
-    checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        dirpath=f"saved_models/{run_name}",
-        filename="min_val_loss",
-        monitor="val_mean_loss",
-        mode="min",
-        save_last=True,
+
+    # Callbacks for saving model checkpoint
+    callbacks = []
+    callbacks.append(
+        pl.callbacks.ModelCheckpoint(
+            dirpath=f"saved_models/{run_name}",
+            filename="min_val_loss",
+            monitor="val_mean_loss",
+            mode="min",
+            save_last=True,
+        )
     )
+    callbacks.append(LearningRateMonitor(logging_interval='epoch'))
+
+    callbacks.append(
+        pl.callbacks.ModelCheckpoint(
+            dirpath=f"saved_models/{run_name}",
+            filename="last_epoch",
+            monitor="epoch",
+            save_on_train_epoch_end=True,
+            enable_version_counter=False, # We want to overwrite last_epoch.ckpt
+            save_top_k=-1,  # Save all epochs
+            every_n_epochs=1,
+            save_last=True,  # Optionally also save the last epoch
+        )
+    )
+
+    wandb_project = args.wandb_project if args.eval is None else f"{args.wandb_project}_eval" # Saving the evalua
     logger = pl.loggers.WandbLogger(
-        project=args.wandb_project, name=run_name, config=args
+        project=wandb_project, name=run_name, config=args
     )
+
+    # Training strategy
+    # If doing pure autoencoder training (kl_beta = 0), the prior network is not
+    # used at all in producing the loss. This is desired, but DDP complains.
+    strategy = "ddp" if args.kl_beta > 0 else "ddp_find_unused_parameters_true"
+
+
+    # profiler = AdvancedProfiler(dirpath=".", filename="perf_logs") # Profiler for performance logging
+
     trainer = pl.Trainer(
         max_epochs=args.epochs,
         deterministic=True,
-        strategy='ddp', # "ddp_find_unused_parameters_true", # "ddp", # TODO: Try to change to ddp
+        strategy=strategy,
         accelerator=device_name,
         logger=logger,
         log_every_n_steps=1,
-        callbacks=[checkpoint_callback],
+        callbacks=callbacks,
         check_val_every_n_epoch=args.val_interval,
         precision=args.precision,
+        profiler="simple",
     )
 
     # Only init once, on rank 0 only
@@ -358,6 +590,9 @@ def main(input_args=None):
         )  # Do after wandb.init
 
     if args.eval:
+        # if args.diffusion_model == "edm":
+        #     model = torch.compile(model)
+
         if args.eval == "val":
             eval_loader = val_loader
         else:  # Test
@@ -368,13 +603,15 @@ def main(input_args=None):
                     split="test",
                     subsample_step=args.step_length,
                     subset=bool(args.subset_ds),
-                    data_path=config_loader.dataset.data_path,
+                    model_name=args.diffusion_model,
+                    border_condition=args.border_condition,
                 ),
                 args.batch_size,
                 shuffle=False,
                 num_workers=args.n_workers,
+                pin_memory=True,
+                persistent_workers=True,
             )
-
         print(f"Running evaluation on {args.eval}")
         trainer.test(model=model, dataloaders=eval_loader, ckpt_path=args.load)
     else:
@@ -387,7 +624,7 @@ def main(input_args=None):
         trainer.fit(
             model=model,
             train_dataloaders=train_loader,
-            val_dataloaders=val_loader,
+            # val_dataloaders=val_loader, # No validation during training for diffusion model # TODO: Add validation
             ckpt_path=args.load,
         )
 
