@@ -19,6 +19,7 @@ samples
 predictions
 output/
 diffusion_steps/
+paper_checkpoints/
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
