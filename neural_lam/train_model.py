@@ -18,13 +18,11 @@ from neural_lam.models.diffusion import Diffusion
 from neural_lam.models.fm import FM
 from neural_lam.models.graph_efm import GraphEFM
 from neural_lam.models.graph_fm import GraphFM
-from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.SI import SI
 from neural_lam.models.tEDM import tEDM
 from neural_lam.weather_dataset import WeatherDataset
 
 MODELS = {
-    "graphcast": GraphCast,
     "graph_fm": GraphFM,
     "graph_efm": GraphEFM,
     "diffusion": Diffusion,
@@ -99,6 +97,13 @@ def main(input_args=None):
         default=32,
         help="Numerical precision to use for model (32/16/bf16) (default: 32)",
     )
+    parser.add_argument(
+        "--num_sanity_steps",
+        type=int,
+        default=2,
+        help="Number of sanity checking validation steps to run before starting"
+        " training (default: 2)",
+    )
 
     # Model architecture
     parser.add_argument(
@@ -111,9 +116,9 @@ def main(input_args=None):
     parser.add_argument(
         "--diffusion_model",
         type=str,
-        default="graphcast",
+        default="edm",
         help="Model to use in the diffusion model"
-        "(default: graphcast)",
+        "(default: edm)",
     )
     parser.add_argument(
         "--hidden_dim",
@@ -510,8 +515,6 @@ def main(input_args=None):
     if torch.cuda.is_available():
         device_name = "cuda"
         torch.set_float32_matmul_precision("high")  # Allows using Tensor Cores on A100s
-    # elif torch.backends.mps.is_available():
-    #     device_name = "gpu"
     else:
         device_name = "cpu"
 
@@ -542,6 +545,7 @@ def main(input_args=None):
             save_last=True,
         )
     )
+
     callbacks.append(LearningRateMonitor(logging_interval='epoch'))
 
     callbacks.append(
@@ -550,7 +554,7 @@ def main(input_args=None):
             filename="last_epoch",
             monitor="epoch",
             save_on_train_epoch_end=True,
-            enable_version_counter=False, # We want to overwrite last_epoch.ckpt
+            # enable_version_counter=False, # We want to overwrite last_epoch.ckpt
             save_top_k=-1,  # Save all epochs
             every_n_epochs=1,
             save_last=True,  # Optionally also save the last epoch
@@ -567,9 +571,6 @@ def main(input_args=None):
     # used at all in producing the loss. This is desired, but DDP complains.
     strategy = "ddp" if args.kl_beta > 0 else "ddp_find_unused_parameters_true"
 
-
-    # profiler = AdvancedProfiler(dirpath=".", filename="perf_logs") # Profiler for performance logging
-
     trainer = pl.Trainer(
         max_epochs=args.epochs,
         deterministic=True,
@@ -581,6 +582,7 @@ def main(input_args=None):
         check_val_every_n_epoch=args.val_interval,
         precision=args.precision,
         profiler="simple",
+        num_sanity_val_steps=args.num_sanity_steps,
     )
 
     # Only init once, on rank 0 only
@@ -590,9 +592,6 @@ def main(input_args=None):
         )  # Do after wandb.init
 
     if args.eval:
-        # if args.diffusion_model == "edm":
-        #     model = torch.compile(model)
-
         if args.eval == "val":
             eval_loader = val_loader
         else:  # Test
@@ -616,6 +615,7 @@ def main(input_args=None):
         trainer.test(model=model, dataloaders=eval_loader, ckpt_path=args.load)
     else:
         print("Starting training")
+        # DEBUG: Check for parameters without gradients
         # for n, p in model.named_parameters():
         #     if p.grad is None:
         #         print(f'{n} has no grad')
@@ -624,7 +624,7 @@ def main(input_args=None):
         trainer.fit(
             model=model,
             train_dataloaders=train_loader,
-            # val_dataloaders=val_loader, # No validation during training for diffusion model # TODO: Add validation
+            val_dataloaders=val_loader,
             ckpt_path=args.load,
         )
 

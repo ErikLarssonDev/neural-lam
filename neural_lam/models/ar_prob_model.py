@@ -22,8 +22,10 @@ class ARProbModel(ARModel):
 
         self.val_metrics.update(
             {
-                "spread_squared": [],
+                "ens_mae": [],
                 "ens_mse": [],
+                "crps_ens": [],
+                "spread_squared": [],
             }
         )
         self.test_metrics.update(
@@ -439,11 +441,10 @@ class ARProbModel(ARModel):
             ens_mse_batch,
         )
 
-    def validation_step(self, batch, *args):
+    def validation_step(self, batch, batch_idx):
         """
         Run validation on single batch
         """
-        super().validation_step(batch, *args)
         prediction, target, pred_std, loss = self.common_step_train(batch)
 
         time_step_loss = torch.mean(loss, dim=0)  # (time_steps-1)
@@ -468,6 +469,137 @@ class ARProbModel(ARModel):
             sum_vars=False,
         )  # (B, pred_steps, d_f)
         self.val_metrics["mse"].append(entry_mses)
+
+        # Get Probabilistic Metrics
+        (
+            trajectories,
+            traj_stds,
+            target_states,
+            spread_squared_batch,
+            ens_mse_batch,
+        ) = self.ensemble_common_step(batch)
+
+        self.val_metrics["spread_squared"].append(spread_squared_batch)
+        self.val_metrics["ens_mse"].append(ens_mse_batch)
+
+        # Compute additional ensemble metrics
+        ens_mean = torch.mean(
+            trajectories, dim=1
+        )  # (B, pred_steps, num_grid_nodes, d_f)
+        ens_std = torch.std(trajectories, dim=1)
+        # (B, pred_steps, num_grid_nodes, d_f)
+
+        # Compute MAE for ensemble mean + ensemble CRPS
+        ens_maes = metrics.mae(
+            ens_mean,
+            target_states,
+            ens_std,
+            sum_vars=False,
+        )  # (B, pred_steps, d_f)
+        self.val_metrics["ens_mae"].append(ens_maes)
+        crps_batch = metrics.crps_ens(
+            trajectories,
+            target_states,
+            None,
+            sum_vars=False,
+        )  # (B, pred_steps, d_f)
+        self.val_metrics["crps_ens"].append(crps_batch)
+
+        # Plot example predictions (on rank 0 only)
+        if self.trainer.is_global_zero and batch_idx == 0:
+            n_examples = 1  # Number of examples to plot
+            border = boundary_forcing[..., :len(constants.USED_PARAMS)]
+
+            # Rescale to original data scale
+            traj_rescaled = trajectories * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+            target_rescaled = target_states * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+            border_rescaled = border * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+            # Compute mean and std of ensemble
+            ens_mean = torch.mean(
+                traj_rescaled, dim=1
+            )  # (B, pred_steps, num_grid_nodes, d_f)
+            ens_std = torch.std(
+                traj_rescaled, dim=1
+            )  # (B, pred_steps, num_grid_nodes, d_f)
+
+            # Iterate over the examples
+            for traj_slice, target_slice, border_slice, ens_mean_slice, ens_std_slice in zip(
+                traj_rescaled[:n_examples],
+                target_rescaled[:n_examples],
+                border_rescaled[:n_examples, ..., :len(constants.USED_PARAMS)],
+                ens_mean[:n_examples],
+                ens_std[:n_examples],
+            ):
+                # traj_slice is (S, pred_steps, num_grid_nodes, d_f)
+                # others are (pred_steps, num_grid_nodes, d_f)
+
+                # Note: min and max values can not be in ensemble mean
+                var_vmin = (
+                    torch.minimum(
+                        traj_slice.flatten(0, 2).min(dim=0)[0],
+                        target_slice.flatten(0, 1).min(dim=0)[0],
+                    )
+                    .cpu()
+                    .numpy()
+                )  # (d_f,)
+                var_vmax = (
+                    torch.maximum(
+                        traj_slice.flatten(0, 2).max(dim=0)[0],
+                        target_slice.flatten(0, 1).max(dim=0)[0],
+                    )
+                    .cpu()
+                    .numpy()
+                )  # (d_f,)
+                var_vranges = list(zip(var_vmin, var_vmax))
+
+                # Iterate over prediction horizon time steps
+                for t_i, (samples_t, target_t, border_t, ens_mean_t, ens_std_t) in enumerate(
+                    zip(
+                        traj_slice.transpose(0, 1),
+                        # (pred_steps, S, num_grid_nodes, d_f)
+                        target_slice,
+                        border_slice,
+                        ens_mean_slice,
+                        ens_std_slice,
+                    ),
+                    start=1,
+                ):
+                    if t_i in constants.VAL_PLOT_STEPS:
+                        time_title_part = f"t={t_i} ({self.step_length*t_i} h)"
+                        # Create one figure per variable at this time step
+                        var_figs = [
+                            vis.plot_ensemble_prediction(
+                                samples_t[:, :, var_i],
+                                target_t[:, var_i],
+                                border_t[:, var_i],
+                                ens_mean_t[:, var_i],
+                                ens_std_t[:, var_i],
+                                self.interior_mask,
+                                title=f"{var_name} ({var_unit}), {time_title_part}",
+                                vrange=var_vrange,
+                            )
+                            for var_i, (var_name, var_unit, var_vrange) in enumerate(
+                                zip(
+                                    constants.PARAM_NAMES_SHORT[constants.USED_PARAMS],
+                                    constants.PARAM_UNITS[constants.USED_PARAMS],
+                                    var_vranges,
+                                )
+                            )
+                        ]
+
+                        example_title = f"example_{self.plotted_examples}_step_{t_i}"
+                        wandb.log(
+                            {
+                                f"{var_name}_{example_title}": wandb.Image(fig)
+                                for var_name, fig in zip(
+                                    constants.PARAM_NAMES_SHORT[constants.USED_PARAMS], var_figs
+                                )
+                            }
+                        )
+                        plt.close(
+                            "all"
+                        )  # Close all figs for this time step, saves memory
+
 
     def log_spsk_ratio(self, metric_vals, prefix):
         """

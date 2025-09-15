@@ -12,7 +12,9 @@ SECONDS_IN_YEAR = (
 # Log prediction error for these lead times
 VAL_STEP_LOG_ERRORS = np.array([1])
 # Also save checkpoints for minimum loss at these lead times
-VAL_STEP_CHECKPOINTS = [1]
+VAL_STEP_CHECKPOINTS = [1]  # Save checkpoints for min val loss at these steps
+
+VAL_PLOT_STEPS = np.array([1, 19])  # Plot forecasts at these lead times
 
 # Log these metrics to wandb as scalar values for
 # specific variables and lead times

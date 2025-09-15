@@ -16,7 +16,7 @@ mamba activate BZ31
 wandb online
 
 cd /proj/berzelius-2022-164/users/x_erila/neural-lam
-git switch SI-forecast
+git switch main
 
 # Standard arguments
 DIFFUSION_MODEL="--diffusion_model graph_fm --graph hierarchical-3"

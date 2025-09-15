@@ -524,10 +524,6 @@ class ARModel(pl.LightningModule):
                 xname="Time Step"
             )})
 
-        print(
-            f"Logged {full_log_name} with shape {metric_tensor.shape}, {metric_np.shape}"
-            f"to wandb"
-        )
         # Check if metrics are watched, log exact values for specific vars
         if full_log_name in self.args.metrics_watch:
             for var_i, timesteps in self.args.var_leads_metrics_watch.items():

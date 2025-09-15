@@ -20,7 +20,7 @@ from neural_lam.models.edm_networks_2 import EDMPrecond
 from neural_lam.models.graph_fm import GraphFM
 
 
-class Diffusion(ARModel):
+class Diffusion(ARModel): # TODO: Better if this inherited from ARProbModel? Rename to EDM
     """
     A new auto-regressive weather forecasting model
     """
@@ -65,6 +65,15 @@ class Diffusion(ARModel):
             
         self.pred_residual = args.pred_residual # Whether to predict the residual instead of the next state
         self.diffusion_model = args.diffusion_model
+
+        self.val_metrics.update(
+            {
+                "ens_mae": [],
+                "ens_mse": [],
+                "crps_ens": [],
+                "spread_squared": [],
+            }
+        )
 
         self.test_metrics = {
                                 "ens_mae": [],
@@ -534,41 +543,85 @@ class Diffusion(ARModel):
             ens_mse_batch,
         )
 
-    def validation_step(self, batch, *args):
+    def validation_step(self, batch, batch_idx):
         """
         Run validation on single batch
         """
-        print("No validation step implemented!")
-        # super().validation_step(batch, *args)
-        # prediction, target, pred_std, weight = self.common_step_train(batch)
+        prediction, target, pred_std, loss, weight = self.common_step_train(batch)
 
-        # time_step_loss = torch.mean(
-        #     self.loss(
-        #         prediction, target, pred_std, weight=weight # mask=self.interior_mask_bool
-        #     ),
-        #     dim=0,
-        # )  # (time_steps-1)
-        # mean_loss = torch.mean(time_step_loss)
+        loss = self.loss(
+            prediction, target, pred_std, weight=weight # mask=self.interior_mask_bool
+        )
+        # TODO: It is probably better to compute the loss in the predict_step_train function instead
+        time_step_loss = torch.mean(loss, dim=0)  # (time_steps-1)
+        mean_loss = torch.mean(time_step_loss)
 
-        # # Log loss per time step forward and mean
-        # val_log_dict = {
-        #     f"val_loss_unroll{step}": time_step_loss[step - 1]
-        #     for step in constants.VAL_STEP_LOG_ERRORS # ONLY LOGGING FOR 1 STEP since logging diffusion steps for all steps is too much and not that informative
-        # }
-        # val_log_dict["val_mean_loss"] = mean_loss
-        # self.log_dict(
-        #     val_log_dict, on_step=False, on_epoch=True, sync_dist=True
-        # )
+        # Log loss per time step forward and mean
+        val_log_dict = {
+            f"val_loss_unroll{step}": time_step_loss[step - 1]
+            for step in constants.VAL_STEP_LOG_ERRORS # ONLY LOGGING FOR 1 STEP since logging diffusion steps for all steps is too much and not that informative
+        }
+        val_log_dict["val_mean_loss"] = mean_loss
+        self.log_dict(
+            val_log_dict, on_step=False, on_epoch=True, sync_dist=True
+        )
 
-        # # Store MSEs
-        # entry_mses = metrics.mse(
-        #     prediction,
-        #     target,
-        #     pred_std,
-        #     # mask=self.interior_mask_bool,
-        #     sum_vars=False,
-        # )  # (B, pred_steps, d_f)
-        # self.val_metrics["mse"].append(entry_mses)
+        # Store MSEs
+        entry_mses = metrics.mse(
+            prediction,
+            target,
+            pred_std,
+            # mask=self.interior_mask_bool,
+            sum_vars=False,
+        )  # (B, pred_steps, d_f)
+        self.val_metrics["mse"].append(entry_mses)
+
+        # We only get probabilistic metrics for the first batch to save time
+        if batch_idx == 0:
+            # Get Probabilistic Metrics
+            (
+                trajectories,
+                traj_stds,
+                target_states,
+                spread_squared_batch,
+                ens_mse_batch,
+            ) = self.ensemble_common_step(batch)
+
+            self.val_metrics["spread_squared"].append(spread_squared_batch)
+            self.val_metrics["ens_mse"].append(ens_mse_batch)
+
+            # Compute additional ensemble metrics
+            ens_mean = torch.mean(
+                trajectories, dim=1
+            )  # (B, pred_steps, num_grid_nodes, d_f)
+            ens_std = torch.std(trajectories, dim=1)
+            # (B, pred_steps, num_grid_nodes, d_f)
+
+            # Compute MAE for ensemble mean + ensemble CRPS
+            ens_maes = metrics.mae(
+                ens_mean,
+                target_states,
+                ens_std,
+                sum_vars=False,
+            )  # (B, pred_steps, d_f)
+            self.val_metrics["ens_mae"].append(ens_maes)
+            crps_batch = metrics.crps_ens(
+                trajectories,
+                target_states,
+                None,
+                sum_vars=False,
+            )  # (B, pred_steps, d_f)
+            self.val_metrics["crps_ens"].append(crps_batch)
+
+            # Plot example predictions (on rank 0 only)
+            if self.trainer.is_global_zero:
+                self.plot_examples(
+                    batch,
+                    1,
+                    prediction=trajectories,
+                    lead_times_to_plot=constants.VAL_PLOT_STEPS, # Only plot 1 step ahead during validation
+                )
+                self.plotted_examples -= 1 # Decrease counter, we don't want to increase it in the validation step
 
     def log_spsk_ratio(self, metric_vals, prefix):
         """
