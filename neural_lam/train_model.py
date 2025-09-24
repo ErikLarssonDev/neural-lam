@@ -9,21 +9,19 @@ import pytorch_lightning as pl
 import torch
 from lightning_fabric.utilities import seed
 from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning.profilers import AdvancedProfiler
 
 # First-party
-from neural_lam import config, constants, utils
+from neural_lam import config, utils
 from neural_lam.models.crps import CRPS
 from neural_lam.models.diffusion import Diffusion
 from neural_lam.models.fm import FM
 from neural_lam.models.graph_efm import GraphEFM
-from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.SI import SI
 from neural_lam.models.tEDM import tEDM
 from neural_lam.weather_dataset import WeatherDataset
+from neural_lam.weather_dataset_old import WeatherDatasetOld
 
 MODELS = {
-    "graph_fm": GraphFM,
     "graph_efm": GraphEFM,
     "diffusion": Diffusion,
     "SI": SI,
@@ -32,9 +30,9 @@ MODELS = {
     "CRPS": CRPS,
 }
 
+
 def list_of_ints(arg):
     return list(map(int, arg.split(',')))
-
 
 
 def main(input_args=None):
@@ -196,7 +194,7 @@ def main(input_args=None):
     parser.add_argument(
         "--vertical_propnets",
         type=int,
-        default=0, # TODO: Change to 1 as it is used in the paper
+        default=0,  # TODO: Change to 1 as it is used in the paper
         help="If PropagationNets should be used for all vertical message "
         "passing (g2m, m2g, up in hierarchy), in deterministic models."
         "(default: 0 (no))",
@@ -405,11 +403,11 @@ def main(input_args=None):
     # tEDM Options
     parser.add_argument(
         "--v",
-        type=float, # TODO: Could be tensor with different values for each variable
-        default=3.0, # 3, 5 in the paper
-        help="v > 2 parameter for tEDM (default: 3)", # NOTE: Heavier tails for lower v, gaussian for v -> ∞
+        type=float,  # TODO: Could be tensor with different values for each variable
+        default=3.0,  # 3, 5 in the paper
+        # NOTE: Heavier tails for lower v, gaussian for v -> ∞
+        help="v > 2 parameter for tEDM (default: 3)",
     )
-
 
     # Logger Settings
     parser.add_argument(
@@ -470,16 +468,20 @@ def main(input_args=None):
     # Set seed
     seed.seed_everything(args.seed)
 
+    if args.model == "graph_efm":
+        dataset = WeatherDatasetOld
+    else:
+        dataset = WeatherDataset
+
     # Load data
     train_loader = torch.utils.data.DataLoader(
-        WeatherDataset(
+        dataset(
             config_loader.dataset.name,
             pred_length=args.ar_steps,
             split="train",
             subsample_step=args.step_length,
             subset=args.subset_ds,
             control_only=args.control_only,
-            model_name=args.diffusion_model,
             border_condition=args.border_condition,
         ),
         args.batch_size,
@@ -496,14 +498,13 @@ def main(input_args=None):
         max_pred_length_val = max_pred_length
 
     val_loader = torch.utils.data.DataLoader(
-        WeatherDataset(
+        dataset(
             config_loader.dataset.name,
             pred_length=max_pred_length_val,
             split="val",
             subsample_step=args.step_length,
             subset=args.subset_ds,
             control_only=args.control_only,
-            model_name=args.diffusion_model,
             border_condition=args.border_condition,
         ),
         args.batch_size,
@@ -514,11 +515,10 @@ def main(input_args=None):
     # Instantiate model + trainer
     if torch.cuda.is_available():
         device_name = "cuda"
-        torch.set_float32_matmul_precision("high")  # Allows using Tensor Cores on A100s
+        # Allows using Tensor Cores on A100s
+        torch.set_float32_matmul_precision("high")
     else:
         device_name = "cpu"
-
-
 
     # Load model parameters Use new args for model
     model_class = MODELS[args.model]
@@ -561,7 +561,8 @@ def main(input_args=None):
         )
     )
 
-    wandb_project = args.wandb_project if args.eval is None else f"{args.wandb_project}_eval" # Saving the evalua
+    # Saving the evalua
+    wandb_project = args.wandb_project if args.eval is None else f"{args.wandb_project}_eval"
     logger = pl.loggers.WandbLogger(
         project=wandb_project, name=run_name, config=args
     )
@@ -596,13 +597,12 @@ def main(input_args=None):
             eval_loader = val_loader
         else:  # Test
             eval_loader = torch.utils.data.DataLoader(
-                WeatherDataset(
+                dataset(
                     config_loader.dataset.name,
                     pred_length=max_pred_length,
                     split="test",
                     subsample_step=args.step_length,
                     subset=bool(args.subset_ds),
-                    model_name=args.diffusion_model,
                     border_condition=args.border_condition,
                 ),
                 args.batch_size,

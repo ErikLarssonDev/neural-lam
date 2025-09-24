@@ -3,7 +3,7 @@ from torch import nn
 
 # First-party
 from neural_lam import utils
-from neural_lam.interaction_net import InteractionNet, PropagationNet
+from neural_lam.interaction_net_old import InteractionNet, PropagationNet, make_gnn_seq
 from neural_lam.models.base_graph_latent_decoder import BaseGraphLatentDecoder
 
 
@@ -72,7 +72,7 @@ class HiGraphLatentDecoder(BaseGraphLatentDecoder):
         # Identity mappings if intra_level_layers = 0
         self.intra_up_gnns = nn.ModuleList(
             [
-                utils.make_gnn_seq(
+                make_gnn_seq(
                     edge_index, intra_level_layers, hidden_layers, hidden_dim
                 )
                 for edge_index in m2m_edge_index
@@ -80,7 +80,7 @@ class HiGraphLatentDecoder(BaseGraphLatentDecoder):
         )
         self.intra_down_gnns = nn.ModuleList(
             [
-                utils.make_gnn_seq(
+                make_gnn_seq(
                     edge_index, intra_level_layers, hidden_layers, hidden_dim
                 )
                 for edge_index in list(m2m_edge_index)[:-1]

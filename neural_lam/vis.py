@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 # Local
-from . import config, constants, utils
+from . import config, constants, utils, metrics
 
 
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
@@ -110,7 +110,6 @@ def plot_error_map(errors, data_config, title=None, step_length=3):
 #     return fig
 
 
-
 def plot_on_axis(
     ax,
     data,
@@ -132,17 +131,25 @@ def plot_on_axis(
     if obs_mask is None:
         pixel_alpha = 1
         data_grid = data.reshape(*constants.GRID_SHAPE).cpu().numpy()
+    elif border_data is None:
+        mask_reshaped = obs_mask.reshape(*constants.FULL_GRID_SHAPE)
+        pixel_alpha = (
+            mask_reshaped.clamp(0.7, 1).cpu().numpy()
+        )  # Faded border region
+        data_grid = data.reshape(*constants.FULL_GRID_SHAPE).cpu().numpy()
     else:
         mask_reshaped = obs_mask.reshape(*constants.FULL_GRID_SHAPE)
         pixel_alpha = (
             mask_reshaped.clamp(0.7, 1).cpu().numpy()
         )  # Faded border region
         # Create a blank array for the full image
-        reconstructed_image = np.zeros(constants.FULL_GRID_SHAPE[0] * constants.FULL_GRID_SHAPE[1])
+        reconstructed_image = np.zeros(
+            constants.FULL_GRID_SHAPE[0] * constants.FULL_GRID_SHAPE[1])
 
         # Fill in the interior and boundary regions
         reconstructed_image[obs_mask.cpu().numpy()] = data.cpu().numpy()
-        reconstructed_image[~obs_mask.cpu().numpy()] = border_data.cpu().numpy()
+        reconstructed_image[~obs_mask.cpu().numpy()
+                            ] = border_data.cpu().numpy()
 
         # Reshape to 2D for plotting
         data_grid = reconstructed_image.reshape(*constants.FULL_GRID_SHAPE)
@@ -209,6 +216,7 @@ def plot_prediction(
 
     return fig
 
+
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
 def plot_ensemble_prediction(
     samples, target, border, ens_mean, ens_std, obs_mask, title=None, vrange=None
@@ -260,10 +268,15 @@ def plot_ensemble_prediction(
         vmax=vmax,
         ax_title="Ens. Mean",
     )
+
+    if border is not None:
+        border_std = border*0  # Zero std in border region
+    else:
+        border_std = None
     std_im = plot_on_axis(
         axes[2],
         ens_std,
-        border*0,
+        border_std,
         obs_mask=obs_mask,
         ax_title="Ens. Std."
     )  # Own vrange
@@ -283,7 +296,7 @@ def plot_ensemble_prediction(
         )
 
     # Turn off unused axes
-    for ax in axes[(3 + samples.shape[0]) :]:
+    for ax in axes[(3 + samples.shape[0]):]:
         ax.axis("off")
 
     # Add colorbars
@@ -317,7 +330,7 @@ def plot_spatial_error(
 
     fig, ax = plt.subplots(
         figsize=(5, 4.8),
-        subplot_kw={"projection": data_config.coords_projection},
+        subplot_kw={"projection": data_config.projection},
     )
 
     im = plot_on_axis(
@@ -420,3 +433,140 @@ def plot_latent_samples(prior_samples, vi_samples, title=None):
         fig.suptitle(title, size=20)
 
     return fig
+
+
+def radial_average(psd2D):
+    """
+    Radially average 2D power spectrum.
+    psd2D shape: (B, H, W)
+    returns: (B, R) radial profiles, where R = max(H,W)//2
+    """
+    B, H, W = psd2D.shape
+    cy, cx = H // 2, W // 2
+    y, x = torch.meshgrid(torch.arange(H), torch.arange(W), indexing="ij")
+    r = torch.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+    r = r.to(torch.int64)
+
+    R = r.max().item() + 1
+    radial_profiles = []
+    for b in range(B):
+        tbin = torch.bincount(
+            r.flatten(), weights=psd2D[b].flatten(), minlength=R)
+        nr = torch.bincount(r.flatten(), minlength=R)
+        radial_profiles.append(tbin / torch.clamp(nr, min=1))
+    return torch.stack(radial_profiles)  # (B, R)
+
+
+def get_energy_spectra(power_spectrum):
+
+    # Convert to numpy if tensor
+    is_tensor = isinstance(power_spectrum, torch.Tensor)
+    if is_tensor:
+        power_spectrum = power_spectrum.detach().cpu().numpy()
+
+    dx = 10 * 1000  # 10 km in meters
+    dy = 10 * 1000  # 10 km in meters
+    ny, nx = power_spectrum.shape[-2:]
+
+    # Rest of the function remains the same
+    # Get wavenumbers
+    kx = np.fft.fftfreq(nx, d=dx)
+    ky = np.fft.fftfreq(ny, d=dy)
+
+    # Create 2D wavenumber grid
+    kxx, kyy = np.meshgrid(kx, ky)
+    k_mag = np.sqrt(kxx**2 + kyy**2)
+
+    # Create wavenumber bins for azimuthal averaging
+    k_bins = np.logspace(
+        np.log10(k_mag[k_mag > 0].min()), np.log10(k_mag.max()), num=50
+    )
+
+    # Perform azimuthal averaging
+    k_averaged = []
+    power_averaged = []
+
+    for i in range(len(k_bins) - 1):
+        k_mask = (k_mag >= k_bins[i]) & (k_mag < k_bins[i + 1])
+        if k_mask.any():
+            k_averaged.append(np.mean(k_mag[k_mask]))
+            power_averaged.append(np.mean(power_spectrum[k_mask]))
+
+    # Convert to arrays
+    k_averaged = np.array(k_averaged)
+    power_averaged = np.array(power_averaged)
+
+    return k_averaged, power_averaged  # (R,), (R,)
+
+
+def plot_energy_spectra(spectra_gt, spectra_ml, var, title=None, show_legend=False):
+    """Plot energy spectra comparison using pre-calculated spectra.
+
+    Parameters
+    ----------
+    spectra_cache : dict
+        Cache containing pre-calculated spectra
+    var : str
+        Variable name to plot
+    level : float, optional
+        Vertical level in hPa
+    show_legend : bool, optional
+        Whether to show the legend (default: False)
+    """
+
+    # k_gt, spec_gt = get_energy_spectra(spectra_gt)  # (R,), (R,)
+    # k_ml, spec_ml = get_energy_spectra(spectra_ml)  # (R,), (R,)
+
+    fig, ax = plt.subplots(figsize=(11, 6.5), dpi=300)
+    x = np.arange(0, spectra_gt.shape[-1])
+
+    # Plot ground truth spectrum
+    ax.loglog(
+        x,
+        spectra_gt,
+        label="Ground Truth",
+    )
+
+    # Plot ML spectrum
+    ax.loglog(
+        x,
+        spectra_ml,
+        label="Prediction",
+    )
+
+    # Add LSD metric
+    add_lsd_to_plot(ax, spectra_gt, spectra_ml)
+
+    # Customize plot
+    ax.set_xlabel("Wavenumber (1/m)")
+    unit = constants.PARAM_UNITS[constants.USED_PARAMS][var]
+    ax.set_ylabel(f"Energy Density (({unit})² * m)")
+    var_name = constants.PARAM_NAMES_SHORT[constants.USED_PARAMS][var]
+    title = title if title is not None else f"Energy Spectra Comparison for {var_name}"
+    ax.set_title(title)
+    if show_legend:
+        ax.legend(loc='upper right')
+    ax.grid(True, which="both", ls="--", alpha=0.5)
+    plt.tight_layout()
+
+    return fig
+
+
+def add_lsd_to_plot(ax, true_spectrum, ml_spectrum):
+    """
+    Add LSD metric as text box to spectrum plot
+    """
+    lsd_ml = metrics.calculate_log_spectral_distance(
+        true_spectrum, ml_spectrum
+    )
+    textstr = f"LSD = {lsd_ml:.4f}"
+
+    props = dict(boxstyle="round", facecolor="wheat", alpha=0.5)
+    ax.text(
+        0.05,
+        0.1,
+        textstr,
+        transform=ax.transAxes,
+        verticalalignment="top",
+        bbox=props,
+    )

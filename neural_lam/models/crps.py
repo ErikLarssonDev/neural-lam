@@ -13,6 +13,7 @@ class CRPS(ARProbModel):
     """
     A crps based probabilistic auto-regressive weather forecasting model
     """
+
     def __init__(self, args):
         super().__init__(args)
 
@@ -46,13 +47,16 @@ class CRPS(ARProbModel):
                     (pred_std can be ignored by just returning None)
         """
 
-        x = torch.cat((prev_state, prev_prev_state, forcing), dim=-1) # (B, N_grid, d_input)
+        x = torch.cat((prev_state, prev_prev_state, forcing),
+                      dim=-1)  # (B, N_grid, d_input)
 
-        z = torch.randn(prev_state.shape[0], self.model.noise_dim, device=prev_state.device)
+        z = torch.randn(
+            prev_state.shape[0], self.model.noise_dim, device=prev_state.device)
         next_state = self.model(x, z, boundary_forcing=boundary_forcing)
 
         if self.pred_residual:
-            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
+            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + \
+                self.step_diff_mean[constants.USED_PARAMS]  # Unormalize residual
             next_state = prev_state + next_state
 
         return next_state, None
@@ -68,16 +72,15 @@ class CRPS(ARProbModel):
             init_states,
             forcing,
             boundary_forcing,
-            2, # NOTE: Always sample 2 trajectories? They use N=2 in FGN
+            2,  # NOTE: Always sample 2 trajectories? They use N=2 in FGN
         )
         # (B, S=2, pred_steps, num_grid_nodes, d_f), always 2 samples
 
         # Compute CRPS, TODO: Should we include some weighting of the variables?
-        crps_estimate = metrics.crps_ens( # TODO: Should we use this CRPS version?
+        crps_estimate = metrics.crps_ens(  # TODO: Should we use this CRPS version?
             pred_traj_means,
             target_states,
             pred_traj_stds,
-            # mask=self.interior_mask_bool,
         )  # (B, pred_steps)
         loss = torch.mean(crps_estimate)
 
@@ -101,12 +104,12 @@ class CRPS(ARProbModel):
             init_states,
             forcing,
             boundary_forcing,
-            2, # NOTE: Always sample 2 trajectories? They use N=2 in FGN
+            2,  # NOTE: Always sample 2 trajectories? They use N=2 in FGN
         )
         # (B, S=2, pred_steps, num_grid_nodes, d_f), always 2 samples
 
         # Compute CRPS, TODO: Should we include some weighting of the variables?
-        loss = metrics.crps_ens( # TODO: Should we use this CRPS version?
+        loss = metrics.crps_ens(  # TODO: Should we use this CRPS version?
             pred_traj_means,
             target_states,
             pred_traj_stds,
@@ -119,14 +122,16 @@ class CRPS(ARProbModel):
         # Log loss per time step forward and mean
         val_log_dict = {
             f"val_loss_unroll{step}": time_step_loss[step - 1]
-            for step in constants.VAL_STEP_LOG_ERRORS # ONLY LOGGING FOR 1 STEP since logging diffusion steps for all steps is too much and not that informative
+            # ONLY LOGGING FOR 1 STEP since logging diffusion steps for all steps is too much and not that informative
+            for step in constants.VAL_STEP_LOG_ERRORS
         }
         val_log_dict["val_mean_loss"] = mean_loss
         self.log_dict(
             val_log_dict, on_step=False, on_epoch=True, sync_dist=True
         )
 
-        prediction = pred_traj_means[:, 0, :, :, :]  # (B, pred_steps, num_grid_nodes, d_f), only use first sample for deterministic metrics
+        # (B, pred_steps, num_grid_nodes, d_f), only use first sample for deterministic metrics
+        prediction = pred_traj_means[:, 0, :, :, :]
 
         # Store MSEs
         entry_mses = metrics.mse(
@@ -179,9 +184,15 @@ class CRPS(ARProbModel):
             border = boundary_forcing[..., :len(constants.USED_PARAMS)]
 
             # Rescale to original data scale
-            traj_rescaled = trajectories * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
-            target_rescaled = target_states * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
-            border_rescaled = border * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+            traj_rescaled = trajectories * \
+                self.data_std[constants.USED_PARAMS] + \
+                self.data_mean[constants.USED_PARAMS]
+            target_rescaled = target_states * \
+                self.data_std[constants.USED_PARAMS] + \
+                self.data_mean[constants.USED_PARAMS]
+            border_rescaled = border * \
+                self.data_std[constants.USED_PARAMS] + \
+                self.data_mean[constants.USED_PARAMS]
             # Compute mean and std of ensemble
             ens_mean = torch.mean(
                 traj_rescaled, dim=1

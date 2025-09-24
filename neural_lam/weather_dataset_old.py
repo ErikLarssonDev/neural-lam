@@ -11,13 +11,13 @@ import torch
 from neural_lam import constants, utils
 
 
-class WeatherDataset(torch.utils.data.Dataset):
+class WeatherDatasetOld(torch.utils.data.Dataset):
     """
     For our dataset:
     N_t' = 65
     N_t = 65//subsample_step (= 21 for 3h steps)
-    dim_y = 268
-    dim_x = 238
+    dim_x = 268
+    dim_y = 238
     N_grid = 268x238 = 63784
     d_features = 17 (d_features' = 18)
     d_forcing = 5
@@ -32,16 +32,15 @@ class WeatherDataset(torch.utils.data.Dataset):
         standardize=True,
         subset=False,
         control_only=False,
-        border_condition=False,
+        border_condition=False,  # Not used but kept for compatibility
     ):
         super().__init__()
-        self.border_condition = border_condition
 
         assert split in ("train", "val", "test"), "Unknown dataset split"
-
         self.sample_dir_path = os.path.join(
             constants.DATA_PATH, dataset_name, "samples", split
         )
+
         member_file_regexp = (
             "nwp*mbr000.npy" if control_only else "nwp*mbr*.npy"
         )
@@ -67,8 +66,7 @@ class WeatherDataset(torch.utils.data.Dataset):
         # Set up for standardization
         self.standardize = standardize
         if standardize:
-            ds_stats = utils.load_dataset_stats(
-                dataset_name, data_path=constants.DATA_PATH, device="cpu")
+            ds_stats = utils.load_dataset_stats(dataset_name, "cpu")
             self.data_mean, self.data_std, self.flux_mean, self.flux_std = (
                 ds_stats["data_mean"],
                 ds_stats["data_std"],
@@ -78,11 +76,6 @@ class WeatherDataset(torch.utils.data.Dataset):
 
         # If subsample index should be sampled (only duing training)
         self.random_subsample = split == "train"
-
-        # Unnecessary to load all static data, but this is just dummy
-        static_data = utils.load_static_data(dataset_name)
-        self.boundary_mask = static_data["boundary_mask"]
-        self.interior_mask = static_data["interior_mask"]
 
     def __len__(self):
         return len(self.sample_names)
@@ -96,7 +89,7 @@ class WeatherDataset(torch.utils.data.Dataset):
         try:
             full_sample = torch.tensor(
                 np.load(sample_path), dtype=torch.float32
-            )  # (N_t', dim_y, dim_x, d_features')
+            )  # (N_t', dim_x, dim_y, d_features')
         except ValueError:
             print(f"Failed to load {sample_path}")
 
@@ -110,40 +103,40 @@ class WeatherDataset(torch.utils.data.Dataset):
         sample = full_sample[
             subsample_index: subsample_end_index: self.subsample_step
         ]
-        # (N_t, dim_y, dim_x, d_features')
+        # (N_t, dim_x, dim_y, d_features')
 
         # Remove feature 15, "z_height_above_ground"
         sample = torch.cat(
             (sample[:, :, :, :15], sample[:, :, :, 16:]), dim=3
-        )  # (N_t, dim_y, dim_x, d_features)
+        )  # (N_t, dim_x, dim_y, d_features)
 
         # Accumulate solar radiation instead of just subsampling
-        rad_features = full_sample[:, :, :, 2:4]  # (N_t', dim_y, dim_x, 2)
+        rad_features = full_sample[:, :, :, 2:4]  # (N_t', dim_x, dim_y, 2)
         # Accumulate for first time step
         init_accum_rad = torch.sum(
             rad_features[: (subsample_index + 1)], dim=0, keepdim=True
-        )  # (1, dim_y, dim_x, 2)
+        )  # (1, dim_x, dim_y, 2)
         # Accumulate for rest of subsampled sequence
         in_subsample_len = (
             subsample_end_index - self.subsample_step + subsample_index + 1
         )
         rad_features_in_subsample = rad_features[
             (subsample_index + 1): in_subsample_len
-        ]  # (N_t*, dim_y, dim_x, 2), N_t* = (N_t-1)*ss_step
-        _, dim_y, dim_x, _ = sample.shape
+        ]  # (N_t*, dim_x, dim_y, 2), N_t* = (N_t-1)*ss_step
+        _, dim_x, dim_y, _ = sample.shape
         rest_accum_rad = torch.sum(
             rad_features_in_subsample.view(
                 self.original_sample_length - 1,
                 self.subsample_step,
-                dim_y,
                 dim_x,
+                dim_y,
                 2,
             ),
             dim=1,
-        )  # (N_t-1, dim_y, dim_x, 2)
+        )  # (N_t-1, dim_x, dim_y, 2)
         accum_rad = torch.cat(
             (init_accum_rad, rest_accum_rad), dim=0
-        )  # (N_t, dim_y, dim_x, 2)
+        )  # (N_t, dim_x, dim_y, 2)
         # Replace in sample
         sample[:, :, :, 2:4] = accum_rad
 
@@ -161,13 +154,8 @@ class WeatherDataset(torch.utils.data.Dataset):
             # Standardize sample
             sample = (sample - self.data_mean) / self.data_std
 
-        # Sample should only contain interior
-        boundary_forcing_sample = sample[:, self.boundary_mask]
-        # (sample_len, N_boundary, d_features)
-        sample = sample[:, self.interior_mask]
-
         # Split up sample in init. states and target states
-        init_states = sample[:2]  # (2, N_grid, d_features), prev_prev, prev
+        init_states = sample[:2]  # (2, N_grid, d_features)
         target_states = sample[2:]  # (sample_length-2, N_grid, d_features)
 
         # === Forcing features ===
@@ -182,7 +170,7 @@ class WeatherDataset(torch.utils.data.Dataset):
             np.load(water_path), dtype=torch.float32
         ).unsqueeze(
             -1
-        )  # (dim_y, dim_x, 1)
+        )  # (dim_x, dim_y, 1)
         # Flatten
         water_cover_features = water_cover_features.flatten(
             0, 1)  # (N_grid, 1)
@@ -198,7 +186,7 @@ class WeatherDataset(torch.utils.data.Dataset):
         )
         flux = torch.tensor(np.load(flux_path), dtype=torch.float32).unsqueeze(
             -1
-        )  # (N_t', dim_y, dim_x, 1)
+        )  # (N_t', dim_x, dim_y, 1)
 
         if self.standardize:
             flux = (flux - self.flux_mean) / self.flux_std
@@ -233,11 +221,9 @@ class WeatherDataset(torch.utils.data.Dataset):
         # can roll over to next year, ok because periodicity
 
         # Encode as sin/cos
-        # ! Make this more flexible in a separate create_forcings.py script
-        seconds_in_year = 365 * 24 * 3600
         hour_angle = (hour_of_day / 12) * torch.pi  # (sample_len,)
         year_angle = (
-            (second_into_year / seconds_in_year) * 2 * torch.pi
+            (second_into_year / constants.SECONDS_IN_YEAR) * 2 * torch.pi
         )  # (sample_len,)
         datetime_forcing = torch.stack(
             (
@@ -274,31 +260,4 @@ class WeatherDataset(torch.utils.data.Dataset):
         forcing = torch.cat((water_cover_expanded, forcing_windowed), dim=2)
         # (sample_len-2, N_grid, forcing_dim)
 
-        # Forcing should only contain interior
-        boundary_forcing_forcing = forcing[:, self.boundary_mask]
-        # (sample_len-2, N_boundary, forcing_dim)
-        forcing = forcing[:, self.interior_mask]
-
-        # === Boundary Forcing ===
-
-        # To match current setup, allowing for same grid encoder also for
-        # boundary, boundary forcing should contain (in order) prev_state,
-        # prev_prev_state, forcing (and later added on static features).
-
-        boundary_forcing = torch.cat(
-            (
-                boundary_forcing_sample[1:-1],  # prev_state
-                boundary_forcing_sample[:-2],  # prev_prev_state
-                boundary_forcing_forcing,
-            ),
-            dim=-1,
-        )  # (sample_len-2, N_boundary, boundary_forcing_dim)
-        # with boundary_forcing_dim = 2 x d_features + d_forcing
-
-        if self.border_condition:
-            boundary_forcing = torch.cat(
-                (boundary_forcing_sample[2:],  # next_state
-                 boundary_forcing), dim=-1
-            )
-
-        return init_states, target_states, forcing, boundary_forcing
+        return init_states, target_states, forcing

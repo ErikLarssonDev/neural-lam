@@ -1,17 +1,3 @@
-[![slack](https://img.shields.io/badge/slack-join-brightgreen.svg?logo=slack)](https://join.slack.com/t/ml-lam/shared_invite/zt-2t112zvm8-Vt6aBvhX7nYa6Kbj_LkCBQ)
-![Linting](https://github.com/mllam/neural-lam/actions/workflows/pre-commit.yml/badge.svg?branch=main)
-[![test (pdm install, gpu)](https://github.com/mllam/neural-lam/actions/workflows/ci-pdm-install-and-test-gpu.yml/badge.svg)](https://github.com/mllam/neural-lam/actions/workflows/ci-pdm-install-and-test-gpu.yml)
-[![test (pdm install, cpu)](https://github.com/mllam/neural-lam/actions/workflows/ci-pdm-install-and-test-cpu.yml/badge.svg)](https://github.com/mllam/neural-lam/actions/workflows/ci-pdm-install-and-test-cpu.yml)
-
-<p align="middle">
-    <img src="figures/neural_lam_header.png" width="700">
-</p>
-
-Neural-LAM is a repository of graph-based neural weather prediction models for Limited Area Modeling (LAM).
-Also global forecasting is possible, but currently on a [different branch](https://github.com/mllam/neural-lam/tree/prob_model_global) ([planned to be merged with main](https://github.com/mllam/neural-lam/issues/63)).
-The code uses [PyTorch](https://pytorch.org/) and [PyTorch Lightning](https://lightning.ai/pytorch-lightning).
-Graph Neural Networks are implemented using [PyG](https://pyg.org/) and logging is set up through [Weights & Biases](https://wandb.ai/).
-
 # This Branch: Probabilistic LAM Forecasting
 <p align="middle">
     <img src="figures/graph_efm_forecast_nlwrs.gif" width="700"/>
@@ -80,6 +66,8 @@ See also the [weather-model-graphs](https://github.com/mllam/weather-model-graph
 Below follows instructions on how to use Neural-LAM to train and evaluate models.
 
 ## Installation
+The code uses [PyTorch](https://pytorch.org/) and [PyTorch Lightning](https://lightning.ai/pytorch-lightning).
+Graph Neural Networks are implemented using [PyG](https://pyg.org/) and logging is set up through [Weights & Biases](https://wandb.ai/).
 
 When installing `neural-lam` you have a choice of either installing with
 directly `pip` or using the `pdm` package manager.
@@ -182,22 +170,16 @@ For detailed hyperparameter settings we refer to the paper, in particular the ap
 
 The implemented models are:
 
-### GraphCast
-This is our re-implementation of GraphCast, and really can be used with any type of non-hierarchical graph (not just multi-scale).
-The encode-process-decode framework is used with a mesh graph in order to make one-step pedictions.
-This model class is used both for the L1-LAM and GC-LAM models from the [paper](#graph-based-neural-weather-prediction-for-limited-area-modeling), only with different graphs.
-
-To train GraphCast use
+### CRPS-LAM
+To train CRPS-LAM use e.g.
 ```
-python -m neural_lam.train_model --model graph_lam --graph 1level ...
+python3 neural_lam/train_model.py --model CRPS --pred_residual --border_condition ...
 ```
 
-### Graph-FM
-Deterministic graph-based forecasting model that uses a hierarchical mesh graph and performs sequential message passing through the hierarchy during processing.
-
-To train Graph-FM use
+### Diffusion-LAM
+To train Diffusion-LAM use e.g.
 ```
-python -m neural_lam.train_model --model graph_lam --graph multiscale ...
+python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --pred_residual --border_condition ...
 ```
 
 ### Graph-EFM
@@ -333,4 +315,4 @@ Furthermore, all tests in the ```tests``` directory will be run upon pushing cha
 # Contact
 If you are interested in machine learning models for LAM, have questions about the implementation or ideas for extending it, feel free to get in touch.
 There is an open [mllam slack channel](https://join.slack.com/t/ml-lam/shared_invite/zt-2t112zvm8-Vt6aBvhX7nYa6Kbj_LkCBQ) that anyone can join (after following the link you have to request to join, this is to avoid spam bots).
-You can also open a github issue on this page, or (if more suitable) send an email to [joel.oskarsson@liu.se](mailto:joel.oskarsson@liu.se).
+You can also open a github issue on this page, or (if more suitable) send an email to [erik.larsson@liu.se](mailto:erik.larsson@liu.se).

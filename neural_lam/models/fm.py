@@ -16,17 +16,18 @@ from torch.nn.functional import silu
 # First-party
 from neural_lam import constants, metrics, utils, vis
 from neural_lam.models.ar_model import ARModel
-from neural_lam.models.edm_networks_2 import EDMPrecond, SongUNet
-from neural_lam.models.graph_fm import GraphFM
+from neural_lam.models.edm_networks_2 import SongUNet
 
 
 def bad(x):
     return torch.any(torch.isnan(x)) or torch.any(torch.isinf(x))
 
+
 class FM(ARModel):
     """
     A new auto-regressive weather forecasting model
     """
+
     def __init__(self, args):
         super().__init__(args)
 
@@ -37,9 +38,9 @@ class FM(ARModel):
         self.save_output = args.save_output
         self.save_output_wandb = args.save_output_wandb
         self.sampler_steps = args.sampler_steps
-        self.save_steps = args.save_steps # TODO: Fix later
+        self.save_steps = args.save_steps  # TODO: Fix later
         self.GT = None
-        self.output_std = args.output_std # Whether to use the variable weights or not
+        self.output_std = args.output_std  # Whether to use the variable weights or not
 
         # grid_dim from data + static
         (
@@ -57,29 +58,31 @@ class FM(ARModel):
 
         if args.diffusion_model == 'song_unet':
             self.model = SongUNet(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
-                                    in_channels=self.grid_dim,
-                                    out_channels=self.config_loader.num_data_vars(),
-                                    embedding_type=args.noise_embedding,
-                                    resample_filter=args.resample_filter,
-                                    channel_mult=args.channel_mult,
-                                    encoder_type=args.encoder_type,
-                                    attn_resolutions=args.attn_resolutions,
-                                    )
+                                  in_channels=self.grid_dim,
+                                  out_channels=self.config_loader.num_data_vars(),
+                                  embedding_type=args.noise_embedding,
+                                  resample_filter=args.resample_filter,
+                                  channel_mult=args.channel_mult,
+                                  encoder_type=args.encoder_type,
+                                  attn_resolutions=args.attn_resolutions,
+                                  )
         else:
-            raise ValueError(f"Diffusion model {args.diffusion_model} not recognized")
+            raise ValueError(
+                f"Diffusion model {args.diffusion_model} not recognized")
 
-        self.pred_residual = args.pred_residual # Whether to predict the residual instead of the next state
+        # Whether to predict the residual instead of the next state
+        self.pred_residual = args.pred_residual
         self.diffusion_model = args.diffusion_model
 
         self.t_min_sampling = 0.0
         self.t_max_sampling = 1.0
 
         self.test_metrics = {
-                                "ens_mae": [],
-                                "ens_mse": [],
-                                "crps_ens": [],
-                                "spread_squared": [],
-                            }
+            "ens_mae": [],
+            "ens_mse": [],
+            "crps_ens": [],
+            "spread_squared": [],
+        }
 
     def predict_step(self, prev_state, prev_prev_state, forcing, boundary_forcing):
         """
@@ -96,20 +99,25 @@ class FM(ARModel):
         pred_std: None or (B, N_grid, d_state), predicted standard-deviations
                     (pred_std can be ignored by just returning None)
         """
-        input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1) # (B, N_grid, d_input)
-        latents = torch.randn_like(input_grid[:, :, :self.grid_output_dim]) # (B, N_grid, d_state)
+        input_grid = torch.cat(
+            (prev_state, prev_prev_state, forcing), dim=-1)  # (B, N_grid, d_input)
+        latents = torch.randn_like(
+            input_grid[:, :, :self.grid_output_dim])  # (B, N_grid, d_state)
 
         # Run through sampler
         if self.sampler == "heun":
-            next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.t_min_sampling, sigma_max=self.t_max_sampling)
+            next_state, diff_states = self.heun_sampler(
+                latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.t_min_sampling, sigma_max=self.t_max_sampling)
         elif self.sampler == "midpoint":
-            next_state, diff_states = self.midpoint(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.t_min_sampling, sigma_max=self.t_max_sampling)
+            next_state, diff_states = self.midpoint(
+                latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.t_min_sampling, sigma_max=self.t_max_sampling)
         else:
             raise ValueError(f"Sampler {self.sampler} not recognized")
 
         # Add residual if needed
         if self.pred_residual:
-            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
+            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + \
+                self.step_diff_mean[constants.USED_PARAMS]  # Unormalize residual
             next_state = prev_state + next_state
 
         return next_state, None
@@ -130,75 +138,80 @@ class FM(ARModel):
                     (pred_std can be ignored by just returning None)
         """
 
-        y = true_state # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
+        # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
+        y = true_state
         # Make y residual if needed
         if self.pred_residual:
             y = y - prev_state
-            y = (y - self.step_diff_mean[constants.USED_PARAMS]) / self.step_diff_std[constants.USED_PARAMS] # Normalize residual
+            y = (y - self.step_diff_mean[constants.USED_PARAMS]) / \
+                self.step_diff_std[constants.USED_PARAMS]  # Normalize residual
 
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
 
-        z0 = torch.randn_like(true_state, device=true_state.device) # (B, N_grid, d_state)
+        # (B, N_grid, d_state)
+        z0 = torch.randn_like(true_state, device=true_state.device)
         z1 = y
 
-        t =  torch.rand([prev_state.shape[0], 1, 1], device=prev_state.device)
+        t = torch.rand([prev_state.shape[0], 1, 1], device=prev_state.device)
         zt = (1 - t) * z0 + t * z1
 
         next_state = self.model(zt, t, input_grid, boundary_forcing)
 
-        loss =  (next_state - (z1-z0)) ** 2
+        loss = (next_state - (z1-z0)) ** 2
 
         loss = torch.mean(loss / (self.per_var_std**2))
 
         # Add residual if needed
         if self.pred_residual:
-            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
+            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + \
+                self.step_diff_mean[constants.USED_PARAMS]  # Unormalize residual
             next_state = prev_state + next_state
 
         return next_state, None, loss.unsqueeze(0)
 
     def unroll_prediction(self, init_states, forcing_features, boundary_forcing):
-            """
-            Roll out prediction taking multiple autoregressive steps with model
-            init_states: (B, 2, num_grid_nodes, d_f)
-            forcing_features: (B, pred_steps, num_grid_nodes, d_static_f)
-            true_states: (B, pred_steps, num_grid_nodes, d_f)
-            """
-            prev_prev_state = init_states[:, 0]
-            prev_state = init_states[:, 1]
-            prediction_list = []
-            pred_std_list = []
-            pred_steps = forcing_features.shape[1]
+        """
+        Roll out prediction taking multiple autoregressive steps with model
+        init_states: (B, 2, num_grid_nodes, d_f)
+        forcing_features: (B, pred_steps, num_grid_nodes, d_static_f)
+        true_states: (B, pred_steps, num_grid_nodes, d_f)
+        """
+        prev_prev_state = init_states[:, 0]
+        prev_state = init_states[:, 1]
+        prediction_list = []
+        pred_std_list = []
+        pred_steps = forcing_features.shape[1]
 
-            for i in range(pred_steps):
-                forcing = forcing_features[:, i]
-                border_state = boundary_forcing[:, i]
-                pred_state, pred_std = self.predict_step(
-                    prev_state, prev_prev_state, forcing, border_state
-                )
+        for i in range(pred_steps):
+            forcing = forcing_features[:, i]
+            border_state = boundary_forcing[:, i]
+            pred_state, pred_std = self.predict_step(
+                prev_state, prev_prev_state, forcing, border_state
+            )
 
-                new_state = pred_state
+            new_state = pred_state
 
-                prediction_list.append(new_state)
-                if self.output_std:
-                    pred_std_list.append(pred_std)
-
-                # Update conditioning states
-                prev_prev_state = prev_state
-                prev_state = new_state
-
-            prediction = torch.stack(
-                prediction_list, dim=1
-            )  # (B, pred_steps, num_grid_nodes, d_f)
+            prediction_list.append(new_state)
             if self.output_std:
-                # pred_std = torch.stack(
-                #     pred_std_list, dim=1
-                # )  # (B, pred_steps, num_grid_nodes, d_f)
-                pred_std = torch.tensor(1, device=init_states.device) # Using the same weights for all variables
-            else:
-                pred_std = self.per_var_std  # (d_f,)
+                pred_std_list.append(pred_std)
 
-            return prediction, pred_std
+            # Update conditioning states
+            prev_prev_state = prev_state
+            prev_state = new_state
+
+        prediction = torch.stack(
+            prediction_list, dim=1
+        )  # (B, pred_steps, num_grid_nodes, d_f)
+        if self.output_std:
+            # pred_std = torch.stack(
+            #     pred_std_list, dim=1
+            # )  # (B, pred_steps, num_grid_nodes, d_f)
+            # Using the same weights for all variables
+            pred_std = torch.tensor(1, device=init_states.device)
+        else:
+            pred_std = self.per_var_std  # (d_f,)
+
+        return prediction, pred_std
 
     def unroll_prediction_train(self, init_states, forcing_features, true_states, boundary_forcing):
         """
@@ -290,7 +303,7 @@ class FM(ARModel):
 
         batch_mse = torch.mean(
             metrics.mse(
-                prediction, target, pred_std, # mask=self.interior_mask_bool
+                prediction, target, pred_std,  # mask=self.interior_mask_bool
             )
         )  # mean over unrolled times and batch
 
@@ -299,7 +312,6 @@ class FM(ARModel):
             log_dict, prog_bar=True, on_step=True, on_epoch=True, sync_dist=True
         )
         return batch_loss
-
 
     def sample_trajectories(
         self,
@@ -348,7 +360,8 @@ class FM(ARModel):
                 [pred_pair[1] for pred_pair in traj_list], dim=1
             )
         else:
-            traj_stds = self.per_var_std[constants.USED_PARAMS] # TODO: Check if this is correct, self.per_var_std = self.step_diff_std / torch.sqrt(self.param_weights)
+            # TODO: Check if this is correct, self.per_var_std = self.step_diff_std / torch.sqrt(self.param_weights)
+            traj_stds = self.per_var_std[constants.USED_PARAMS]
 
         return traj_means, traj_stds
 
@@ -371,9 +384,15 @@ class FM(ARModel):
         # (B, S, pred_steps, num_grid_nodes, d_f)
 
         # Rescale to original data scale
-        traj_rescaled = trajectories * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
-        target_rescaled = target_states * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
-        border_rescaled = border * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+        traj_rescaled = trajectories * \
+            self.data_std[constants.USED_PARAMS] + \
+            self.data_mean[constants.USED_PARAMS]
+        target_rescaled = target_states * \
+            self.data_std[constants.USED_PARAMS] + \
+            self.data_mean[constants.USED_PARAMS]
+        border_rescaled = border * \
+            self.data_std[constants.USED_PARAMS] + \
+            self.data_mean[constants.USED_PARAMS]
         # Compute mean and std of ensemble
         ens_mean = torch.mean(
             traj_rescaled, dim=1
@@ -401,19 +420,29 @@ class FM(ARModel):
             # TODO: Check that the saving is correct, we want to save one sample and not the entire batch
             # Save predictions to the output folder
             if self.save_output:
-                torch.save(ens_mean_slice[0], f"output/example_ens_mean_{self.plotted_examples}.pt")
-                torch.save(ens_std_slice[0], f"output/example_ens_std_{self.plotted_examples}.pt")
-                torch.save(traj_slice[0], f"output/example_ens_members_{self.plotted_examples}.pt")
-                torch.save(target_slice[0], f"output/example_target_{self.plotted_examples}.pt")
-                torch.save(border_slice[0], f"output/example_border_{self.plotted_examples}.pt")
+                torch.save(
+                    ens_mean_slice[0], f"output/example_ens_mean_{self.plotted_examples}.pt")
+                torch.save(
+                    ens_std_slice[0], f"output/example_ens_std_{self.plotted_examples}.pt")
+                torch.save(
+                    traj_slice[0], f"output/example_ens_members_{self.plotted_examples}.pt")
+                torch.save(
+                    target_slice[0], f"output/example_target_{self.plotted_examples}.pt")
+                torch.save(
+                    border_slice[0], f"output/example_border_{self.plotted_examples}.pt")
 
                 # Save files to wandb
                 if self.save_output_wandb:
-                    wandb.save(f"output/example_ens_mean_{self.plotted_examples}.pt")
-                    wandb.save(f"output/example_ens_std_{self.plotted_examples}.pt")
-                    wandb.save(f"output/example_ens_members_{self.plotted_examples}.pt")
-                    wandb.save(f"output/example_target_{self.plotted_examples}.pt")
-                    wandb.save(f"output/example_border_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_ens_mean_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_ens_std_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_ens_members_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_target_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_border_{self.plotted_examples}.pt")
 
             # Note: min and max values can not be in ensemble mean
             var_vmin = (
@@ -551,7 +580,8 @@ class FM(ARModel):
         # Log loss per time step forward and mean
         val_log_dict = {
             f"val_loss_unroll{step}": time_step_loss[step - 1]
-            for step in constants.VAL_STEP_LOG_ERRORS # ONLY LOGGING FOR 1 STEP since logging diffusion steps for all steps is too much and not that informative
+            # ONLY LOGGING FOR 1 STEP since logging diffusion steps for all steps is too much and not that informative
+            for step in constants.VAL_STEP_LOG_ERRORS
         }
         val_log_dict["val_mean_loss"] = mean_loss
         self.log_dict(
@@ -611,7 +641,8 @@ class FM(ARModel):
                     1,
                     prediction=trajectories,
                 )
-                self.plotted_examples -= 1 # Decrease counter, we don't want to increase it in the validation step
+                # Decrease counter, we don't want to increase it in the validation step
+                self.plotted_examples -= 1
 
     def log_spsk_ratio(self, metric_vals, prefix):
         """
@@ -699,7 +730,8 @@ class FM(ARModel):
         ):
             # Need to plot more example predictions
             n_additional_examples = min(
-                trajectories.shape[0], self.n_example_pred - self.plotted_examples
+                trajectories.shape[0], self.n_example_pred -
+                self.plotted_examples
             )
 
             self.plot_examples(
@@ -722,28 +754,32 @@ class FM(ARModel):
 # You should have received a copy of the license along with this
 # work. If not, see http://creativecommons.org/licenses/by-nc-sa/4.0/
 
-
     def midpoint(self, latents, class_labels=None, boundary_forcing=None, num_steps=20, sigma_min=0.0, sigma_max=1.0):
         """
         Generate random images using the midpoint sampling technique.
         This is a placeholder for the midpoint sampling method.
         """
-        t_steps = torch.linspace(sigma_min, sigma_max, num_steps, device=latents.device) # t_0 = tmin, t_N = tmax
+        t_steps = torch.linspace(
+            sigma_min, sigma_max, num_steps, device=latents.device)  # t_0 = tmin, t_N = tmax
         x_t = latents
-        for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
+        # 0, ..., N-1
+        for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])):
             # print(f"Midpoint sampling step {i+1}/{num_steps-1} with t_cur={t_cur}, t_next={t_next}")
             t_cur = t_cur.unsqueeze(0)  # (1)
             t_next = t_next.unsqueeze(0)
             half_step = (t_next - t_cur) / 2
-            mid =  half_step * self.model(latents, t_cur, class_labels=class_labels, boundary_forcing=boundary_forcing)
-            x_t = x_t + (t_next - t_cur) * self.model(mid, t_cur+half_step, class_labels=class_labels, boundary_forcing=boundary_forcing)
+            mid = half_step * \
+                self.model(latents, t_cur, class_labels=class_labels,
+                           boundary_forcing=boundary_forcing)
+            x_t = x_t + (t_next - t_cur) * self.model(mid, t_cur+half_step,
+                                                      class_labels=class_labels, boundary_forcing=boundary_forcing)
 
         return x_t, None
 
     """Generate random images using the techniques described in the paper
     "Elucidating the Design Space of Diffusion-Based Generative Models"."""
 
-    #----------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------
     # Proposed Heun sampler (Algorithm 1).
     def heun_sampler(
         self, latents, class_labels=None, boundary_forcing=None, num_steps=20, sigma_min=0.0, sigma_max=1.0
@@ -762,23 +798,24 @@ class FM(ARModel):
         t_steps = torch.linspace(tmin, tmax, num_steps, device=self.device)
 
         # Main sampling loop.
-        x_next = latents # * t_steps[0]
-        for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
+        x_next = latents  # * t_steps[0]
+        # 0, ..., N-1
+        for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])):
             x_cur = x_next
             t_cur = t_cur.unsqueeze(0)  # (1)
             t_next = t_next.unsqueeze(0)
-            d_cur = self.model(x_cur, t_cur, class_labels=class_labels, boundary_forcing=boundary_forcing)
+            d_cur = self.model(
+                x_cur, t_cur, class_labels=class_labels, boundary_forcing=boundary_forcing)
             x_next = x_cur + (t_next - t_cur) * d_cur
 
             # Apply 2nd order correction.
             if i < num_steps - 1:
-                d_prime = self.model(x_next, t_next, class_labels=class_labels, boundary_forcing=boundary_forcing)
-                x_next = x_cur + (t_next - t_cur) * (0.5 * d_cur + 0.5 * d_prime)
+                d_prime = self.model(
+                    x_next, t_next, class_labels=class_labels, boundary_forcing=boundary_forcing)
+                x_next = x_cur + (t_next - t_cur) * \
+                    (0.5 * d_cur + 0.5 * d_prime)
 
         return x_next, None
 
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
-
-
-

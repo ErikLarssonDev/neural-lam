@@ -17,12 +17,13 @@ from torch.nn.functional import silu
 from neural_lam import constants, metrics, utils, vis
 from neural_lam.models.ar_model import ARModel
 from neural_lam.models.edm_networks_2 import tEDMPrecond
-from neural_lam.models.graph_fm import GraphFM
 
-class tEDM(ARModel): # TODO: Should prbably inherit from EDM
+
+class tEDM(ARModel):  # TODO: Should prbably inherit from EDM
     """
     A new auto-regressive weather forecasting model
     """
+
     def __init__(self, args):
         super().__init__(args)
 
@@ -57,7 +58,8 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
         self.sigma_data = 1
         self.rho = 7
         self.sampler = args.sampler
-        self.noise_aug_prob = args.noise_aug_prob # Probability of augmenting with noise [0, 1]
+        # Probability of augmenting with noise [0, 1]
+        self.noise_aug_prob = args.noise_aug_prob
         self.save_output = args.save_output
         self.save_output_wandb = args.save_output_wandb
         self.sampler_steps = args.sampler_steps
@@ -66,39 +68,36 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
         if args.diffusion_model != 'edm':
             self.map_noise = NoiseEmbedding()
 
-        if args.diffusion_model == 'graph_fm':
-            self.model = GraphFM(args)
-        elif args.diffusion_model == 'edm':
+        if args.diffusion_model == 'edm':
             self.model = tEDMPrecond(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
-                                    in_channels=self.grid_dim,
-                                    out_channels=self.grid_output_dim,
-                                    v=self.v,
-                                    model_type='SongUNet',
-                                    embedding_type=args.noise_embedding,
-                                    obs_mask=self.interior_mask,
-                                    sigma_data=self.sigma_data,
-                                    sigma_min=self.sigma_min,
-                                    sigma_max=self.sigma_max,
-                                    resample_filter=args.resample_filter,
-                                    channel_mult=args.channel_mult,
-                                    encoder_type=args.encoder_type,
-                                    attn_resolutions=args.attn_resolutions,
-                                    )
+                                     in_channels=self.grid_dim,
+                                     out_channels=self.grid_output_dim,
+                                     v=self.v,
+                                     model_type='SongUNet',
+                                     embedding_type=args.noise_embedding,
+                                     obs_mask=self.interior_mask,
+                                     sigma_data=self.sigma_data,
+                                     sigma_min=self.sigma_min,
+                                     sigma_max=self.sigma_max,
+                                     resample_filter=args.resample_filter,
+                                     channel_mult=args.channel_mult,
+                                     encoder_type=args.encoder_type,
+                                     attn_resolutions=args.attn_resolutions,
+                                     )
         else:
-            raise ValueError(f"Diffusion model {args.diffusion_model} not recognized")
+            raise ValueError(
+                f"Diffusion model {args.diffusion_model} not recognized")
 
-        self.pred_residual = args.pred_residual # Whether to predict the residual instead of the next state
+        # Whether to predict the residual instead of the next state
+        self.pred_residual = args.pred_residual
         self.diffusion_model = args.diffusion_model
 
-
-
         self.test_metrics = {
-                                "ens_mae": [],
-                                "ens_mse": [],
-                                "crps_ens": [],
-                                "spread_squared": [],
-                            }
-
+            "ens_mae": [],
+            "ens_mse": [],
+            "crps_ens": [],
+            "spread_squared": [],
+        }
 
     def predict_step(self, prev_state, prev_prev_state, forcing, boundary_forcing):
         """
@@ -115,23 +114,29 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
         pred_std: None or (B, N_grid, d_state), predicted standard-deviations
                     (pred_std can be ignored by just returning None)
         """
-        input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1) # (B, N_grid, d_input)
+        input_grid = torch.cat(
+            (prev_state, prev_prev_state, forcing), dim=-1)  # (B, N_grid, d_input)
 
         # TODO: Change this to student-t noise
         # latents = torch.randn_like(input_grid[:, :, :self.grid_output_dim]) # (B, N_grid, d_state)
-        latents = torch.distributions.studentT.StudentT(torch.tensor(self.v, device=input_grid.device)).rsample(input_grid[:, :, :self.grid_output_dim].shape) # NOTE: tEDM uses student-t noise
+        latents = torch.distributions.studentT.StudentT(torch.tensor(self.v, device=input_grid.device)).rsample(
+            input_grid[:, :, :self.grid_output_dim].shape)  # NOTE: tEDM uses student-t noise
 
         # Run through sampler
         if self.sampler == "heun":
-            next_state, diff_states = self.heun_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
+            next_state, diff_states = self.heun_sampler(
+                latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
         elif self.sampler == "edm":
-            next_state, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5, num_steps=self.sampler_steps)
+            next_state, diff_states = self.edm_sampler(
+                latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5, num_steps=self.sampler_steps)
         elif self.sampler == "ddpm":
-            next_state, diff_states = self.ddpm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
+            next_state, diff_states = self.ddpm_sampler(
+                latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5)
 
         # Add residual if needed
         if self.pred_residual:
-            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
+            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + \
+                self.step_diff_mean[constants.USED_PARAMS]  # Unormalize residual
             next_state = prev_state + next_state
 
         return next_state, None
@@ -153,81 +158,92 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
         """
 
         # Sample from F inverse
-        rnd_uniform = torch.rand([prev_state.shape[0], 1, 1], device=prev_state.device)
+        rnd_uniform = torch.rand(
+            [prev_state.shape[0], 1, 1], device=prev_state.device)
         rho_inv = 1 / self.rho
         sigma_max_rho = self.sigma_max ** rho_inv
         sigma_min_rho = self.sigma_min ** rho_inv
-        sigma = (sigma_max_rho + rnd_uniform * (sigma_min_rho - sigma_max_rho)) ** self.rho
+        sigma = (sigma_max_rho + rnd_uniform *
+                 (sigma_min_rho - sigma_max_rho)) ** self.rho
         self.v.to(sigma.device)
-        y = true_state # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
+        # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
+        y = true_state
 
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
 
         # Make y residual if needed
         if self.pred_residual:
             y = y - prev_state
-            y = (y - self.step_diff_mean[constants.USED_PARAMS]) / self.step_diff_std[constants.USED_PARAMS] # Normalize residual
+            y = (y - self.step_diff_mean[constants.USED_PARAMS]) / \
+                self.step_diff_std[constants.USED_PARAMS]  # Normalize residual
 
         # n = torch.randn_like(y) * sigma
-        n = torch.distributions.studentT.StudentT(torch.tensor(self.v, device=sigma.device)).rsample(y.shape)* sigma # NOTE: tEDM uses student-t noise
-        sigma = sigma * torch.sqrt(self.v / (self.v - 2)) # NOTE: Change for tEDM
+        n = torch.distributions.studentT.StudentT(torch.tensor(self.v, device=sigma.device)).rsample(
+            y.shape) * sigma  # NOTE: tEDM uses student-t noise
+        # NOTE: Change for tEDM
+        sigma = sigma * torch.sqrt(self.v / (self.v - 2))
         noisy_input = y+n
 
-        next_state = self.forward(noisy_input, sigma, input_grid, boundary_forcing) # Shape (B, d_state, N_x, N_y)
+        # Shape (B, d_state, N_x, N_y)
+        next_state = self.forward(
+            noisy_input, sigma, input_grid, boundary_forcing)
 
         # Add residual if needed
         if self.pred_residual:
-            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + self.step_diff_mean[constants.USED_PARAMS] # Unormalize residual
+            next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + \
+                self.step_diff_mean[constants.USED_PARAMS]  # Unormalize residual
             next_state = prev_state + next_state
 
-
-        c_out = torch.sqrt(self.v / (self.v - 2)) * sigma * self.sigma_data / ((self.v / (self.v - 2)) * sigma ** 2 + self.sigma_data ** 2).sqrt()
-        weight = 1 / c_out ** 2 # (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
+        c_out = torch.sqrt(self.v / (self.v - 2)) * sigma * self.sigma_data / \
+            ((self.v / (self.v - 2)) * sigma ** 2 + self.sigma_data ** 2).sqrt()
+        # (sigma ** 2 + self.sigma_data ** 2) / (sigma * self.sigma_data) ** 2
+        weight = 1 / c_out ** 2
 
         return next_state, None, weight
 
     def unroll_prediction(self, init_states, forcing_features, boundary_forcing):
-            """
-            Roll out prediction taking multiple autoregressive steps with model
-            init_states: (B, 2, num_grid_nodes, d_f)
-            forcing_features: (B, pred_steps, num_grid_nodes, d_static_f)
-            true_states: (B, pred_steps, num_grid_nodes, d_f)
-            """
-            prev_prev_state = init_states[:, 0]
-            prev_state = init_states[:, 1]
-            prediction_list = []
-            pred_std_list = []
-            pred_steps = forcing_features.shape[1]
+        """
+        Roll out prediction taking multiple autoregressive steps with model
+        init_states: (B, 2, num_grid_nodes, d_f)
+        forcing_features: (B, pred_steps, num_grid_nodes, d_static_f)
+        true_states: (B, pred_steps, num_grid_nodes, d_f)
+        """
+        prev_prev_state = init_states[:, 0]
+        prev_state = init_states[:, 1]
+        prediction_list = []
+        pred_std_list = []
+        pred_steps = forcing_features.shape[1]
 
-            for i in range(pred_steps):
-                forcing = forcing_features[:, i]
-                border_state = boundary_forcing[:, i]
-                pred_state, pred_std = self.predict_step(
-                    prev_state, prev_prev_state, forcing, border_state
-                )
+        for i in range(pred_steps):
+            forcing = forcing_features[:, i]
+            border_state = boundary_forcing[:, i]
+            pred_state, pred_std = self.predict_step(
+                prev_state, prev_prev_state, forcing, border_state
+            )
 
-                new_state = pred_state
+            new_state = pred_state
 
-                prediction_list.append(new_state)
-                if self.output_std:
-                    pred_std_list.append(pred_std)
-
-                # Update conditioning states
-                prev_prev_state = prev_state
-                prev_state = new_state
-
-            prediction = torch.stack(
-                prediction_list, dim=1
-            )  # (B, pred_steps, num_grid_nodes, d_f)
+            prediction_list.append(new_state)
             if self.output_std:
-                # pred_std = torch.stack(
-                #     pred_std_list, dim=1
-                # )  # (B, pred_steps, num_grid_nodes, d_f)
-                pred_std = torch.tensor(1, device=init_states.device) # Using the same weights for all variables
-            else:
-                pred_std = self.per_var_std  # (d_f,)
+                pred_std_list.append(pred_std)
 
-            return prediction, pred_std
+            # Update conditioning states
+            prev_prev_state = prev_state
+            prev_state = new_state
+
+        prediction = torch.stack(
+            prediction_list, dim=1
+        )  # (B, pred_steps, num_grid_nodes, d_f)
+        if self.output_std:
+            # pred_std = torch.stack(
+            #     pred_std_list, dim=1
+            # )  # (B, pred_steps, num_grid_nodes, d_f)
+            # Using the same weights for all variables
+            pred_std = torch.tensor(1, device=init_states.device)
+        else:
+            pred_std = self.per_var_std  # (d_f,)
+
+        return prediction, pred_std
 
     def unroll_prediction_train(self, init_states, forcing_features, true_states, boundary_forcing):
         """
@@ -312,13 +328,13 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
         # Compute loss
         batch_loss = torch.mean(
             self.loss(
-                prediction, target, pred_std, weight=weight # mask=self.interior_mask_bool
+                prediction, target, pred_std, weight=weight  # mask=self.interior_mask_bool
             )
         )  # mean over unrolled times and batch
 
         batch_mse = torch.mean(
             metrics.mse(
-                prediction, target, pred_std, # mask=self.interior_mask_bool
+                prediction, target, pred_std,  # mask=self.interior_mask_bool
             )
         )  # mean over unrolled times and batch
 
@@ -327,7 +343,6 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
             log_dict, prog_bar=True, on_step=True, on_epoch=True, sync_dist=True
         )
         return batch_loss
-
 
     def sample_trajectories(
         self,
@@ -376,7 +391,8 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
                 [pred_pair[1] for pred_pair in traj_list], dim=1
             )
         else:
-            traj_stds = self.per_var_std[constants.USED_PARAMS] # TODO: Check if this is correct, self.per_var_std = self.step_diff_std / torch.sqrt(self.param_weights)
+            # TODO: Check if this is correct, self.per_var_std = self.step_diff_std / torch.sqrt(self.param_weights)
+            traj_stds = self.per_var_std[constants.USED_PARAMS]
 
         return traj_means, traj_stds
 
@@ -399,9 +415,15 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
         # (B, S, pred_steps, num_grid_nodes, d_f)
 
         # Rescale to original data scale
-        traj_rescaled = trajectories * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
-        target_rescaled = target_states * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
-        border_rescaled = border * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+        traj_rescaled = trajectories * \
+            self.data_std[constants.USED_PARAMS] + \
+            self.data_mean[constants.USED_PARAMS]
+        target_rescaled = target_states * \
+            self.data_std[constants.USED_PARAMS] + \
+            self.data_mean[constants.USED_PARAMS]
+        border_rescaled = border * \
+            self.data_std[constants.USED_PARAMS] + \
+            self.data_mean[constants.USED_PARAMS]
         # Compute mean and std of ensemble
         ens_mean = torch.mean(
             traj_rescaled, dim=1
@@ -429,19 +451,29 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
             # TODO: Check that the saving is correct, we want to save one sample and not the entire batch
             # Save predictions to the output folder
             if self.save_output:
-                torch.save(ens_mean_slice[0], f"output/example_ens_mean_{self.plotted_examples}.pt")
-                torch.save(ens_std_slice[0], f"output/example_ens_std_{self.plotted_examples}.pt")
-                torch.save(traj_slice[0], f"output/example_ens_members_{self.plotted_examples}.pt")
-                torch.save(target_slice[0], f"output/example_target_{self.plotted_examples}.pt")
-                torch.save(border_slice[0], f"output/example_border_{self.plotted_examples}.pt")
+                torch.save(
+                    ens_mean_slice[0], f"output/example_ens_mean_{self.plotted_examples}.pt")
+                torch.save(
+                    ens_std_slice[0], f"output/example_ens_std_{self.plotted_examples}.pt")
+                torch.save(
+                    traj_slice[0], f"output/example_ens_members_{self.plotted_examples}.pt")
+                torch.save(
+                    target_slice[0], f"output/example_target_{self.plotted_examples}.pt")
+                torch.save(
+                    border_slice[0], f"output/example_border_{self.plotted_examples}.pt")
 
                 # Save files to wandb
                 if self.save_output_wandb:
-                    wandb.save(f"output/example_ens_mean_{self.plotted_examples}.pt")
-                    wandb.save(f"output/example_ens_std_{self.plotted_examples}.pt")
-                    wandb.save(f"output/example_ens_members_{self.plotted_examples}.pt")
-                    wandb.save(f"output/example_target_{self.plotted_examples}.pt")
-                    wandb.save(f"output/example_border_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_ens_mean_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_ens_std_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_ens_members_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_target_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_border_{self.plotted_examples}.pt")
 
             # Note: min and max values can not be in ensemble mean
             var_vmin = (
@@ -566,10 +598,11 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
         """
         Run validation on single batch
         """
-        prediction, target, pred_std, loss, weight = self.common_step_train(batch)
+        prediction, target, pred_std, loss, weight = self.common_step_train(
+            batch)
 
         loss = self.loss(
-            prediction, target, pred_std, weight=weight # mask=self.interior_mask_bool
+            prediction, target, pred_std, weight=weight  # mask=self.interior_mask_bool
         )
         # TODO: It is probably better to compute the loss in the predict_step_train function instead
         time_step_loss = torch.mean(loss, dim=0)  # (time_steps-1)
@@ -578,7 +611,8 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
         # Log loss per time step forward and mean
         val_log_dict = {
             f"val_loss_unroll{step}": time_step_loss[step - 1]
-            for step in constants.VAL_STEP_LOG_ERRORS # ONLY LOGGING FOR 1 STEP since logging diffusion steps for all steps is too much and not that informative
+            # ONLY LOGGING FOR 1 STEP since logging diffusion steps for all steps is too much and not that informative
+            for step in constants.VAL_STEP_LOG_ERRORS
         }
         val_log_dict["val_mean_loss"] = mean_loss
         self.log_dict(
@@ -639,8 +673,8 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
                     1,
                     prediction=trajectories,
                 )
-                self.plotted_examples -= 1 # Decrease counter, we don't want to increase it in the validation step
-
+                # Decrease counter, we don't want to increase it in the validation step
+                self.plotted_examples -= 1
 
     def log_spsk_ratio(self, metric_vals, prefix):
         """
@@ -728,7 +762,8 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
         ):
             # Need to plot more example predictions
             n_additional_examples = min(
-                trajectories.shape[0], self.n_example_pred - self.plotted_examples
+                trajectories.shape[0], self.n_example_pred -
+                self.plotted_examples
             )
 
             self.plot_examples(
@@ -754,7 +789,7 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
     """Generate random images using the techniques described in the paper
     "Elucidating the Design Space of Diffusion-Based Generative Models"."""
 
-    #----------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------
     # Proposed EDM sampler (Algorithm 2).
 
     def edm_sampler(
@@ -769,34 +804,43 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
 
         # Time step discretization.
         step_indices = torch.arange(num_steps)
-        t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
-        t_steps = torch.cat([torch.as_tensor(t_steps, device=latents.device), torch.zeros_like(t_steps[:1], device=latents.device)]) # t_N = 0
+        t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1)
+                   * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
+        t_steps = torch.cat([torch.as_tensor(t_steps, device=latents.device), torch.zeros_like(
+            t_steps[:1], device=latents.device)])  # t_N = 0
 
         # Main sampling loop.
         x_next = latents * t_steps[0]
-        for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
+        # 0, ..., N-1
+        for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])):
             x_cur = x_next
             # diff_steps.append(x_cur)
 
             # Increase noise temporarily.
-            gamma = min(S_churn / num_steps, np.sqrt(2) - 1) if S_min <= t_cur <= S_max else 0
-            t_hat = torch.as_tensor(t_cur + gamma * t_cur, device=latents.device)
-            x_hat = x_cur + (t_hat ** 2 - t_cur ** 2).sqrt() * S_noise * randn_like(x_cur, device=latents.device)
+            gamma = min(S_churn / num_steps, np.sqrt(2) -
+                        1) if S_min <= t_cur <= S_max else 0
+            t_hat = torch.as_tensor(
+                t_cur + gamma * t_cur, device=latents.device)
+            x_hat = x_cur + (t_hat ** 2 - t_cur ** 2).sqrt() * \
+                S_noise * randn_like(x_cur, device=latents.device)
 
             # Euler step.
-            denoised = self.forward(x_hat, t_hat, class_labels=class_labels, boundary_forcing=boundary_forcing)
+            denoised = self.forward(
+                x_hat, t_hat, class_labels=class_labels, boundary_forcing=boundary_forcing)
             d_cur = (x_hat - denoised) / t_hat
             x_next = x_hat + (t_next - t_hat) * d_cur
 
             # Apply 2nd order correction.
             if i < num_steps - 1:
-                denoised = self.forward(x_next, t_next, class_labels=class_labels, boundary_forcing=boundary_forcing)
+                denoised = self.forward(
+                    x_next, t_next, class_labels=class_labels, boundary_forcing=boundary_forcing)
                 d_prime = (x_next - denoised) / t_next
-                x_next = x_hat + (t_next - t_hat) * (0.5 * d_cur + 0.5 * d_prime)
+                x_next = x_hat + (t_next - t_hat) * \
+                    (0.5 * d_cur + 0.5 * d_prime)
 
         return x_next, None
 
-    #----------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------
     # Proposed Heun sampler (Algorithm 1).
     def heun_sampler(
         self, latents, class_labels=None, boundary_forcing=None, randn_like=torch.randn_like,
@@ -809,26 +853,32 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
 
         # Time step discretization.
         step_indices = torch.arange(num_steps)
-        t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
-        t_steps = torch.cat([torch.as_tensor(t_steps, device=latents.device), torch.zeros_like(t_steps[:1], device=latents.device)]) # t_N = 0
+        t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1)
+                   * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
+        t_steps = torch.cat([torch.as_tensor(t_steps, device=latents.device), torch.zeros_like(
+            t_steps[:1], device=latents.device)])  # t_N = 0
 
         # Main sampling loop.
         x_next = latents * t_steps[0]
-        for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
+        # 0, ..., N-1
+        for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])):
             x_cur = x_next
-            denoised = self.forward(x_cur, t_cur, class_labels=class_labels, boundary_forcing=boundary_forcing)
+            denoised = self.forward(
+                x_cur, t_cur, class_labels=class_labels, boundary_forcing=boundary_forcing)
             d_cur = (x_cur - denoised) / t_cur
             x_next = x_cur + (t_next - t_cur) * d_cur
 
             # Apply 2nd order correction.
             if i < num_steps - 1:
-                denoised = self.forward(x_next, t_next, class_labels=class_labels, boundary_forcing=boundary_forcing)
+                denoised = self.forward(
+                    x_next, t_next, class_labels=class_labels, boundary_forcing=boundary_forcing)
                 d_prime = (x_next - denoised) / t_next
-                x_next = x_cur + (t_next - t_cur) * (0.5 * d_cur + 0.5 * d_prime)
+                x_next = x_cur + (t_next - t_cur) * \
+                    (0.5 * d_cur + 0.5 * d_prime)
 
         return x_next, None
 
-#----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
     # Sampler used in GenCast
     def ddpm_sampler(
@@ -837,8 +887,10 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
         S_churn=2.5, S_min=0.75, S_max=80, S_noise=1.05, r=0.5,
     ):
 
-        time_steps = torch.arange(0, num_steps, device=latents.device) / (num_steps - 1)
-        sigmas = (sigma_max ** (1 / rho)+ time_steps * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
+        time_steps = torch.arange(
+            0, num_steps, device=latents.device) / (num_steps - 1)
+        sigmas = (sigma_max ** (1 / rho) + time_steps *
+                  (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
 
         # initialize noise
         x = sigmas[0] * latents
@@ -856,7 +908,8 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
             sigma_hat = sigmas[i] * (gamma + 1)
             if gamma > 0:
                 x = x + (sigma_hat**2 - sigmas[i] ** 2) ** 0.5 * noise
-            denoised = self.forward(x, sigma_hat, class_labels=class_labels, boundary_forcing=boundary_forcing)
+            denoised = self.forward(
+                x, sigma_hat, class_labels=class_labels, boundary_forcing=boundary_forcing)
 
             if i == len(sigmas) - 2:
                 # final Euler step
@@ -871,13 +924,14 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
                 lambda_mid = lambda_hat + r * h
                 sigma_mid = torch.exp(-lambda_mid)
 
-                u = sigma_mid / sigma_hat * x - (torch.exp(-r * h) - 1) * denoised
-                denoised_2 = self.forward(u, sigma_mid, class_labels=class_labels, boundary_forcing=boundary_forcing)
+                u = sigma_mid / sigma_hat * x - \
+                    (torch.exp(-r * h) - 1) * denoised
+                denoised_2 = self.forward(
+                    u, sigma_mid, class_labels=class_labels, boundary_forcing=boundary_forcing)
                 D = (1 - 1 / (2 * r)) * denoised + 1 / (2 * r) * denoised_2
                 x = sigmas[i + 1] / sigma_hat * x - (torch.exp(-h) - 1) * D
 
         return x, None
-
 
     def forward(self, x, sigma, class_labels=None, boundary_forcing=None, force_fp32=False, **model_kwargs):
         if self.diffusion_model == "edm":
@@ -886,24 +940,29 @@ class tEDM(ARModel): # TODO: Should prbably inherit from EDM
         sigma = sigma.reshape(-1, 1, 1)
 
         c_skip = self.sigma_data ** 2 / (sigma ** 2 + self.sigma_data ** 2)
-        c_out = sigma * self.sigma_data / (sigma ** 2 + self.sigma_data ** 2).sqrt()
+        c_out = sigma * self.sigma_data / \
+            (sigma ** 2 + self.sigma_data ** 2).sqrt()
         c_in = 1 / (self.sigma_data ** 2 + sigma ** 2).sqrt()
         c_noise = sigma.log() / 4
 
-        F_x = self.model_forward((c_in * x), c_noise.flatten(), class_labels=class_labels, boundary_forcing=boundary_forcing, **model_kwargs)
+        F_x = self.model_forward((c_in * x), c_noise.flatten(
+        ), class_labels=class_labels, boundary_forcing=boundary_forcing, **model_kwargs)
         D_x = c_skip * x + c_out * F_x
         return D_x
 
     def model_forward(self, x, noise_labels, class_labels, boundary_forcing):
         # Mapping.
-        emb = self.map_noise(noise_labels).unsqueeze(1).expand(x.shape[0], 1, -1)
+        emb = self.map_noise(noise_labels).unsqueeze(
+            1).expand(x.shape[0], 1, -1)
 
-        next_state, _ = self.model.predict_step(x, class_labels[:, :, :len(constants.USED_PARAMS)*2], class_labels[:, :, len(constants.USED_PARAMS)*2:], boundary_forcing, emb)
+        next_state, _ = self.model.predict_step(x, class_labels[:, :, :len(
+            constants.USED_PARAMS)*2], class_labels[:, :, len(constants.USED_PARAMS)*2:], boundary_forcing, emb)
 
         return next_state
 
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
+
 
 class NoiseLevelMLP(nn.Module):
     def __init__(self, input_dim, hidden_dim=128, output_dim=16):
@@ -917,10 +976,13 @@ class NoiseLevelMLP(nn.Module):
         x = silu(self.fc2(x))
         x = self.fc3(x)
         return x  # Output noise-level encoding (batch_size, output_dim)
+
+
 class NoiseEmbedding(nn.Module):
     def __init__(self, num_frequencies=32, base_period=16):
         super(NoiseEmbedding, self).__init__()
-        self.fourier_transform = FourierEmbedding(num_channels=num_frequencies, scale=base_period)
+        self.fourier_transform = FourierEmbedding(
+            num_channels=num_frequencies, scale=base_period)
         self.mlp = NoiseLevelMLP(input_dim=num_frequencies, output_dim=16)
 
     def forward(self, log_noise_levels):
@@ -928,8 +990,9 @@ class NoiseEmbedding(nn.Module):
         noise_level_encoding = self.mlp(fourier_features)
         return noise_level_encoding
 
-#----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # Timestep embedding used in the DDPM++ and ADM architectures.
+
 
 class PositionalEmbedding(torch.nn.Module):
     def __init__(self, num_channels, max_positions=10000, endpoint=False):
@@ -946,8 +1009,9 @@ class PositionalEmbedding(torch.nn.Module):
         x = torch.cat([x.cos(), x.sin()], dim=1)
         return x
 
-#----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # Timestep embedding used in the NCSN++ architecture.
+
 
 class FourierEmbedding(torch.nn.Module):
     def __init__(self, num_channels, scale=16):
@@ -958,4 +1022,3 @@ class FourierEmbedding(torch.nn.Module):
         x = x.ger((2 * np.pi * self.freqs).to(x.dtype))
         x = torch.cat([x.cos(), x.sin()], dim=1)
         return x
-

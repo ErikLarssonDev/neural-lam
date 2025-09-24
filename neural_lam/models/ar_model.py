@@ -82,9 +82,11 @@ class ARModel(pl.LightningModule):
             + self.config_loader.dataset.num_forcing_features
         )
         if args.border_condition:
-            self.boundary_dim = self.grid_dim if args.model == "diffusion" else self.grid_dim + self.config_loader.num_data_vars()
+            self.boundary_dim = self.grid_dim if args.model == "diffusion" else self.grid_dim + \
+                self.config_loader.num_data_vars()
         else:
-            self.boundary_dim = self.grid_dim - self.config_loader.num_data_vars() if args.model == "diffusion" else self.grid_dim
+            self.boundary_dim = self.grid_dim - \
+                self.config_loader.num_data_vars() if args.model == "diffusion" else self.grid_dim
 
         # Instantiate loss function
         self.loss = metrics.get_metric(args.loss)
@@ -115,10 +117,13 @@ class ARModel(pl.LightningModule):
         self.lr_scheduler = args.lr_scheduler
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, betas=(0.9, 0.95), weight_decay=self.weight_decay)
-        if self.lr_scheduler == "cosine": # Cosine annealing
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, betas=(
+            0.9, 0.95), weight_decay=self.weight_decay)
+        if self.lr_scheduler == "cosine":  # Cosine annealing
             print("Using cosine annealing learning rate scheduler")
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.trainer.estimated_stepping_batches, eta_min=0) # self.trainer.estimated_stepping_batches, self.trainer.max_epochs
+            # self.trainer.estimated_stepping_batches, self.trainer.max_epochs
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer, T_max=self.trainer.estimated_stepping_batches, eta_min=0)
             return {
                 'optimizer': optimizer,
                 'lr_scheduler': {
@@ -126,7 +131,7 @@ class ARModel(pl.LightningModule):
                     'interval': 'epoch',  # Can also be 'step' for finer control
                     'frequency': 1,
                 }
-            } # Maybe have to return [optimizer, scheduler]
+            }  # Maybe have to return [optimizer, scheduler]
         else:
             return {'optimizer': optimizer}
 
@@ -245,7 +250,7 @@ class ARModel(pl.LightningModule):
 
         returns: (K*d1, d2, ...)
         """
-        return self.all_gather(tensor_to_gather).flatten(0, 1)
+        return self.all_gather(tensor_to_gather.cpu()).flatten(0, 1)
 
     # newer lightning versions requires batch_idx argument, even if unused
     # pylint: disable-next=unused-argument
@@ -341,7 +346,8 @@ class ARModel(pl.LightningModule):
 
         if self.output_std:
             # Store output std. per variable, spatially averaged
-            mean_pred_std = torch.mean(pred_std, dim=-2)  # (B, pred_steps, d_f)
+            mean_pred_std = torch.mean(
+                pred_std, dim=-2)  # (B, pred_steps, d_f)
             self.test_metrics["output_std"].append(mean_pred_std)
 
         # Save per-sample spatial loss for specific times
@@ -391,7 +397,8 @@ class ARModel(pl.LightningModule):
 
         # Iterate over the examples
         for pred_slice, target_slice, border_slice in zip(
-            prediction_rescaled[:n_examples], target_rescaled[:n_examples], border_rescaled[:n_examples]
+            prediction_rescaled[:n_examples], target_rescaled[:
+                                                              n_examples], border_rescaled[:n_examples]
         ):
             # Each slice is (pred_steps, num_grid_nodes, d_f)
             self.plotted_examples += 1  # Increment already here
@@ -506,7 +513,8 @@ class ARModel(pl.LightningModule):
         metric_np = metric_tensor.cpu().numpy()
 
         # Get mean for the metric over all variables
-        metric_mean = torch.mean(metric_tensor / self.data_std, dim=1).cpu().numpy()  # (pred_steps,)
+        metric_mean = torch.mean(
+            metric_tensor / self.data_std, dim=1).cpu().numpy()  # (pred_steps,)
 
         # Add the mean to the log dict and the metric name "Mean"
         metric_names = self.config_loader.dataset.var_names + ["Mean"]
@@ -618,10 +626,12 @@ class ARModel(pl.LightningModule):
                 )
                 for loss_map in mean_spatial_loss
             ]
-            pdf_loss_maps_dir = os.path.join(wandb.run.dir, "spatial_loss_maps")
+            pdf_loss_maps_dir = os.path.join(
+                wandb.run.dir, "spatial_loss_maps")
             os.makedirs(pdf_loss_maps_dir, exist_ok=True)
             for t_i, fig in zip(self.args.val_steps_to_log, pdf_loss_map_figs):
-                fig.savefig(os.path.join(pdf_loss_maps_dir, f"loss_t{t_i}.pdf"))
+                fig.savefig(os.path.join(
+                    pdf_loss_maps_dir, f"loss_t{t_i}.pdf"))
             # save mean spatial loss as .pt file also
             torch.save(
                 mean_spatial_loss.cpu(),

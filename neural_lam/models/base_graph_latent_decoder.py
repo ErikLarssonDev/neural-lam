@@ -20,12 +20,12 @@ class BaseGraphLatentDecoder(nn.Module):
         super().__init__()
 
         # MLP for residual mapping of grid rep.
-        self.grid_update_mlp = utils.make_mlp(
+        self.grid_update_mlp = utils.make_mlp_old(
             [hidden_dim] * (hidden_layers + 2)
         )
 
         # Embedder for latent variable
-        self.latent_embedder = utils.make_mlp(
+        self.latent_embedder = utils.make_mlp_old(
             [latent_dim] + [hidden_dim] * (hidden_layers + 1)
         )
 
@@ -38,7 +38,7 @@ class BaseGraphLatentDecoder(nn.Module):
             output_dim = constants.GRID_STATE_DIM
 
         # Mapping to parameters of state distribution
-        self.param_map = utils.make_mlp(
+        self.param_map = utils.make_mlp_old(
             [hidden_dim] * (hidden_layers + 1) + [output_dim], layer_norm=False
         )
 

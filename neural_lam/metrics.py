@@ -1,5 +1,6 @@
 # Third-party
 import torch
+import numpy as np
 
 
 def get_metric(metric_name):
@@ -51,6 +52,7 @@ def mask_and_reduce_metric(metric_entry_vals, mask, average_grid, sum_vars):
         )  # (..., N) or (...,)
 
     return metric_entry_vals
+
 
 def wmse(pred, target, pred_std, mask=None, average_grid=True, sum_vars=True, **kwargs):
     """
@@ -360,6 +362,85 @@ def spread_squared(
     return mask_and_reduce_metric(entry_var, mask, average_grid, sum_vars)
 
 
+def calculate_energy_spectra(data):
+    """Calculate the energy spectra of the given data using 2D FFT.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        The input data array with dimensions (..., y, x).
+
+    Returns
+    -------
+    wavenumber : np.ndarray
+        The isotropic wavenumbers.
+    power : np.ndarray
+        The power spectrum for all non-spatial dimensions.
+    effective_resolution : float
+        The effective resolution of the model.
+    """
+
+    fft_data = torch.fft.fft2(data, dim=(-2, -1))
+    # Shift zero freq to center
+    fftshift = torch.fft.fftshift(fft_data, dim=(-2, -1))
+    power_spectrum = (torch.abs(fftshift) ** 2)
+
+    return power_spectrum
+
+
+def radial_average(psd2D):
+    """
+    Radially average 2D power spectrum.
+    psd2D shape: (..., H, W) - arbitrary leading dimensions with 2D data at the end
+    returns: (..., R) radial profiles, where R = max(H,W)//2
+    """
+    # Get shape information
+    psd2D = psd2D.cpu()  # Work on CPU for bincount
+    original_shape = psd2D.shape
+    H, W = original_shape[-2], original_shape[-1]
+
+    # Reshape to (-1, H, W) to handle all leading dimensions as one batch dimension
+    batch_size = np.prod(original_shape[:-2]) if original_shape[:-2] else 1
+    reshaped_psd = psd2D.reshape(batch_size, H, W)
+
+    # Calculate radial coordinates
+    cy, cx = H // 2, W // 2
+    y, x = torch.meshgrid(torch.arange(H), torch.arange(W), indexing="ij")
+    r = torch.sqrt((x - cx) ** 2 + (y - cy) ** 2).to(psd2D.device)
+    r = r.to(torch.int64)
+
+    R = r.max().item() + 1
+
+    # Process each item in the batch
+    radial_profiles = []
+    for b in range(batch_size):
+        tbin = torch.bincount(
+            r.flatten(), weights=reshaped_psd[b].flatten(), minlength=R)
+        nr = torch.bincount(r.flatten(), minlength=R)
+        radial_profiles.append(tbin / torch.clamp(nr, min=1))
+
+    # Stack and reshape back to original leading dimensions
+    stacked_profiles = torch.stack(radial_profiles)  # (batch_size, R)
+
+    # Reshape back to match original leading dimensions
+    if original_shape[:-2]:
+        return stacked_profiles.reshape(*original_shape[:-2], R)
+    else:
+        return stacked_profiles  # Just (R) if input was (H, W)
+
+
+def calculate_log_spectral_distance(true_spectrum, ml_spectrum):
+    """
+    Calculate the Log Spectral Distance between three power spectra
+    """
+    eps = 1e-10
+    log_spec1 = np.log10(true_spectrum + eps)
+    log_spec2 = np.log10(ml_spectrum + eps)
+    lsd_ml = np.sqrt(np.mean((log_spec1 - log_spec2) ** 2))
+
+    return lsd_ml
+
+
 DEFINED_METRICS = {
     "mse": mse,
     "mae": mae,
@@ -369,4 +450,6 @@ DEFINED_METRICS = {
     "crps_gauss": crps_gauss,
     "crps_ens": crps_ens,
     "spread_squared": spread_squared,
+    "spectra": calculate_energy_spectra,
+    "lsd": calculate_log_spectral_distance,
 }

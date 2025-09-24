@@ -2,7 +2,7 @@
 import torch_geometric as pyg
 
 # First-party
-from neural_lam.interaction_net import InteractionNet, PropagationNet
+from neural_lam.interaction_net_old import InteractionNet, PropagationNet
 from neural_lam.models.base_graph_latent_decoder import BaseGraphLatentDecoder
 
 

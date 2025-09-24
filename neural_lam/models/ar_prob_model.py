@@ -16,6 +16,7 @@ class ARProbModel(ARModel):
     """
     A new probabilistic auto-regressive weather forecasting model
     """
+
     def __init__(self, args):
         super().__init__(args)
         self.ensemble_size = args.ensemble_size
@@ -37,6 +38,11 @@ class ARProbModel(ARModel):
             }
         )
 
+        self.spectra_metrics = {
+            "spectra": [],  # For each time step and variable
+            "spectra_gt": [],  # For each time step and variable
+        }
+
     def predict_step(self, prev_state, prev_prev_state, forcing, boundary_forcing):
         """
         Predict weather state one time step ahead
@@ -53,7 +59,8 @@ class ARProbModel(ARModel):
                     (pred_std can be ignored by just returning None)
         """
 
-        raise NotImplementedError("You need to implement the predict_step method in ARProbModel")
+        raise NotImplementedError(
+            "You need to implement the predict_step method in ARProbModel")
 
     def predict_step_train(self, prev_state, prev_prev_state, forcing, true_state, boundary_forcing):
         """
@@ -72,50 +79,50 @@ class ARProbModel(ARModel):
         loss: (B, N_grid, d_state), loss for the prediction
         """
 
-        raise NotImplementedError("You need to implement the predict_step_train method in ARProbModel")
-
+        raise NotImplementedError(
+            "You need to implement the predict_step_train method in ARProbModel")
 
     def unroll_prediction(self, init_states, forcing_features, boundary_forcing):
-            """
-            Roll out prediction taking multiple autoregressive steps with model
-            init_states: (B, 2, num_grid_nodes, d_f)
-            forcing_features: (B, pred_steps, num_grid_nodes, d_static_f)
-            true_states: (B, pred_steps, num_grid_nodes, d_f)
-            """
-            prev_prev_state = init_states[:, 0]
-            prev_state = init_states[:, 1]
-            prediction_list = []
-            pred_std_list = []
-            pred_steps = forcing_features.shape[1]
+        """
+        Roll out prediction taking multiple autoregressive steps with model
+        init_states: (B, 2, num_grid_nodes, d_f)
+        forcing_features: (B, pred_steps, num_grid_nodes, d_static_f)
+        true_states: (B, pred_steps, num_grid_nodes, d_f)
+        """
+        prev_prev_state = init_states[:, 0]
+        prev_state = init_states[:, 1]
+        prediction_list = []
+        pred_std_list = []
+        pred_steps = forcing_features.shape[1]
 
-            for i in range(pred_steps):
-                forcing = forcing_features[:, i]
-                border_state = boundary_forcing[:, i]
-                pred_state, pred_std = self.predict_step(
-                    prev_state, prev_prev_state, forcing, border_state
-                )
+        for i in range(pred_steps):
+            forcing = forcing_features[:, i]
+            border_state = boundary_forcing[:, i]
+            pred_state, pred_std = self.predict_step(
+                prev_state, prev_prev_state, forcing, border_state
+            )
 
-                new_state = pred_state
-                prediction_list.append(new_state)
+            new_state = pred_state
+            prediction_list.append(new_state)
 
-                if self.output_std:
-                    pred_std_list.append(pred_std)
-
-                # Update conditioning states
-                prev_prev_state = prev_state
-                prev_state = new_state
-
-            prediction = torch.stack(
-                prediction_list, dim=1
-            )  # (B, pred_steps, num_grid_nodes, d_f)
             if self.output_std:
-                pred_std = torch.stack(
-                    pred_std_list, dim=1
-                )  # (B, pred_steps, num_grid_nodes, d_f)
-            else:
-                pred_std = self.per_var_std  # (d_f,)
+                pred_std_list.append(pred_std)
 
-            return prediction, pred_std
+            # Update conditioning states
+            prev_prev_state = prev_state
+            prev_state = new_state
+
+        prediction = torch.stack(
+            prediction_list, dim=1
+        )  # (B, pred_steps, num_grid_nodes, d_f)
+        if self.output_std:
+            pred_std = torch.stack(
+                pred_std_list, dim=1
+            )  # (B, pred_steps, num_grid_nodes, d_f)
+        else:
+            pred_std = self.per_var_std  # (d_f,)
+
+        return prediction, pred_std
 
     def unroll_prediction_train(self, init_states, forcing_features, true_states, boundary_forcing):
         """
@@ -171,7 +178,6 @@ class ARProbModel(ARModel):
 
         return prediction, pred_std, loss
 
-
     def common_step_train(self, batch):
         """
         Predict on single batch
@@ -201,7 +207,8 @@ class ARProbModel(ARModel):
 
         batch_mse = torch.mean(
             metrics.mse(
-                prediction, target, pred_std, # mask=self.interior_mask_bool # NOTE: We only return results for the interior
+                # mask=self.interior_mask_bool # NOTE: We only return results for the interior
+                prediction, target, pred_std,
             )
         )  # mean over unrolled times and batch
 
@@ -210,7 +217,6 @@ class ARProbModel(ARModel):
             log_dict, prog_bar=True, on_step=True, on_epoch=True, sync_dist=True
         )
         return batch_loss
-
 
     def sample_trajectories(
         self,
@@ -256,7 +262,8 @@ class ARProbModel(ARModel):
                 [pred_pair[1] for pred_pair in traj_list], dim=1
             )
         else:
-            traj_stds = self.per_var_std[constants.USED_PARAMS] # TODO: Check if this is correct, self.per_var_std = self.step_diff_std / torch.sqrt(self.param_weights)
+            # TODO: Check if this is correct, self.per_var_std = self.step_diff_std / torch.sqrt(self.param_weights)
+            traj_stds = self.per_var_std[constants.USED_PARAMS]
 
         return traj_means, traj_stds
 
@@ -279,9 +286,15 @@ class ARProbModel(ARModel):
         # (B, S, pred_steps, num_grid_nodes, d_f)
 
         # Rescale to original data scale
-        traj_rescaled = trajectories * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
-        target_rescaled = target_states * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
-        border_rescaled = border * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+        traj_rescaled = trajectories * \
+            self.data_std[constants.USED_PARAMS] + \
+            self.data_mean[constants.USED_PARAMS]
+        target_rescaled = target_states * \
+            self.data_std[constants.USED_PARAMS] + \
+            self.data_mean[constants.USED_PARAMS]
+        border_rescaled = border * \
+            self.data_std[constants.USED_PARAMS] + \
+            self.data_mean[constants.USED_PARAMS]
         # Compute mean and std of ensemble
         ens_mean = torch.mean(
             traj_rescaled, dim=1
@@ -308,19 +321,29 @@ class ARProbModel(ARModel):
             # TODO: Check that the saving is correct, we want to save one sample and not the entire batch
             # Save predictions to the output folder
             if self.save_output:
-                torch.save(ens_mean_slice[0], f"output/example_ens_mean_{self.plotted_examples}.pt")
-                torch.save(ens_std_slice[0], f"output/example_ens_std_{self.plotted_examples}.pt")
-                torch.save(traj_slice[0], f"output/example_ens_members_{self.plotted_examples}.pt")
-                torch.save(target_slice[0], f"output/example_target_{self.plotted_examples}.pt")
-                torch.save(border_slice[0], f"output/example_border_{self.plotted_examples}.pt")
+                torch.save(
+                    ens_mean_slice[0], f"output/example_ens_mean_{self.plotted_examples}.pt")
+                torch.save(
+                    ens_std_slice[0], f"output/example_ens_std_{self.plotted_examples}.pt")
+                torch.save(
+                    traj_slice[0], f"output/example_ens_members_{self.plotted_examples}.pt")
+                torch.save(
+                    target_slice[0], f"output/example_target_{self.plotted_examples}.pt")
+                torch.save(
+                    border_slice[0], f"output/example_border_{self.plotted_examples}.pt")
 
                 # Save files to wandb
                 if self.save_output_wandb:
-                    wandb.save(f"output/example_ens_mean_{self.plotted_examples}.pt")
-                    wandb.save(f"output/example_ens_std_{self.plotted_examples}.pt")
-                    wandb.save(f"output/example_ens_members_{self.plotted_examples}.pt")
-                    wandb.save(f"output/example_target_{self.plotted_examples}.pt")
-                    wandb.save(f"output/example_border_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_ens_mean_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_ens_std_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_ens_members_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_target_{self.plotted_examples}.pt")
+                    wandb.save(
+                        f"output/example_border_{self.plotted_examples}.pt")
 
             # Note: min and max values can not be in ensemble mean
             var_vmin = (
@@ -453,7 +476,8 @@ class ARProbModel(ARModel):
         # Log loss per time step forward and mean
         val_log_dict = {
             f"val_loss_unroll{step}": time_step_loss[step - 1]
-            for step in constants.VAL_STEP_LOG_ERRORS # ONLY LOGGING FOR 1 STEP since logging diffusion steps for all steps is too much and not that informative
+            # ONLY LOGGING FOR 1 STEP since logging diffusion steps for all steps is too much and not that informative
+            for step in constants.VAL_STEP_LOG_ERRORS
         }
         val_log_dict["val_mean_loss"] = mean_loss
         self.log_dict(
@@ -511,9 +535,15 @@ class ARProbModel(ARModel):
             border = boundary_forcing[..., :len(constants.USED_PARAMS)]
 
             # Rescale to original data scale
-            traj_rescaled = trajectories * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
-            target_rescaled = target_states * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
-            border_rescaled = border * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
+            traj_rescaled = trajectories * \
+                self.data_std[constants.USED_PARAMS] + \
+                self.data_mean[constants.USED_PARAMS]
+            target_rescaled = target_states * \
+                self.data_std[constants.USED_PARAMS] + \
+                self.data_mean[constants.USED_PARAMS]
+            border_rescaled = border * \
+                self.data_std[constants.USED_PARAMS] + \
+                self.data_mean[constants.USED_PARAMS]
             # Compute mean and std of ensemble
             ens_mean = torch.mean(
                 traj_rescaled, dim=1
@@ -600,7 +630,6 @@ class ARProbModel(ARModel):
                             "all"
                         )  # Close all figs for this time step, saves memory
 
-
     def log_spsk_ratio(self, metric_vals, prefix):
         """
         Compute the mean spread-skill ratio for logging in evaluation
@@ -680,15 +709,39 @@ class ARProbModel(ARModel):
         )  # (B, pred_steps, d_f)
         self.test_metrics["crps_ens"].append(crps_batch)
 
-        # Plot example predictions (on rank 0 only)
+        B, N, T, d_g, d_f = trajectories.shape
+        trajectories_reshaped = trajectories.permute(0, 1, 2, 4, 3)
+        target_states_reshaped = target_states.permute(0, 1, 3, 2)
 
+        target_states_2d = target_states_reshaped.reshape(
+            -1, T, d_f, *constants.GRID_SHAPE)
+        trajectories_2d = trajectories_reshaped.reshape(
+            -1, T, d_f, *constants.GRID_SHAPE)
+
+        # Spectra for each time step and variable
+        # TODO: This can be done more efficiently
+        target_spectra = metrics.calculate_energy_spectra(
+            target_states_2d)
+
+        radial_target_spectra = metrics.radial_average(target_spectra)
+        self.spectra_metrics["spectra_gt"].append(
+            radial_target_spectra.cpu())  # (B, t, n_freqs)
+
+        traj_spectra = metrics.calculate_energy_spectra(
+            trajectories_2d)
+        radial_traj_spectra = metrics.radial_average(traj_spectra)
+        self.spectra_metrics["spectra"].append(
+            radial_traj_spectra.cpu())  # (B, t, n_freqs)
+
+        # Plot example predictions (on rank 0 only)
         if (
             self.trainer.is_global_zero
             and self.plotted_examples < self.n_example_pred
         ):
             # Need to plot more example predictions
             n_additional_examples = min(
-                trajectories.shape[0], self.n_example_pred - self.plotted_examples
+                trajectories.shape[0], self.n_example_pred -
+                self.plotted_examples
             )
 
             self.plot_examples(
@@ -703,3 +756,48 @@ class ARProbModel(ARModel):
         super().on_test_epoch_end()
         self.aggregate_and_plot_metrics(self.test_metrics, prefix="test")
         self.log_spsk_ratio(self.test_metrics, "test")
+        spectra_tensor = self.all_gather_cat(
+            torch.cat(self.spectra_metrics["spectra"], dim=0).cpu()
+        ).mean(dim=0).cpu()  # (pred_steps, d_f, R)
+
+        spectra_gt_tensor = self.all_gather_cat(
+            torch.cat(self.spectra_metrics["spectra_gt"], dim=0).cpu()
+        ).mean(dim=0).cpu()  # (pred_steps, d_f, R)
+
+        if self.trainer.is_global_zero:
+            torch.save(spectra_tensor.cpu(), os.path.join(
+                wandb.run.dir, f"model_spectra.pt"))
+            torch.save(spectra_gt_tensor.cpu(), os.path.join(
+                wandb.run.dir, f"ground_truth_spectra.pt"))
+            # Plot spectra
+            for (t_i, (spectra_gt, spectra)) in enumerate(zip(spectra_gt_tensor, spectra_tensor), start=1):
+                # Both (pred_steps, n_freqs)
+                time_title_part = f"t={t_i}"
+                # Create one figure per variable at this time step
+                var_figs = [
+                    vis.plot_energy_spectra(
+                        spectra_gt[var_i].numpy(),
+                        spectra[var_i].numpy(),
+                        var=var_i,
+                        title=f"{var_name} ({var_unit}), {time_title_part}",)
+                    for var_i, (var_name, var_unit) in enumerate(
+                        zip(
+                            constants.PARAM_NAMES_SHORT[constants.USED_PARAMS],
+                            constants.PARAM_UNITS[constants.USED_PARAMS],
+                        )
+                    )
+                ]
+                example_title = f"spectra"
+                wandb.log(
+                    {
+                        f"{var_name}_{example_title}": wandb.Image(fig)
+                        for var_name, fig in zip(
+                            constants.PARAM_NAMES_SHORT[constants.USED_PARAMS], var_figs
+                        )
+                    }
+                )
+                plt.close(
+                    "all"
+                )  # Close all figs for this time step, saves memory
+        self.spectra_metrics["spectra"].clear()
+        self.spectra_metrics["spectra_gt"].clear()

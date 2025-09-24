@@ -1,6 +1,6 @@
 # First-party
 from neural_lam import utils
-from neural_lam.interaction_net import PropagationNet
+from neural_lam.interaction_net_old import PropagationNet, make_gnn_seq
 from neural_lam.models.base_latent_encoder import BaseLatentEncoder
 
 
@@ -34,11 +34,11 @@ class GraphLatentEncoder(BaseLatentEncoder):
         )
 
         # Processor layers on mesh
-        self.processor = utils.make_gnn_seq(
+        self.processor = make_gnn_seq(
             m2m_edge_index, processor_layers, hidden_layers, hidden_dim
         )
 
-        self.latent_param_map = utils.make_mlp(
+        self.latent_param_map = utils.make_mlp_old(
             [hidden_dim] * (hidden_layers + 1) + [self.output_dim],
             layer_norm=False,
         )
