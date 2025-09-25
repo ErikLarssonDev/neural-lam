@@ -314,36 +314,25 @@ class ARProbModel(ARModel):
             # traj_slice is (S, pred_steps, num_grid_nodes, d_f)
             # others are (pred_steps, num_grid_nodes, d_f)
             self.plotted_examples += 1  # Increment already here
-
-            # Save slices to wandb
-            os.makedirs("output", exist_ok=True)
-
-            # TODO: Check that the saving is correct, we want to save one sample and not the entire batch
-            # Save predictions to the output folder
+            
+            # Save predictions to the output folder with wandb run ID
             if self.save_output:
+                # Get wandb run name/ID if available
+                run_id = wandb.run.id if wandb.run is not None else "no-wandb-run"
+                
+                # Create output directory with run ID
+                output_dir = f"output/{run_id}"
+                os.makedirs(output_dir, exist_ok=True)
                 torch.save(
-                    ens_mean_slice[0], f"output/example_ens_mean_{self.plotted_examples}.pt")
+                    ens_mean_slice[0], f"{output_dir}/example_ens_mean_{self.plotted_examples}.pt")
                 torch.save(
-                    ens_std_slice[0], f"output/example_ens_std_{self.plotted_examples}.pt")
+                    ens_std_slice[0], f"{output_dir}/example_ens_std_{self.plotted_examples}.pt")
                 torch.save(
-                    traj_slice[0], f"output/example_ens_members_{self.plotted_examples}.pt")
+                    traj_slice[0], f"{output_dir}/example_ens_members_{self.plotted_examples}.pt")
                 torch.save(
-                    target_slice[0], f"output/example_target_{self.plotted_examples}.pt")
+                    target_slice[0], f"{output_dir}/example_target_{self.plotted_examples}.pt")
                 torch.save(
-                    border_slice[0], f"output/example_border_{self.plotted_examples}.pt")
-
-                # Save files to wandb
-                if self.save_output_wandb:
-                    wandb.save(
-                        f"output/example_ens_mean_{self.plotted_examples}.pt")
-                    wandb.save(
-                        f"output/example_ens_std_{self.plotted_examples}.pt")
-                    wandb.save(
-                        f"output/example_ens_members_{self.plotted_examples}.pt")
-                    wandb.save(
-                        f"output/example_target_{self.plotted_examples}.pt")
-                    wandb.save(
-                        f"output/example_border_{self.plotted_examples}.pt")
+                    border_slice[0], f"{output_dir}/example_border_{self.plotted_examples}.pt")
 
             # Note: min and max values can not be in ensemble mean
             var_vmin = (

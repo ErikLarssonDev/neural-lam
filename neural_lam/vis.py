@@ -330,7 +330,7 @@ def plot_spatial_error(
 
     fig, ax = plt.subplots(
         figsize=(5, 4.8),
-        subplot_kw={"projection": data_config.projection},
+        subplot_kw={"projection": constants.LAMBERT_PROJ},
     )
 
     im = plot_on_axis(

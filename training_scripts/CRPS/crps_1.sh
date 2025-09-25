@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J CRPS_600e
+#SBATCH -J CRPS_400e
 #SBATCH -t 03-00:00:00
 #SBATCH --gpus=8
 #SBATCH -C "fat"
@@ -19,6 +19,6 @@ cd /proj/berzelius-2022-164/users/x_erila/neural-lam
 git switch main
 
 # Standard arguments
-RUN_NAME="--wandb_run_name CRPS_600e"
+RUN_NAME="--wandb_run_name CRPS_400e"
 
-python3 neural_lam/train_model.py --model CRPS $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 600 --batch_size 6
+python3 neural_lam/train_model.py --model CRPS $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 400 --batch_size 6

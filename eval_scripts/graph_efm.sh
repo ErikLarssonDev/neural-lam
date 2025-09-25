@@ -1,4 +1,4 @@
-RUN_NAME="--wandb_run_name EFM_Spectra"
+RUN_NAME="--wandb_run_name EFM_Samples"
 
 python3 neural_lam/train_model.py\
     $RUN_NAME\
@@ -11,7 +11,10 @@ python3 neural_lam/train_model.py\
     --prior_processor_layers 1\
     --encoder_processor_layers 1\
     --output_std \
-    --ensemble_size 1\
-    --batch_size 4\
+    --ensemble_size 25\
+    --batch_size 1\
     --load /proj/berzelius-2022-164/users/x_erila/neural-lam/paper_checkpoints/Graph-EFM/graph_efm.ckpt\
     --eval test\
+    --subset_ds \
+    --save_output \
+    --n_example_pred 1\

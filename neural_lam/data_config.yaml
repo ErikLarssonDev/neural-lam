@@ -58,7 +58,7 @@ dataset:
 grid_shape_state: [248, 218] # Using the smaller grid for now, not plotting the border
 full_grid_shape_state: [268, 238]
 # grid_shape_state: [268, 238]
-projection:
+coords_projection:
   class: LambertConformal
   kwargs:
     central_longitude: 15.0

@@ -24,6 +24,7 @@ class GraphEFM(pl.LightningModule):
 
     def __init__(self, args):
         super().__init__()
+        self.save_output = args.save_output
 
         # ARModel
         self.save_hyperparameters()
@@ -1147,6 +1148,23 @@ class GraphEFM(pl.LightningModule):
                 ),
                 start=1,
             ):
+                # Save predictions to the output folder with wandb run ID
+                if self.save_output:
+                    # Get wandb run name/ID if available
+                    run_id = wandb.run.id if wandb.run is not None else "no-wandb-run"
+                    
+                    # Create output directory with run ID
+                    output_dir = f"output/{run_id}"
+                    os.makedirs(output_dir, exist_ok=True)
+                    torch.save(
+                        ens_mean_slice[0], f"{output_dir}/example_ens_mean_{self.plotted_examples}.pt")
+                    torch.save(
+                        ens_std_slice[0], f"{output_dir}/example_ens_std_{self.plotted_examples}.pt")
+                    torch.save(
+                        traj_slice[0], f"{output_dir}/example_ens_members_{self.plotted_examples}.pt")
+                    torch.save(
+                        target_slice[0], f"{output_dir}/example_target_{self.plotted_examples}.pt")
+
                 time_title_part = f"t={t_i} ({self.step_length*t_i} h)"
                 # Create one figure per variable at this time step
                 var_figs = [

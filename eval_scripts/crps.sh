@@ -12,3 +12,4 @@ python3 neural_lam/train_model.py \
         --eval test\
         --n_example_pred 1\
         --ensemble_size 1\
+        --subset_ds \
