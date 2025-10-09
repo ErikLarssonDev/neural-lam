@@ -22,6 +22,7 @@ diffusion_steps/
 paper_checkpoints/
 neural_lam/lam_plotting/predictions
 neural_lam/lam_plotting/state_plots
+*.pdf
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
