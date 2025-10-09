@@ -22,7 +22,7 @@ if config == "global":
     model_lookup["prob_hi"] = ("Graph-EFM", "#17c7d2", "-")
 
     model_lookup["gc_swa"] = ("GraphCast*+SWA", "#e75cd9",
-        (0, (3, 1, 1, 1, 1, 1)))
+                              (0, (3, 1, 1, 1, 1, 1)))
 
     #  model_lookup["gc"] = ("GraphCast", grey_col, ":")
     #  model_lookup["keisler"] = ("KeislerNet", grey_col, "-")
@@ -31,7 +31,7 @@ if config == "global":
 
     model_lookup["optimal"] = ("Calibrated", grey_col, "-.")
 
-    kwargs["print_metrics"]= {
+    kwargs["print_metrics"] = {
         "z500": (19, 39),
         "2t": (19, 39),
     }
@@ -44,8 +44,8 @@ elif config == "lam":
     metric_path = "lam_eval"
     step_length = 3
     kwargs["var_names"] = ["pres_0g", "pres_0s", "nlwrs_0", "nswrs_0", "r_2",
-        "r_65", "t_2", "t_65", "t_500", "t_850", "u_65", "u_850", "v_65",
-        "v_850", "wvint_0", "z_1000", "z_500",]
+                           "r_65", "t_2", "t_65", "t_500", "t_850", "u_65", "u_850", "v_65",
+                           "v_850", "wvint_0", "z_1000", "z_500",]
     # kwargs["plot_ylabel"] = True # Only for Run where I want to plot the mean metrics.
 
     metric_lookup["rmse"] = "RMSE"
@@ -60,37 +60,39 @@ elif config == "lam":
     # model_lookup["prob_ms"] = ("Graph-EFM (ms) (100 ens.)", "#003f5c", "-") # 100 ensemble members
     # model_lookup["gc_swa"] = ("GraphCast*+SWA (100 ens.)", "#2f4b7c", (0, (3, 1, 1, 1, 1, 1))) # 100 ensemble members
     # model_lookup["prob_hi"] = ("Graph-EFM (100 ens.)", "#665191", "--") # 100 ensemble members
-    model_lookup["prob_hi_25"] = ("Graph-EFM (25 ens.)", "#0968af", "-.") # 25 ensemble members
-    model_lookup["5"] = ("Graph-EFM (5 ens.)", "#00b9e7", "--") # 5 ensemble members
+    # model_lookup["5"] = ("Graph-EFM (5 ens.)", "#00b9e7", "--") # 5 ensemble members
     # model_lookup["10"] = ("Graph-EFM (10 ens.)", "#8981d3", "-") # 10 ensemble members
     # model_lookup["25"] = ("Graph-EFM (25 ens.)", "#ff6442", ":") # 20 ensemble members
 
     # #000000 - No border :
     # #008744 - Shared encoder .
-    model_lookup["no_border"] = ("Diffusion-LAM (5 ens. no border)", "#000000", ":")
+    # model_lookup["no_border"] = (
+    #     "Diffusion-LAM (5 ens. no border)", "#000000", ":")
     # model_lookup["shared"] = ("Diffusion-LAM (5 ens. shared encoder)", "#008744", "-")
-    model_lookup["edm_1200_test_5"] = ("Diffusion-LAM (5 ens.)", "#ee9923", "--")
-    model_lookup["edm_1200_test_25"] = ("Diffusion-LAM (25 ens.)", "#d6002d", "-")
+    model_lookup["prob_hi_test_25"] = (
+        "Graph-EFM", "#0968af", "-.")  # 25 ensemble members
+    model_lookup["edm_1200_test_25"] = (
+        "Diffusion-LAM", "#d6002d", "-")
+    model_lookup["CRPS_1200_AR2_test_25"] = (
+        "CRPS-LAM", "#ee9923", "--")
 
-    kwargs["legend_cols"] = 3 # len(model_lookup)+1 # Add one for "Calibrated for SSR"
+    # len(model_lookup)+1 # Add one for "Calibrated for SSR"
+    kwargs["legend_cols"] = 4
 
 
 # Hex values for plot colors
-#003f5c
-#2f4b7c
-#665191
-#a05195
-#d45087
-#f95d6a
-#ff7c43
-#ffa600
-
-
-
+# 003f5c
+# 2f4b7c
+# 665191
+# a05195
+# d45087
+# f95d6a
+# ff7c43
+# ffa600
 
     model_lookup["optimal"] = ("Calibrated", grey_col, "-.")
 
-    kwargs["print_metrics"]= {
+    kwargs["print_metrics"] = {
         "z_500": (7, 18),
         "wvint_0": (7, 18),
     }
@@ -100,7 +102,7 @@ elif config == "ens_size_global":
     step_length = 6
 
     model_lookup["5"] = ("5", "#e75cd9",
-        (0, (3, 1, 1, 1, 1, 1)))
+                         (0, (3, 1, 1, 1, 1, 1)))
     model_lookup["10"] = ("10", "#00b9e7", ":")
     model_lookup["20"] = ("20", "#8981d3", "-.")
     model_lookup["40"] = ("40", "#ff6442", "--")
@@ -112,7 +114,7 @@ elif config == "ens_size_global":
     metric_lookup["crps"] = "CRPS"
     metric_lookup["spskr"] = "Spread/Skill"
 
-    kwargs["print_metrics"]= {
+    kwargs["print_metrics"] = {
         "z500": (19, 39),
         "2t": (19, 39),
     }
@@ -123,11 +125,11 @@ elif config == "ens_size_lam":
     metric_path = "/home/joel/probwp_paper_eval/ens_size_lam"
     step_length = 3
     kwargs["var_names"] = ["pres_0g", "pres_0s", "nlwrs_0", "nswrs_0", "r_2",
-        "r_65", "t_2", "t_65", "t_500", "t_850", "u_65", "u_850", "v_65",
-        "v_850", "wvint_0", "z_1000", "z_500",]
+                           "r_65", "t_2", "t_65", "t_500", "t_850", "u_65", "u_850", "v_65",
+                           "v_850", "wvint_0", "z_1000", "z_500",]
 
     model_lookup["5"] = ("5", "#e75cd9",
-        (0, (3, 1, 1, 1, 1, 1)))
+                         (0, (3, 1, 1, 1, 1, 1)))
     model_lookup["10"] = ("10", "#00b9e7", ":")
     model_lookup["25"] = ("25", "#8981d3", "-.")
     model_lookup["50"] = ("50", "#ff6442", "--")
@@ -139,7 +141,7 @@ elif config == "ens_size_lam":
     metric_lookup["crps"] = "CRPS"
     metric_lookup["spskr"] = "Spread/Skill"
 
-    kwargs["print_metrics"]= {
+    kwargs["print_metrics"] = {
         "z_500": (7, 18),
         "wvint_0": (7, 18),
     }
@@ -161,8 +163,8 @@ elif config == "propnet_lam":
     metric_path = "/home/joel/probwp_paper_eval/propnet_lam"
     step_length = 3
     kwargs["var_names"] = ["pres_0g", "pres_0s", "nlwrs_0", "nswrs_0", "r_2",
-        "r_65", "t_2", "t_65", "t_500", "t_850", "u_65", "u_850", "v_65",
-        "v_850", "wvint_0", "z_1000", "z_500",]
+                           "r_65", "t_2", "t_65", "t_500", "t_850", "u_65", "u_850", "v_65",
+                           "v_850", "wvint_0", "z_1000", "z_500",]
 
     model_lookup["propnet"] = ("Propagation Networks", "#17c7d2", "-")
     model_lookup["inet"] = ("Interaction Networks", "#ff6442", "--")
@@ -175,8 +177,8 @@ elif config == "latent_map":
     metric_path = "/home/joel/probwp_paper_eval/latent_map_exp"
     step_length = 3
     kwargs["var_names"] = ["pres_0g", "pres_0s", "nlwrs_0", "nswrs_0", "r_2",
-        "r_65", "t_2", "t_65", "t_500", "t_850", "u_65", "u_850", "v_65",
-        "v_850", "wvint_0", "z_1000", "z_500",]
+                           "r_65", "t_2", "t_65", "t_500", "t_850", "u_65", "u_850", "v_65",
+                           "v_850", "wvint_0", "z_1000", "z_500",]
 
     model_lookup["latent_map"] = ("Latent map", "#17c7d2", "-")
     model_lookup["static"] = ("Static", "#8981d3", "--")
@@ -197,15 +199,15 @@ elif config == "global_icp":
     model_lookup["prob_hi"] = ("Graph-EFM", "#17c7d2", "-")
 
     model_lookup["gc_swa"] = ("GraphCast*+SWA", "#e75cd9",
-        (0, (3, 1, 1, 1, 1, 1)))
+                              (0, (3, 1, 1, 1, 1, 1)))
 
     model_lookup["gefm_icp"] = ("Graph-EFM+ICP", "green", ":")
     model_lookup["gc_icp"] = ("GraphCast*+ICP", "pink", "-")
-    #model_lookup["gfm_icp"] = ("Graph-FM+ICP", "brown", "--")
+    # model_lookup["gfm_icp"] = ("Graph-FM+ICP", "brown", "--")
 
     model_lookup["optimal"] = ("Calibrated", grey_col, "-.")
 
-    kwargs["print_metrics"]= {
+    kwargs["print_metrics"] = {
         "z500": (19, 39),
         "2t": (19, 39),
     }
@@ -218,8 +220,8 @@ elif config == "lam_icp":
     metric_path = "/home/joel/probwp_paper_eval/lam_icp"
     step_length = 3
     kwargs["var_names"] = ["pres_0g", "pres_0s", "nlwrs_0", "nswrs_0", "r_2",
-        "r_65", "t_2", "t_65", "t_500", "t_850", "u_65", "u_850", "v_65",
-        "v_850", "wvint_0", "z_1000", "z_500",]
+                           "r_65", "t_2", "t_65", "t_500", "t_850", "u_65", "u_850", "v_65",
+                           "v_850", "wvint_0", "z_1000", "z_500",]
 
     model_lookup["det_ms"] = ("GraphCast*", "#00B9E7", ":")
     model_lookup["det_hi"] = ("Graph-FM", "#8981d3", "-.")
@@ -227,7 +229,7 @@ elif config == "lam_icp":
     model_lookup["prob_hi"] = ("Graph-EFM", "#17c7d2", "-")
 
     model_lookup["gc_swa"] = ("GraphCast*+SWA", "#e75cd9",
-            (0, (3, 1, 1, 1, 1, 1)))
+                              (0, (3, 1, 1, 1, 1, 1)))
 
     model_lookup["gefm_icp"] = ("Graph-EFM+ICP", "green", ":")
     model_lookup["gc_icp"] = ("GraphCast*+ICP", "pink", "-")
@@ -251,7 +253,7 @@ else:
     model_lookup["hi4s3l"] = "4s3l"
 
 
-#metric_lookup["acc"] = "ACC"
+# metric_lookup["acc"] = "ACC"
 
 plot_error_lines(
     metric_path,

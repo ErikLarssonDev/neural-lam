@@ -18,6 +18,7 @@ PLOT_DIR_NAME = "line_plots"
 # Load static features for grid/data
 static_data_dict = utils.load_static_data("meps")
 
+
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
 def plot_error_lines(
     error_dir_path,
@@ -31,7 +32,7 @@ def plot_error_lines(
     var_names=constants.PARAM_NAMES_SHORT,
     var_units=constants.PARAM_UNITS,
     print_metrics=None,  # Dict of var: (index) to print
-    legend_cols = 6,  # Max number that fit in width
+    legend_cols=6,  # Max number that fit in width
 ):
     """
     Make lineplots with metrics from files stored in given directory.
@@ -41,7 +42,6 @@ def plot_error_lines(
 
     var_names = np.concatenate([var_names, np.array(["Mean"])])
     var_units = np.concatenate([var_units, np.array([""])])
-
 
     # Load all data
     error_file_paths = {
@@ -63,8 +63,15 @@ def plot_error_lines(
                 model_name = "_".join(base_file_name.split("_")[:-1])
 
                 err_array = np.genfromtxt(file_path, delimiter=",")
-                mean_error = np.mean(err_array / static_data_dict["data_std"].numpy(), axis=1, keepdims=True)
-                err_array_dict[model_name] = np.concatenate([err_array, mean_error], axis=1)
+                if metric_name == "spskr":
+                    # SPSK-R is already normalized
+                    mean_error = np.mean(err_array, axis=1, keepdims=True)
+                else:
+                    # Normalize by data std
+                    mean_error = np.mean(
+                        err_array / static_data_dict["data_std"].numpy(), axis=1, keepdims=True)
+                err_array_dict[model_name] = np.concatenate(
+                    [err_array, mean_error], axis=1)
 
             error_arrays[metric_name] = err_array_dict
 
@@ -199,7 +206,8 @@ def plot_error_lines(
 
             # Style figure
             if not separate_legend:
-                ax.legend(handlelength=1.5, loc="lower right", ncol=2, columnspacing=0.6)
+                ax.legend(handlelength=1.5, loc="lower right",
+                          ncol=2, columnspacing=0.6)
             # ax.set_title(f"{var_name}")
             ax.set_xticks(xticks)
             ax.set_xticklabels(xtick_labels)
