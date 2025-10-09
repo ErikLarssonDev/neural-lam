@@ -1,5 +1,6 @@
 # Standard library
 import os
+import time
 
 # Third-party
 import matplotlib.pyplot as plt
@@ -253,7 +254,6 @@ class ARProbModel(ARModel):
         # List of tuples, each containing
         # mean: (B, pred_steps, num_grid_nodes, d_f) and
         # std: (B, pred_steps, num_grid_nodes, d_f) or (d_f,)
-
         traj_means = torch.stack(
             [pred_pair[0] for pred_pair in traj_list], dim=1
         )
@@ -314,25 +314,25 @@ class ARProbModel(ARModel):
             # traj_slice is (S, pred_steps, num_grid_nodes, d_f)
             # others are (pred_steps, num_grid_nodes, d_f)
             self.plotted_examples += 1  # Increment already here
-            
+
             # Save predictions to the output folder with wandb run ID
             if self.save_output:
                 # Get wandb run name/ID if available
-                run_id = wandb.run.id if wandb.run is not None else "no-wandb-run"
-                
+                run_id = wandb.run.name if wandb.run is not None else "no-wandb-run"
+
                 # Create output directory with run ID
                 output_dir = f"output/{run_id}"
                 os.makedirs(output_dir, exist_ok=True)
                 torch.save(
-                    ens_mean_slice[0], f"{output_dir}/example_ens_mean_{self.plotted_examples}.pt")
+                    ens_mean_slice, f"{output_dir}/example_ens_mean_{self.plotted_examples}.pt")
                 torch.save(
-                    ens_std_slice[0], f"{output_dir}/example_ens_std_{self.plotted_examples}.pt")
+                    ens_std_slice, f"{output_dir}/example_ens_std_{self.plotted_examples}.pt")
                 torch.save(
-                    traj_slice[0], f"{output_dir}/example_ens_members_{self.plotted_examples}.pt")
+                    traj_slice, f"{output_dir}/example_ens_members_{self.plotted_examples}.pt")
                 torch.save(
-                    target_slice[0], f"{output_dir}/example_target_{self.plotted_examples}.pt")
+                    target_slice, f"{output_dir}/example_target_{self.plotted_examples}.pt")
                 torch.save(
-                    border_slice[0], f"{output_dir}/example_border_{self.plotted_examples}.pt")
+                    border_slice, f"{output_dir}/example_border_{self.plotted_examples}.pt")
 
             # Note: min and max values can not be in ensemble mean
             var_vmin = (
@@ -521,6 +521,7 @@ class ARProbModel(ARModel):
         # Plot example predictions (on rank 0 only)
         if self.trainer.is_global_zero and batch_idx == 0:
             n_examples = 1  # Number of examples to plot
+            init_states, target_states, forcing_features, boundary_forcing = batch
             border = boundary_forcing[..., :len(constants.USED_PARAMS)]
 
             # Rescale to original data scale
@@ -714,13 +715,13 @@ class ARProbModel(ARModel):
 
         radial_target_spectra = metrics.radial_average(target_spectra)
         self.spectra_metrics["spectra_gt"].append(
-            radial_target_spectra.cpu())  # (B, t, n_freqs)
+            radial_target_spectra)  # (B, t, n_freqs)
 
         traj_spectra = metrics.calculate_energy_spectra(
             trajectories_2d)
         radial_traj_spectra = metrics.radial_average(traj_spectra)
         self.spectra_metrics["spectra"].append(
-            radial_traj_spectra.cpu())  # (B, t, n_freqs)
+            radial_traj_spectra)  # (B, t, n_freqs)
 
         # Plot example predictions (on rank 0 only)
         if (

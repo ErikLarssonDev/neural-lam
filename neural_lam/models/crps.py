@@ -80,7 +80,6 @@ class CRPS(ARProbModel):
         crps_estimate = metrics.crps_ens(  # TODO: Should we use this CRPS version?
             pred_traj_means,
             target_states,
-            pred_traj_stds,
         )  # (B, pred_steps)
         loss = torch.mean(crps_estimate)
 

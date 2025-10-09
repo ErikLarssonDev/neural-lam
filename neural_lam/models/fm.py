@@ -784,15 +784,8 @@ class FM(ARModel):
     def heun_sampler(
         self, latents, class_labels=None, boundary_forcing=None, num_steps=20, sigma_min=0.0, sigma_max=1.0
     ):
-        # Time step discretization.
-        # step_indices = torch.arange(num_steps)
-        # t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
-        # t_steps = torch.cat([torch.as_tensor(t_steps, device=latents.device), torch.zeros_like(t_steps[:1], device=latents.device)]) # t_N = 0
-
-        # t_steps = torch.linspace(sigma_min, sigma_max, num_steps, device=latents.device) # t_0 = tmin, t_N = tmax
-        # Martins scheduler
         tmin = 0.0
-        tmax = 1 - 1/num_steps
+        tmax = 1.0
 
         # Time step discretization.
         t_steps = torch.linspace(tmin, tmax, num_steps, device=self.device)
@@ -819,3 +812,37 @@ class FM(ARModel):
 
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
+
+    def stochastic_sampler(
+        self, latents, class_labels=None, boundary_forcing=None, randn_like=torch.randn_like,
+            num_steps=20, sigma_min=0.03, sigma_max=80, rho=7,
+    ):
+        tmin = 0.0
+        tmax = 1
+        eps = 1.0
+
+        # Time step discretization.
+        ts = torch.linspace(tmin, tmax, num_steps+1, device=self.device)[:-1]
+        dt = (tmax - tmin) / num_steps
+
+        # Main sampling loop.
+        zt = latents  # Initialize with noise
+        for t in ts:
+            alpha_t = t
+            beta_t = 1 - t
+            gamma_t = 1
+            alpha_dot_t = 1
+            beta_dot_t = -1
+            eps_t = eps * beta_t
+
+            b = self.forward(zt, t, class_labels=class_labels,
+                             dropout=self.dropout)
+            s = (alpha_t * b - alpha_dot_t * zt) / \
+                (beta_t * gamma_t)  # s = (t * b - zt) / (1 - t)
+            dz = b + eps_t * s
+
+            dW = torch.randn_like(zt) * torch.sqrt(2*dt * eps_t)
+
+            zt = zt + dz * dt + dW
+
+        return zt  # (B, N_grid, d_state)

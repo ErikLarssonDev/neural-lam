@@ -409,7 +409,7 @@ def radial_average(psd2D):
     r = torch.sqrt((x - cx) ** 2 + (y - cy) ** 2).to(psd2D.device)
     r = r.to(torch.int64)
 
-    R = r.max().item() + 1
+    R = r.max().item() + 1  # TODO: Should maybe be elips instead of circle
 
     # Process each item in the batch
     radial_profiles = []

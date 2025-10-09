@@ -110,14 +110,26 @@ class Diffusion(ARModel):  # TODO: Better if this inherited from ARProbModel? Re
 
         # Run through sampler
         if self.sampler == "heun":
-            next_state, diff_states = self.heun_sampler(
-                latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5, sigma_max=self.sigma_max, num_steps=self.sampler_steps)
+            next_state, diff_states = self.heun_sampler(latents=latents,
+                                                        class_labels=input_grid,
+                                                        boundary_forcing=boundary_forcing,
+                                                        sigma_min=self.sigma_min*1.5,
+                                                        sigma_max=self.sigma_max / 1.1,
+                                                        num_steps=self.sampler_steps)
         elif self.sampler == "edm":
-            next_state, diff_states = self.edm_sampler(latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing,
-                                                       sigma_min=self.sigma_min*1.5, sigma_max=self.sigma_max, num_steps=self.sampler_steps)
+            next_state, diff_states = self.edm_sampler(latents=latents,
+                                                       class_labels=input_grid,
+                                                       boundary_forcing=boundary_forcing,
+                                                       sigma_min=self.sigma_min*1.5,
+                                                       sigma_max=self.sigma_max / 1.1,
+                                                       num_steps=self.sampler_steps)
         elif self.sampler == "ddpm":
-            next_state, diff_states = self.ddpm_sampler(
-                latents=latents, class_labels=input_grid, boundary_forcing=boundary_forcing, sigma_min=self.sigma_min*1.5, num_steps=self.sampler_steps)
+            next_state, diff_states = self.ddpm_sampler(latents=latents,
+                                                        class_labels=input_grid,
+                                                        boundary_forcing=boundary_forcing,
+                                                        sigma_min=self.sigma_min*1.5,
+                                                        sigma_max=self.sigma_max / 1.1,
+                                                        num_steps=self.sampler_steps)
 
         # Add residual if needed
         if self.pred_residual:
@@ -357,8 +369,9 @@ class Diffusion(ARModel):  # TODO: Better if this inherited from ARProbModel? Re
 
         traj_list = []
         for i in range(num_traj):
-            # print(f"Starting trajectory {i + 1}/{num_traj}...")
-            # start_time = time.time()
+            if self.save_output:  # and i == 0:
+                print(
+                    f"Sampling trajectory {i + 1}/{num_traj} with {self.sampler_steps} sampler steps...")
 
             traj = unroll_func(
                 init_states,
@@ -432,25 +445,25 @@ class Diffusion(ARModel):  # TODO: Better if this inherited from ARProbModel? Re
             # traj_slice is (S, pred_steps, num_grid_nodes, d_f)
             # others are (pred_steps, num_grid_nodes, d_f)
             self.plotted_examples += 1  # Increment already here
-            
+
             # Save predictions to the output folder with wandb run ID
             if self.save_output:
                 # Get wandb run name/ID if available
-                run_id = wandb.run.id if wandb.run is not None else "no-wandb-run"
-                
+                run_id = wandb.run.name if wandb.run is not None else "no-wandb-run"
+
                 # Create output directory with run ID
                 output_dir = f"output/{run_id}"
                 os.makedirs(output_dir, exist_ok=True)
                 torch.save(
-                    ens_mean_slice[0], f"{output_dir}/example_ens_mean_{self.plotted_examples}.pt")
+                    ens_mean_slice, f"{output_dir}/example_ens_mean_{self.plotted_examples}.pt")
                 torch.save(
-                    ens_std_slice[0], f"{output_dir}/example_ens_std_{self.plotted_examples}.pt")
+                    ens_std_slice, f"{output_dir}/example_ens_std_{self.plotted_examples}.pt")
                 torch.save(
-                    traj_slice[0], f"{output_dir}/example_ens_members_{self.plotted_examples}.pt")
+                    traj_slice, f"{output_dir}/example_ens_members_{self.plotted_examples}.pt")
                 torch.save(
-                    target_slice[0], f"{output_dir}/example_target_{self.plotted_examples}.pt")
+                    target_slice, f"{output_dir}/example_target_{self.plotted_examples}.pt")
                 torch.save(
-                    border_slice[0], f"{output_dir}/example_border_{self.plotted_examples}.pt")
+                    border_slice, f"{output_dir}/example_border_{self.plotted_examples}.pt")
 
             # Note: min and max values can not be in ensemble mean
             var_vmin = (
