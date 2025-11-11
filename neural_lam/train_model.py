@@ -22,15 +22,20 @@ from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.diffusion import Diffusion
 from neural_lam.models.ir_sde import IR_SDE
 from neural_lam.models.stochastic_interpolants import SI
+from neural_lam.models.unet import UNET
+from neural_lam.models.CorrDiff import CorrDiff
 
 MODELS = {
     "graphcast": GraphCast,
     "graph_fm": GraphFM,
     "graph_efm": GraphEFM,
     "diffusion": Diffusion,
-    "ir_sde": IR_SDE, 
+    "ir_sde": IR_SDE,
     "SI": SI,
+    "unet": UNET,
+    "CorrDiff": CorrDiff,
 }
+
 
 def list_of_ints(arg):
     return list(map(int, arg.split(',')))
@@ -108,9 +113,9 @@ def main(input_args=None):
     parser.add_argument(
         "--diffusion_model",
         type=str,
-        default="graphcast",
+        default="edm",
         help="Model to use in the diffusion model"
-        "(default: graphcast)",
+        "(default: edm)",
     )
     parser.add_argument(
         "--hidden_dim",
@@ -188,7 +193,7 @@ def main(input_args=None):
     parser.add_argument(
         "--vertical_propnets",
         type=int,
-        default=1, # TODO: Change to 1 as it is used in the paper
+        default=1,  # TODO: Change to 1 as it is used in the paper
         help="If PropagationNets should be used for all vertical message "
         "passing (g2m, m2g, up in hierarchy), in deterministic models."
         "(default: 1 (Yes))",
@@ -287,7 +292,8 @@ def main(input_args=None):
     parser.add_argument(
         "--sigma_max",
         type=float,
-        default=10 / 255, # To get the same sigma max as the paper (IR-SDE), normalize by 255 to get it into the image domain. TODO: Experiment with this for better results for atmospheric data
+        # To get the same sigma max as the paper (IR-SDE), normalize by 255 to get it into the image domain. TODO: Experiment with this for better results for atmospheric data
+        default=10 / 255,
         help="Sigma max for training. (default: 10)",
     )
     parser.add_argument(
@@ -302,7 +308,7 @@ def main(input_args=None):
     parser.add_argument(
         "--sigma_min",
         type=float,
-        default=0.002, # TODO: Do we need lower sigma_min for atmospheric data?
+        default=0.002,  # TODO: Do we need lower sigma_min for atmospheric data?
         help="Sigma min for training. (default: 0.002)",
     )
     parser.add_argument(
@@ -386,7 +392,6 @@ def main(input_args=None):
         default=1,
         help="Sigma coefficient for stochatic interpolants (default: 1)",
     )
-
 
     # Logger Settings
     parser.add_argument(
@@ -508,7 +513,7 @@ def main(input_args=None):
     prefix = "subset-" if args.subset_ds else ""
     if args.eval:
         prefix = prefix + f"eval-{args.eval}-"
-    
+
     prefix = f"{args.wandb_run_name}-{prefix}" if args.wandb_run_name else prefix
     run_name = (
         f"{prefix}{args.model}-{args.processor_layers}x{args.hidden_dim}-"
@@ -546,7 +551,6 @@ def main(input_args=None):
     # If doing pure autoencoder training (kl_beta = 0), the prior network is not
     # used at all in producing the loss. This is desired, but DDP complains.
     strategy = "ddp" if args.kl_beta > 0 else "ddp_find_unused_parameters_true"
-
 
     # profiler = AdvancedProfiler(dirpath=".", filename="perf_logs") # Profiler for performance logging
 
@@ -596,14 +600,14 @@ def main(input_args=None):
                 pin_memory=True,
                 persistent_workers=True,
             )
-    
+
         print(f"Running evaluation on {args.eval}")
         trainer.test(model=model, dataloaders=eval_loader, ckpt_path=args.load)
     else:
         # Train model
         trainer.fit(
             model=model,
-            train_dataloaders=train_loader, 
+            train_dataloaders=train_loader,
             # val_dataloaders=val_loader, # No validation during training for diffusion model
             ckpt_path=args.load,
         )
