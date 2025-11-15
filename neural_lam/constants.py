@@ -3,7 +3,7 @@ import cartopy
 import numpy as np
 
 WANDB_PROJECT = "neural-lam_prob"
-DATA_PATH = "/proj/berzelius-2022-164/weather/neural_lam_datasets" # Normally "data"
+DATA_PATH = "/proj/berzelius-2022-164/weather/neural_lam_datasets"  # Normally "data"
 
 SECONDS_IN_YEAR = (
     365 * 24 * 60 * 60
@@ -104,8 +104,9 @@ PARAM_UNITS = np.array([
     "m²/s²",
 ])
 
-# USED_PARAMS = [10] # Only using a subset of parameters
-USED_PARAMS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] # All params
+# USED_PARAMS = [4, 6]  # Only using a subset of parameters r_2
+USED_PARAMS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+               10, 11, 12, 13, 14, 15, 16]  # All params
 
 # Projection and grid
 # Hard coded for now, but should eventually be part of dataset desc. files
@@ -141,6 +142,6 @@ LAMBERT_PROJ = cartopy.crs.LambertConformal(
 )
 
 # Data dimensions
-BATCH_STATIC_FEATURE_DIM = 1 # Only open water
+BATCH_STATIC_FEATURE_DIM = 1  # Only open water
 GRID_FORCING_DIM = 5 * 3 + 1  # 5 feat. for 3 time-step window + 1 batch-static
 GRID_STATE_DIM = len(USED_PARAMS)  # Number of variables to predict

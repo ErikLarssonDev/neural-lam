@@ -41,6 +41,9 @@ class Diffusion(ARModel):  # TODO: Better if this inherited from ARProbModel? Re
         self.save_output_wandb = args.save_output_wandb
         self.sampler_steps = args.sampler_steps
 
+        print(f"Step diff mean: {self.step_diff_mean}")
+        print(f"Step diff std: {self.step_diff_std}")
+
         if args.diffusion_model != 'edm':
             self.map_noise = NoiseEmbedding()
 
@@ -154,10 +157,49 @@ class Diffusion(ARModel):  # TODO: Better if this inherited from ARProbModel? Re
         pred_std: None or (B, N_grid, d_state), predicted standard-deviations
                     (pred_std can be ignored by just returning None)
         """
+        mesh_rep = prev_state.reshape(
+            prev_state.shape[0], *constants.GRID_SHAPE, prev_state.shape[-1]).permute(0, 3, 1, 2)  # (B, d_h, X, Y)
+        try:
+            # pick batch index to plot (default 0)
+            bidx = getattr(self, "debug_plot_batch", 0)
+            mesh_np = mesh_rep.detach().cpu().numpy()
+            _, d_h, X, Y = mesh_np.shape
+
+            out_dir = "debug_plot_dir"
+            os.makedirs(out_dir, exist_ok=True)
+            os.makedirs(out_dir, exist_ok=True)
+
+            # Save each channel (d_h) in a separate file
+            for ch in range(d_h):
+                try:
+                    fig, ax = plt.subplots(figsize=(4, 4))
+                    vmin = float(mesh_np[bidx, ch].min())
+                    vmax = float(mesh_np[bidx, ch].max())
+                    im = ax.imshow(mesh_np[bidx, ch],
+                                   cmap="plasma", vmin=vmin, vmax=vmax)
+                    ax.set_title(f"batch {bidx} — ch {ch}")
+                    ax.axis("off")
+                    fname = os.path.join(
+                        out_dir, f"mesh_rep_b{bidx}_ch{ch}.png")
+                    fig.savefig(fname, dpi=150, bbox_inches="tight")
+                    plt.close(fig)
+                except Exception as e_ch:
+                    print(f"Failed to save mesh_rep channel {ch}: {e_ch}")
+
+            print(f"Saved {d_h} mesh_rep channel files to {out_dir}")
+        except Exception as e:
+            print(f"Failed to save mesh_rep debug plot: {e}")
 
         # Sample from F inverse
         rnd_uniform = torch.rand(
             [prev_state.shape[0], 1, 1], device=prev_state.device)
+        # rnd_uniform = torch.tensor(
+        #     [0.6130, 0.0101, 0.3984, 0.0403],
+        #     dtype=torch.float32,
+        #     device='cuda:0'
+        # ).view(4, 1, 1)
+        print(f"rnd_uniform: {rnd_uniform}")
+        print(f"rnd_uniform shape: {rnd_uniform.shape}")
         rho_inv = 1 / self.rho
         sigma_max_rho = self.sigma_max ** rho_inv
         sigma_min_rho = self.sigma_min ** rho_inv
@@ -165,15 +207,6 @@ class Diffusion(ARModel):  # TODO: Better if this inherited from ARProbModel? Re
                  (sigma_min_rho - sigma_max_rho)) ** self.rho
         # (B, N_grid, d_input), true_states[4, 19, n_grid, d_state], assuming 19 is for 19 rollouts
         y = true_state
-
-        # Noise augmentation
-        if torch.rand(1) < self.noise_aug_prob:
-            rnd_uniform_aug = torch.empty([prev_state.shape[0], 1, 1], device=prev_state.device).uniform_(
-                0.9, 1)  # Previously 0.75, 1
-            sigma_aug = (sigma_max_rho + rnd_uniform_aug *
-                         (sigma_min_rho - sigma_max_rho)) ** self.rho
-            prev_state += torch.randn_like(prev_state) * sigma_aug
-            prev_prev_state += torch.randn_like(prev_prev_state) * sigma_aug
 
         input_grid = torch.cat((prev_state, prev_prev_state, forcing), dim=-1)
 
@@ -190,6 +223,13 @@ class Diffusion(ARModel):  # TODO: Better if this inherited from ARProbModel? Re
         next_state = self.forward(
             noisy_input, sigma, input_grid, boundary_forcing)
 
+        print(
+            f"next_state before unnormalizing residual mean: {next_state.mean()}")
+        print(
+            f"next_state before unnormalizing residual std: {next_state.std()}")
+        print(f"target residual y mean: {y.mean()}")
+        print(f"target residual y std: {y.std()}")
+
         # Add residual if needed
         if self.pred_residual:
             next_state = (next_state * self.step_diff_std[constants.USED_PARAMS]) + \
@@ -199,6 +239,11 @@ class Diffusion(ARModel):  # TODO: Better if this inherited from ARProbModel? Re
         # (B, 1, 1), weight for the loss function
         weight = (sigma ** 2 + self.sigma_data ** 2) / \
             (sigma * self.sigma_data) ** 2
+
+        print(f"next_state.mean(): {next_state.mean()}")
+        print(f"next_state.std(): {next_state.std()}")
+        print(f"target_state.mean(): {true_state.mean()}")
+        print(f"target_state.std(): {true_state.std()}")
 
         return next_state, None, weight
 
@@ -242,7 +287,7 @@ class Diffusion(ARModel):  # TODO: Better if this inherited from ARProbModel? Re
             # Using the same weights for all variables
             pred_std = torch.tensor(1, device=init_states.device)
         else:
-            pred_std = self.per_var_std  # (d_f,)
+            pred_std = self.per_var_std[..., constants.USED_PARAMS]  # (d_f,)
 
         return prediction, pred_std
 
@@ -297,7 +342,7 @@ class Diffusion(ARModel):  # TODO: Better if this inherited from ARProbModel? Re
             )  # (B, pred_steps, num_grid_nodes, d_f)
             # pred_std = self.per_var_std  # (d_f,)
         else:
-            pred_std = self.per_var_std  # (d_f,)
+            pred_std = self.per_var_std[..., constants.USED_PARAMS]  # (d_f,)
             # pred_std = 1 # Testing equal weights
 
         return prediction, pred_std, weight
@@ -307,6 +352,7 @@ class Diffusion(ARModel):  # TODO: Better if this inherited from ARProbModel? Re
         Predict on single batch
         batch consists of:
         init_states: (B, 2, num_grid_nodes, d_features)
+
         target_states: (B, pred_steps, num_grid_nodes, d_features)
         forcing_features: (B, pred_steps, num_grid_nodes, d_forcing),
             where index 0 corresponds to index 1 of init_states
@@ -326,12 +372,17 @@ class Diffusion(ARModel):  # TODO: Better if this inherited from ARProbModel? Re
         """
         prediction, target, pred_std, weight = self.common_step_train(batch)
 
+        loss = self.loss(
+            prediction, target, pred_std, weight=weight
+        )
         # Compute loss
         batch_loss = torch.mean(
-            self.loss(
-                prediction, target, pred_std, weight=weight  # mask=self.interior_mask_bool
-            )
+            loss
         )  # mean over unrolled times and batch
+
+        print(f"loss.shape: {batch_loss.shape}")
+        print(f"weight.shape: {weight}")
+        print(f"loss after weighting: {loss}")
 
         batch_mse = torch.mean(
             metrics.mse(
@@ -588,7 +639,7 @@ class Diffusion(ARModel):  # TODO: Better if this inherited from ARProbModel? Re
         """
         Run validation on single batch
         """
-        prediction, target, pred_std, loss, weight = self.common_step_train(
+        prediction, target, pred_std, weight = self.common_step_train(
             batch)
 
         loss = self.loss(
@@ -663,7 +714,7 @@ class Diffusion(ARModel):  # TODO: Better if this inherited from ARProbModel? Re
                     1,
                     prediction=trajectories,
                     # Only plot 1 step ahead during validation
-                    lead_times_to_plot=constants.VAL_PLOT_STEPS,
+                    # lead_times_to_plot=constants.VAL_PLOT_STEPS,
                 )
                 # Decrease counter, we don't want to increase it in the validation step
                 self.plotted_examples -= 1

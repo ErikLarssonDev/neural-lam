@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -J CRPS_AR_4_res_1600e
+#SBATCH -J EDM_r2_t2
 #SBATCH -t 03-00:00:00
-#SBATCH --gpus=8
+#SBATCH --gpus=4
 #SBATCH -C "fat"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=erila85@liu.se
@@ -20,10 +20,15 @@ git switch main
 
 # Standard arguments
 DIFFUSION_MODEL="--diffusion_model graph_fm --graph hierarchical-3"
-RUN_NAME="--wandb_run_name CRPS_AR_4_res_1600e"
+RUN_NAME="--wandb_run_name EDM_r2_t2_600e"
 
 # Paths to saved models
 EDM_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/EDM_1200e-diffusion-6x128-01_14_08-9197/last.ckpt" # Best model
+
+# EDM only r_2
+EDM_600e_r2=""
+EDM_1000e_r2=""
+EDM_1200e_r2=""
 
 # The loss is not weighted based on the variable
 SI_600e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/SI_600e-SI-6x128-05_06_17-8464/last.ckpt"
@@ -75,7 +80,7 @@ CRPS_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/CRPS_
 
 # Execute Python script with arguments
 # Train
-# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 2000 --batch_size 12 --load $EDM_1800e --lr 0.0000001 # --encoder_type residual # --noise_aug_prob 0.5
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 600 --batch_size 12 --lr 0.001 # --load $EDM_1800e  # --encoder_type residual # --noise_aug_prob 0.5
 # python3 neural_lam/train_model.py --model tEDM --diffusion_model edm $RUN_NAME  --n_workers 16 --border_condition --epochs 600 --batch_size 12 --sigma_min 0.00002 --sigma_max 255
 # python3 neural_lam/train_model.py --model SI --diffusion_model song_unet $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 1200 --batch_size 12 --load $SI_1000e_res --lr 0.00001
 # python3 neural_lam/train_model.py --model FM --diffusion_model song_unet $RUN_NAME  --n_workers 16 --pred_residual --border_condition --epochs 1200 --batch_size 12 --load $FM_1000e --lr 0.00001
@@ -85,15 +90,15 @@ CRPS_1200e="/proj/berzelius-2022-164/users/x_erila/neural-lam/saved_models/CRPS_
 
 # Test
 # python3 neural_lam/train_model.py $MODEL $DIFFUSION_MODEL $RUN_NAME --n_workers 2 --pred_residual --border_condition --vertical_propnets 1 --batch_size 18  --processor_layers 2 --hidden_dim 128 --eval val --n_example_pred 0 --ensemble_size 5 --load $level_3_600e
-python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME --n_workers 2 --pred_residual --border_condition --eval test --n_example_pred 1 --batch_size 8 --ensemble_size 5 --load $EDM_1200e --sampler edm --sampler_steps 10 # --encoder_type residual
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm $RUN_NAME --n_workers 2 --pred_residual --border_condition --eval test --n_example_pred 1 --batch_size 8 --ensemble_size 5 --load $EDM_1200e --sampler edm --sampler_steps 10 # --encoder_type residual
 # python3 neural_lam/train_model.py --model SI --diffusion_model song_unet $RUN_NAME --n_workers 2 --pred_residual --border_condition --eval val --n_example_pred 1 --batch_size 8 --ensemble_size 5 --load $SI_1200e_res --sampler_steps 100
 # python3 neural_lam/train_model.py --model tEDM --diffusion_model edm $RUN_NAME --n_workers 2 --pred_residual --border_condition --eval val --n_example_pred 1 --batch_size 8 --ensemble_size 5 --load $tEDM_1000e
 # python3 neural_lam/train_model.py --model FM --diffusion_model song_unet $RUN_NAME --n_workers 2 --pred_residual --border_condition --eval val --n_example_pred 1 --batch_size 8 --ensemble_size 25 --load $FM_1200e #  --sampler midpoint
-python3 neural_lam/train_model.py --model CRPS $RUN_NAME  --n_workers 2 --pred_residual  --border_condition --batch_size 4 --load $CRPS_AR_4_res_1600e --eval val --n_example_pred 1 --ensemble_size 25
+# python3 neural_lam/train_model.py --model CRPS $RUN_NAME  --n_workers 2 --pred_residual  --border_condition --batch_size 4 --load $CRPS_AR_4_res_1600e --eval val --n_example_pred 1 --ensemble_size 25
 
 # Trial train
 # python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --graph hierarchical-3 --n_workers 16 --pred_residual --border_condition --vertical_propnets 1 --batch_size 12  --processor_layers 2 --hidden_dim 128
-# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --n_workers 16 --pred_residual --border_condition --resample_filter [1,3,3,1] --channel_mult [2, 2, 2, 2] --encoder_type standard --attn_resolutions [134, 68, 34, 18]
+# python3 neural_lam/train_model.py --model diffusion --diffusion_model edm --n_workers 4 --pred_residual --border_condition --resample_filter [1,3,3,1] --channel_mult [2, 2, 2, 2] --encoder_type standard --attn_resolutions [134, 68, 34, 18]
 # python3 neural_lam/train_model.py --model SI --diffusion_model song_unet --n_workers 16 --pred_residual --border_condition --subset_ds
 # python3 neural_lam/train_model.py --model tEDM --diffusion_model edm --n_workers 16 --border_condition --subset_ds
 # python3 neural_lam/train_model.py --model FM --diffusion_model song_unet --n_workers 16 --border_condition --pred_residual --subset_ds

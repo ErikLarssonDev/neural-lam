@@ -75,7 +75,11 @@ def wmse(pred, target, pred_std, mask=None, average_grid=True, sum_vars=True, **
     entry_mse = torch.nn.functional.mse_loss(
         pred, target, reduction="none"
     )  # (..., N, d_state)
+
     entry_mse_weighted = entry_mse / (pred_std**2)  # (..., N, d_state)
+    print(
+        f"loss before weighting: {mask_and_reduce_metric(entry_mse_weighted,mask=mask,average_grid=average_grid,sum_vars=sum_vars)}")
+
     if 'weight' in kwargs:
         entry_mse_weighted = entry_mse_weighted * kwargs['weight']
 

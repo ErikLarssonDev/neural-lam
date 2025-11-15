@@ -93,6 +93,9 @@ class WeatherDataset(torch.utils.data.Dataset):
         sample_path = os.path.join(
             self.sample_dir_path, f"nwp_{sample_name}.npy"
         )
+        print(f"Loading sample from {sample_path}")
+        print(f"Sample name: {sample_name}")
+        print(f"index: {idx}")
         try:
             full_sample = torch.tensor(
                 np.load(sample_path), dtype=torch.float32
@@ -151,9 +154,10 @@ class WeatherDataset(torch.utils.data.Dataset):
         sample = sample.flatten(1, 2)  # (N_t, N_grid, d_features)
 
         # Uniformly sample time id to start sample from
-        init_id = torch.randint(
-            0, 1 + self.original_sample_length - self.sample_length, ()
-        )
+        # init_id = torch.randint(
+        #     0, 1 + self.original_sample_length - self.sample_length, ()
+        # )
+        init_id = 0
         sample = sample[init_id: (init_id + self.sample_length)]
         # (sample_length, N_grid, d_features)
 
@@ -162,9 +166,10 @@ class WeatherDataset(torch.utils.data.Dataset):
             sample = (sample - self.data_mean) / self.data_std
 
         # Sample should only contain interior
-        boundary_forcing_sample = sample[:, self.boundary_mask]
+        boundary_forcing_sample = sample[:,
+                                         self.boundary_mask][..., constants.USED_PARAMS]
         # (sample_len, N_boundary, d_features)
-        sample = sample[:, self.interior_mask]
+        sample = sample[:, self.interior_mask][..., constants.USED_PARAMS]
 
         # Split up sample in init. states and target states
         init_states = sample[:2]  # (2, N_grid, d_features), prev_prev, prev
