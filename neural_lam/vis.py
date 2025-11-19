@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 # Local
-from . import config, constants, utils, metrics
+from . import constants, utils, metrics
 
 
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
