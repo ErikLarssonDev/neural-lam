@@ -21,7 +21,7 @@ dataset:
     'standardized.remapped.tas_EUR-11_EC-Earth3-Veg_historical_r1i1p1f1_HCLIMcom-SMHI_HCLIM43-ALADIN_v1-r1_day_1951-2014_noleap.nc'
     ]
   ground_truth_stats_path: '/mimer/NOBACKUP/groups/mlhighres/projects/detex/HCLIM_EC-Earth3-Veg/stats/mean_std/mean_std_pr_EUR-11_EC-Earth3-Veg_historical_r1i1p1f1_HCLIMcom-SMHI_HCLIM43-ALADIN_v1-r1_day_1951-2014_mm_day_noleap.npy'
-  save_path: /mimer/NOBACKUP/groups/mlhighres/users/erifh # Save 2014 of downscaling results here
+  save_path: /mimer/NOBACKUP/groups/mlhighres/projects/neural-lam/experiment-091225 # Save 2014 of downscaling results here
   normalize_ground_truth: False # The data on the files is already standardized
   upscale_inputs: True
   static_fields_files: [

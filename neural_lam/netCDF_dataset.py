@@ -91,10 +91,14 @@ class NetCDFDataset(Dataset):
         ds = ds[numeric_vars]
         
         # Convert to array: shape will be [C, H, W]
-        static_data = ds.to_array().values.squeeze(0)  # shape: [num_vars, H, W]
+        static_data = ds.to_array().values#.squeeze(0)  # shape: [num_vars, H, W]
+        #print(f"Loading static data...")
+        #print(f"Static data shape: {static_data.shape}\n")
         
         # Validate shape
         if self.ground_truth_size is not None:
+            #print(self.ground_truth_size)
+            #print(static_data.shape)
             assert static_data.shape[1:] == self.ground_truth_size, \
                 f"Ground truth size {self.ground_truth_size} does not match static field shape {static_data.shape[1:]}"
 
@@ -190,6 +194,10 @@ class NetCDFDataset(Dataset):
             if self.time_array is not None:
                 time_tensor = self.get_day_of_year_tensor(idx, self.ground_truth_size[0], self.ground_truth_size[1])
                 input_components.append(time_tensor)
+            #print(f"Input data shape: {input_batch_data.shape}")
+            #print(f"Static data shape: {self.static_data.shape}")
+            #print(f"Coordinate grid shape: {self.coord_grid.shape}")
+            #print(f"Time tensor shape: {time_tensor.shape}")
             input_batch_data = torch.cat(input_components, dim=0)
         if self.is_inference_dataset:
             return input_batch_data
