@@ -525,7 +525,7 @@ class ARModel(pl.LightningModule):
                     metric_name = metric_name[: -len("_squared")]
 
                 # Note: we here assume rescaling for all metrics is linear
-                metric_rescaled = metric_tensor_averaged * self.data_std
+                metric_rescaled = metric_tensor_averaged  # * self.data_std
                 # (pred_steps, d_f)
                 log_dict.update(
                     self.create_metric_log_dict(

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -J CorrDiff_Static_50e
 #SBATCH -A NAISS2025-22-1196 -p alvis
-#SBATCH -N 1 --gpus-per-node=A100:4
+#SBATCH -N 1 --gpus-per-node=A100:1
 #SBATCH -t 3-00:00:00
 # -A NAISS2024-22-955 -p alvis
 # NAISS2024/6-323 
@@ -34,6 +34,7 @@ SI_50e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_
 SI_50e_stand="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_Static_50e-SI-6x128-12_13_01-4575/last.ckpt"
 EDM_50e_stand="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/EDM_Static_50e-diffusion-6x128-12_13_21-4237/last.ckpt"
 UNET_50e_stand="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/UNET_Static_50e-unet-6x128-12_12_16-6743/last.ckpt"
+CorrDiff_Static_50e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/CorrDiff_Static_50e-CorrDiff-6x128-12_15_19-5090/last.ckpt"
 
 # EDM
 # Training
@@ -73,6 +74,8 @@ UNET_50e_stand="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_mo
 # python3 neural_lam/train_model.py --model CorrDiff --n_workers 4 --batch_size 2 --epochs 50 --lr 0.00001 --subset_ds
 
 # Training
-python3 neural_lam/train_model.py --model CorrDiff $RUN_NAME --n_workers 16 --batch_size 2 --epochs 50 --lr 0.00001 
+# python3 neural_lam/train_model.py --model CorrDiff $RUN_NAME --n_workers 16 --batch_size 2 --epochs 50 --lr 0.00001 
 
 # Eval
+python3 neural_lam/train_model.py --model CorrDiff $RUN_NAME --n_workers 16 --batch_size 2 --epochs 50 --lr 0.00001 --eval test --subset_ds --load $CorrDiff_Static_50e
+

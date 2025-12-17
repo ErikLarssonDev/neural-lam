@@ -29,6 +29,9 @@ class CorrDiff(ARModel):
         mean_ckpt_path = "/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/UNET_Static_50e-unet-6x128-12_12_16-6743/last.ckpt"
         # TODO: Should be loaded with checkpoint and frozen
         self.mean_model = UNET(args)
+        self.ensemble_size = args.ensemble_size
+        self.save_output = args.save_output
+        self.save_output_wandb = args.save_output_wandb
 
         # Load into mean_model (allow partial loading)
         try:
