@@ -58,7 +58,8 @@ def plot_error_map(errors, data_config, title=None, step_length=3):
         )
     ]
 
-    y_ticklabels = [y_ticklabels[i] for i in [6, 12]] # We don't downscale all variables
+    y_ticklabels = [y_ticklabels[i]
+                    for i in [6, 12]]  # We don't downscale all variables
 
     ax.set_yticklabels(y_ticklabels, rotation=30, size=label_size)
 
@@ -66,6 +67,7 @@ def plot_error_map(errors, data_config, title=None, step_length=3):
         ax.set_title(title, size=15)
 
     return fig
+
 
 def plot_on_axis(
     ax,
@@ -124,13 +126,13 @@ def plot_prediction(
         1,
         2,
         figsize=(13, 7),
-        subplot_kw={"projection": data_config.coords_projection},
+        # subplot_kw={"projection": data_config.coords_projection},
     )
 
     # Plot pred and target
-    for ax, data, border_data in zip(axes, (target, pred), (border, border)):
+    for ax, data in zip(axes, (target, pred)):
         im = plot_on_axis(
-            ax, data, border_data, data_config, obs_mask, vmin, vmax, grid_limits=grid_limits
+            ax, data, vmin, vmax,  # grid_limits=grid_limits
         )
 
     # Ticks and labels
@@ -143,6 +145,7 @@ def plot_prediction(
         fig.suptitle(title, size=20)
 
     return fig
+
 
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
 def plot_ensemble_prediction(
@@ -219,7 +222,7 @@ def plot_ensemble_prediction(
         )
 
     # Turn off unused axes
-    for ax in axes[(3 + samples.shape[0]) :]:
+    for ax in axes[(3 + samples.shape[0]):]:
         ax.axis("off")
 
     # Add colorbars

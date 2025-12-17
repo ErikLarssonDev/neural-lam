@@ -318,15 +318,15 @@ class SongUNet(torch.nn.Module):
                  label_dropout=0,
 
                  # Timestep embedding type: 'positional' for DDPM++, 'fourier' for NCSN++.
-                 embedding_type='positional',
+                 embedding_type='fourier',
                  # Timestep embedding size: 1 for DDPM++, 2 for NCSN++.
-                 channel_mult_noise=1,
+                 channel_mult_noise=2,
                  # Encoder architecture: 'standard' for DDPM++, 'residual' for NCSN++. TODO: Test to change to residual
-                 encoder_type='standard',
+                 encoder_type='residual',
                  # Decoder architecture: 'standard' for both DDPM++ and NCSN++.
                  decoder_type='standard',
                  # Resampling filter: [1,1] for DDPM++, [1,3,3,1] for NCSN++. TODO: Test to change to [1,3,3,1]
-                 resample_filter=[1, 1],
+                 resample_filter=[1, 3, 3, 1],
                  # Number of hidden layers in the grid encoding MLPs.
                  hidden_layers=1,
                  obs_mask=None,            # Masking of the observation grid.

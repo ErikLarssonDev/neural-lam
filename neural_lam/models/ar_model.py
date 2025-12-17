@@ -361,7 +361,7 @@ class ARModel(pl.LightningModule):
 
         # Rescale to original data scale
         prediction_rescaled = prediction  # * self.data_std + self.data_mean
-        target_rescaled = target  # * self.data_std + self.data_mean
+        target_rescaled = target_states  # * self.data_std + self.data_mean
         initial_states_rescaled = initial_states
 
         # Iterate over the examples

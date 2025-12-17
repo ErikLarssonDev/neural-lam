@@ -110,7 +110,7 @@ dataset:
     - wind_v_500
     - wind_v_250
   num_forcing_features: 0 # TODO: Update this, all inputs that are not in the output is considered forcing
-  num_static_features: 0 # TODO: Update this, land-sea mask, orography, etc.
+  num_static_features: 6 # TODO: Update this, land-sea mask, orography, etc.
   FULL_GRID_SHAPE: [400, 550] # TODO: Update this
 # TODO: NOTE: We don't need a projection here, as the data is already in a regular grid.
 # projection:

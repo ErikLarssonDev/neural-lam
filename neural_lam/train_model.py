@@ -409,8 +409,8 @@ def main(input_args=None):
     parser.add_argument(
         "--val_steps_to_log",
         type=list,
-        default=[1, 2, 3, 5, 10, 15, 19],
-        help="Steps to log val loss for (default: [1, 2, 3, 5, 10, 15, 19])",
+        default=[1],
+        help="Steps to log val loss for (default: [1])",
     )
     parser.add_argument(
         "--metrics_watch",

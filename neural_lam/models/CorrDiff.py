@@ -26,17 +26,51 @@ class CorrDiff(ARModel):
     def __init__(self, args):
         super().__init__(args)
 
-        mean_ckpt_path = ""
+        mean_ckpt_path = "/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/UNET_Static_50e-unet-6x128-12_12_16-6743/last.ckpt"
         # TODO: Should be loaded with checkpoint and frozen
         self.mean_model = UNET(args)
 
-        # # Load into mean_model (allow partial loading)
-        # self.mean_model.load_state_dict(mean_ckpt_path, strict=False)
-        # # Freeze parameters and set eval mode
-        # for p in self.mean_model.parameters():
-        #     p.requires_grad = False
-        # self.mean_model.eval()
-        # print(f"Loaded and froze mean model from: {mean_ckpt_path}")
+        # Load into mean_model (allow partial loading)
+        try:
+            ckpt = torch.load(mean_ckpt_path, map_location="cpu")
+            # extract state_dict if Lightning .ckpt style
+            if isinstance(ckpt, dict) and "state_dict" in ckpt:
+                state_dict = ckpt["state_dict"]
+            elif isinstance(ckpt, dict) and all(
+                isinstance(v, torch.Tensor) for v in ckpt.values()
+            ):
+                state_dict = ckpt
+            else:
+                state_dict = None
+
+            if state_dict is not None:
+                # strip common prefixes that appear in Lightning checkpoints
+                stripped = {}
+                for k, v in state_dict.items():
+                    new_k = k
+                    for p in ("model.", "mean_model.", "mean_model.module.", "module."):
+                        if new_k.startswith(p):
+                            new_k = new_k[len(p):]
+                    stripped[new_k] = v
+
+                self.mean_model.load_state_dict(stripped, strict=False)
+                for p in self.mean_model.parameters():
+                    p.requires_grad = False
+                self.mean_model.eval()
+                print(
+                    f"Loaded mean model from '{mean_ckpt_path}' and froze it.")
+            else:
+                print(
+                    f"No state_dict found in checkpoint '{mean_ckpt_path}'.")
+        except Exception as e:
+            print(
+                f"Failed to load mean model checkpoint '{mean_ckpt_path}': {e}")
+
+        # Freeze parameters and set eval mode
+        for p in self.mean_model.parameters():
+            p.requires_grad = False
+        self.mean_model.eval()
+        print(f"Loaded and froze mean model from: {mean_ckpt_path}")
 
         self.diffusion_model = Diffusion(args)
 
@@ -72,12 +106,10 @@ class CorrDiff(ARModel):
         residual, _ = self.diffusion_model.predict_step(
             input_grid)
 
-        # TODO: Renormalize the residual
-
         # Add the residual to the mean
         sample = mean + residual
 
-        return sample, None  # .permute(0, 2, 3, 1).flatten(1, 2), None
+        return sample, None
 
     def predict_step_train(self, LQ, HQ):
         """
