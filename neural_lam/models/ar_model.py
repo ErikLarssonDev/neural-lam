@@ -27,6 +27,10 @@ class ARModel(pl.LightningModule):
         self.args = args
         self.config_loader = config.Config.from_file(args.data_config)
 
+        # The data is already normalized to zero mean and unit std.-dev.
+        self.data_mean = torch.tensor(0.0)
+        self.data_std = torch.tensor(1.0)
+
         # TODO: Check if we need this
         # Load static features for grid/data
         # static_data_dict = utils.load_static_data(
