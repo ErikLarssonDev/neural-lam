@@ -104,9 +104,9 @@ PARAM_UNITS = np.array([
     "m²/s²",
 ])
 
-USED_PARAMS = [4, 6]  # Only using a subset of parameters r_2
-# USED_PARAMS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-#                10, 11, 12, 13, 14, 15, 16]  # All params
+# USED_PARAMS = [4, 6]  # Only using a subset of parameters r_2
+USED_PARAMS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+               10, 11, 12, 13, 14, 15, 16]  # All params
 
 # Projection and grid
 # Hard coded for now, but should eventually be part of dataset desc. files

@@ -291,6 +291,9 @@ class FourierEmbedding(torch.nn.Module):
     def forward(self, x):
         x = x.ger((2 * np.pi * self.freqs).to(x.dtype))
         x = torch.cat([x.cos(), x.sin()], dim=1)
+        # TODO: Check that this works, moved from forward of SongUNet because we don't want to do this for other embedding types
+        x = x.reshape(x.shape[0], 2, -1).flip(1).reshape(
+            *x.shape).contiguous()  # swap sin/cos
         return x
 
 
@@ -529,8 +532,6 @@ class SongUNet(torch.nn.Module):
 
         # Mapping.
         emb = self.map_noise(noise_labels)
-        emb = emb.reshape(
-            emb.shape[0], 2, -1).flip(1).reshape(*emb.shape).contiguous()  # swap sin/cos
         emb = silu(self.map_layer0(emb))
         emb = silu(self.map_layer1(emb)).unsqueeze(1)
         # emb shape: torch.Size([1, 1, 512])
