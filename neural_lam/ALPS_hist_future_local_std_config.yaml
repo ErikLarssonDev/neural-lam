@@ -1,34 +1,34 @@
 dataset:
   train_start_date: 1961-01-01
-  train_end_date: 1976-12-31 
-  validation_start_date: 1977-01-01
-  validation_end_date: 1980-12-31 
-  input_path: /mimer/NOBACKUP/groups/mlhighres/data/CORDEX/ALPS_domain/train/ESD_pseudo_reality/predictors/separate_vars/standardized_local_monthly
+  train_end_date: 2095-12-31 
+  validation_start_date: 2096-01-01
+  validation_end_date: 2099-12-31 
+  input_path: /mimer/NOBACKUP/groups/mlhighres/data/CORDEX/ALPS_domain/train/Emulator_hist_future/predictors/separate_vars/standardized_local_monthly
   levels: []
   input_files: [
-    'standardized.q_500_CNRM-CM5_1961-1980.nc',
-    'standardized.q_700_CNRM-CM5_1961-1980.nc',
-    'standardized.q_850_CNRM-CM5_1961-1980.nc',
-    'standardized.t_500_CNRM-CM5_1961-1980.nc',
-    'standardized.t_700_CNRM-CM5_1961-1980.nc',
-    'standardized.t_850_CNRM-CM5_1961-1980.nc',
-    'standardized.u_500_CNRM-CM5_1961-1980.nc',
-    'standardized.u_700_CNRM-CM5_1961-1980.nc',
-    'standardized.u_850_CNRM-CM5_1961-1980.nc',
-    'standardized.v_500_CNRM-CM5_1961-1980.nc',
-    'standardized.v_700_CNRM-CM5_1961-1980.nc',
-    'standardized.v_850_CNRM-CM5_1961-1980.nc',
-    'standardized.z_500_CNRM-CM5_1961-1980.nc',
-    'standardized.z_700_CNRM-CM5_1961-1980.nc',
-    'standardized.z_850_CNRM-CM5_1961-1980.nc',
+    'standardized.q_500_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.q_700_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.q_850_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.t_500_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.t_700_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.t_850_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.u_500_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.u_700_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.u_850_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.v_500_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.v_700_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.v_850_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.z_500_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.z_700_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.z_850_CNRM-CM5_1961-1980_2080-2099.nc',
     ]
-  ground_truth_path: /mimer/NOBACKUP/groups/mlhighres/data/CORDEX/ALPS_domain/train/ESD_pseudo_reality/target/separate_vars/standardized_local_monthly
+  ground_truth_path: /mimer/NOBACKUP/groups/mlhighres/data/CORDEX/ALPS_domain/train/Emulator_hist_future/target/separate_vars/standardized_local_monthly
   ground_truth_files: [
-    'standardized.pr_CNRM-CM5_1961-1980.nc',
-    'standardized.tasmax_CNRM-CM5_1961-1980.nc'
+    'standardized.pr_CNRM-CM5_1961-1980_2080-2099.nc',
+    'standardized.tasmax_CNRM-CM5_1961-1980_2080-2099.nc'
     ]
   ground_truth_stats_path: ''
-  save_path: /mimer/NOBACKUP/groups/mlhighres/projects/CORDEX-ML/neural-lam/ALPS/ESD_pseudo_reality/local_std/orog 
+  save_path: /mimer/NOBACKUP/groups/mlhighres/projects/CORDEX-ML/neural-lam/ALPS/Emulator_hist_future/local_std/orog 
   normalize_ground_truth: False # The data on the files is already standardized
   upscale_inputs: True
   static_fields_files: ['scaled.orog_ALPS.nc',]
