@@ -19,6 +19,7 @@ class NetCDFDataset(Dataset):
                  upscale_inputs=False,
                  static_fields_files=None,
                  interpolation_mode='bicubic',
+                 coordinate_names=('lat', 'lon'),
                  provide_coordinates=False,
                  provide_day_of_year=False):
         print(f"input_files: {input_files}")
@@ -64,7 +65,7 @@ class NetCDFDataset(Dataset):
         self.coord_grid = None
         if provide_coordinates:
             print(f"Providing ground truth coordinate grid...")
-            self.coord_grid = self.generate_lat_lon_grids()
+            self.coord_grid = self.generate_coordinate_grids(coords=coordinate_names)
         else:
             print(f"Ground truth coordinate grid is not provided.")
 
@@ -104,23 +105,24 @@ class NetCDFDataset(Dataset):
 
         return torch.tensor(static_data, dtype=torch.float32)
     
-    def generate_lat_lon_grids(self):
-        """Generates 2D lat/lon grids from the ground truth dataset coordinates."""
+    def generate_coordinate_grids(self, coords=('lat', 'lon')):
+        """Generates 2D from the ground truth dataset coordinates."""
         ds = self.ground_truth_datasets[0]
-        lat = ds.coords['lat'].values
-        lon = ds.coords['lon'].values
+        coord1, coord2 = coords
+        y = ds.coords[coord1].values
+        x = ds.coords[coord2].values
 
         # Create 2D meshgrid
-        lon_grid, lat_grid = np.meshgrid(lon, lat)
+        x_grid, y_grid = np.meshgrid(x, y)
 
-        lat_norm = (lat_grid - lat_grid.min()) / (lat_grid.max() - lat_grid.min())
-        lon_norm = (lon_grid - lon_grid.min()) / (lon_grid.max() - lon_grid.min())
+        y_norm = (y_grid - y_grid.min()) / (y_grid.max() - y_grid.min())
+        x_norm = (x_grid - x_grid.min()) / (x_grid.max() - x_grid.min())
         
         # Convert to torch tensor with shape [1, H, W]
-        lat_tensor = torch.tensor(lat_norm[np.newaxis, :, :], dtype=torch.float32)
-        lon_tensor = torch.tensor(lon_norm[np.newaxis, :, :], dtype=torch.float32)
+        y_tensor = torch.tensor(y_norm[np.newaxis, :, :], dtype=torch.float32)
+        x_tensor = torch.tensor(x_norm[np.newaxis, :, :], dtype=torch.float32)
 
-        return torch.cat([lat_tensor, lon_tensor], dim=0)  # Shape: [2, H, W]
+        return torch.cat([y_tensor, x_tensor], dim=0)  # Shape: [2, H, W]
     
     def get_time_array(self):
         return self.input_datasets[0].coords['time']
@@ -214,19 +216,6 @@ class NetCDFDataset(Dataset):
         }
    
         return states
-
-def get_dataloader(input_path, input_files, ground_truth_path, ground_truth_files, ground_truth_stats_path,
-                   start_date, end_date, levels=None, is_inference_dataset=False, normalize_ground_truth=False,
-                   batch_size=4, shuffle=True, pin_memory=False, num_workers=4, prefetch_factor=None, upscale_inputs=False,
-                   static_fields_files=None, interpolation_mode='bicubic', provide_coordinates=False, provide_day_of_year=False):
-    """A function that creates the NetCDFDataset object."""
-
-    dataset = NetCDFDataset(start_date, end_date, input_path, input_files, 
-                            ground_truth_path, ground_truth_files, ground_truth_stats_path, 
-                            levels, is_inference_dataset, normalize_ground_truth, upscale_inputs, 
-                            static_fields_files, interpolation_mode, provide_coordinates, provide_day_of_year)
-    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers,
-                      pin_memory=pin_memory, prefetch_factor=prefetch_factor)
 
 def parse_config(config_keyword="input", config_path="config.toml"):
     """Parses and returns TOML input config.

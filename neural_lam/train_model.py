@@ -470,6 +470,7 @@ def main(input_args=None):
             upscale_inputs=config_loader.dataset.upscale_inputs,
             static_fields_files=config_loader.dataset.static_fields_files,
             interpolation_mode=config_loader.dataset.interpolation_mode,
+            coordinate_names=config_loader.dataset.coordinate_names,
             provide_coordinates=config_loader.dataset.provide_coordinates,
             provide_day_of_year=config_loader.dataset.provide_day_of_year
         ),
@@ -494,6 +495,7 @@ def main(input_args=None):
             upscale_inputs=config_loader.dataset.upscale_inputs,
             static_fields_files=config_loader.dataset.static_fields_files,
             interpolation_mode=config_loader.dataset.interpolation_mode,
+            coordinate_names=config_loader.dataset.coordinate_names,
             provide_coordinates=config_loader.dataset.provide_coordinates,
             provide_day_of_year=config_loader.dataset.provide_day_of_year
         ),
@@ -606,6 +608,7 @@ def main(input_args=None):
                     upscale_inputs=config_loader.dataset.upscale_inputs,
                     static_fields_files=config_loader.dataset.static_fields_files,
                     interpolation_mode=config_loader.dataset.interpolation_mode,
+                    coordinate_names=config_loader.dataset.coordinate_names,
                     provide_coordinates=config_loader.dataset.provide_coordinates,
                     provide_day_of_year=config_loader.dataset.provide_day_of_year
                 ),

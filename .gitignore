@@ -19,12 +19,17 @@ samples
 predictions
 output/
 diffusion_steps/
+*.out
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Jupyter
+.ipynb_checkpoints/
+neural_lam/.ipynb_checkpoints/
 
 # C extensions
 *.so
