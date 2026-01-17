@@ -84,6 +84,15 @@ class CorrDiff(ARModel):
             "spread_squared": [],
         }
 
+        self.val_metrics.update(
+            {
+                "ens_mae": [],
+                "ens_mse": [],
+                "crps_ens": [],
+                "spread_squared": [],
+            }
+        )
+
     # ----------------------------------------------------------------------------
 
     def predict_step(self, LQ):
@@ -543,11 +552,84 @@ class CorrDiff(ARModel):
             ens_mse_batch,
         )
 
-    def validation_step(self, batch, *args):
+    def validation_step(self, batch, batch_idx):
         """
         Run validation on single batch
         """
-        print("No validation step implemented!")
+        prediction, target, pred_std, weight = self.common_step_train(
+            batch)
+
+        loss = self.loss(
+            prediction, target, pred_std, weight=weight  # mask=self.interior_mask_bool
+        )
+        mean_loss = torch.mean(loss)
+
+        # Log loss per time step forward and mean
+        val_log_dict = {
+            f"val_mean_loss": mean_loss
+        }
+        self.log_dict(
+            val_log_dict, on_step=False, on_epoch=True, sync_dist=True
+        )
+
+        # Store MSEs
+        entry_mses = metrics.mse(
+            prediction,
+            target,
+            pred_std,
+            # mask=self.interior_mask_bool,
+            sum_vars=False,
+        )  # (B, pred_steps, d_f)
+        self.val_metrics["mse"].append(entry_mses)
+
+        # We only get probabilistic metrics for the first batch to save time
+        if batch_idx == 0:
+            # Get Probabilistic Metrics
+            (
+                trajectories,
+                traj_stds,
+                target_states,
+                spread_squared_batch,
+                ens_mse_batch,
+            ) = self.ensemble_common_step(batch)
+
+            self.val_metrics["spread_squared"].append(spread_squared_batch)
+            self.val_metrics["ens_mse"].append(ens_mse_batch)
+
+            # Compute additional ensemble metrics
+            ens_mean = torch.mean(
+                trajectories, dim=1
+            )  # (B, pred_steps, num_grid_nodes, d_f)
+            ens_std = torch.std(trajectories, dim=1)
+            # (B, pred_steps, num_grid_nodes, d_f)
+
+            # Compute MAE for ensemble mean + ensemble CRPS
+            ens_maes = metrics.mae(
+                ens_mean,
+                target_states,
+                ens_std,
+                sum_vars=False,
+            )  # (B, pred_steps, d_f)
+            self.val_metrics["ens_mae"].append(ens_maes)
+            crps_batch = metrics.crps_ens(
+                trajectories,
+                target_states,
+                None,
+                sum_vars=False,
+            )  # (B, pred_steps, d_f)
+            self.val_metrics["crps_ens"].append(crps_batch)
+
+            # Plot example predictions (on rank 0 only)
+            if self.trainer.is_global_zero:
+                self.plot_examples(
+                    batch,
+                    1,
+                    prediction=trajectories,
+                    # Only plot 1 step ahead during validation
+                    # lead_times_to_plot=constants.VAL_PLOT_STEPS,
+                )
+                # Decrease counter, we don't want to increase it in the validation step
+                self.plotted_examples -= 1
 
     def log_spsk_ratio(self, metric_vals, prefix):
         """
