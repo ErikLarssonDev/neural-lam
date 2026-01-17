@@ -201,9 +201,9 @@ def main(input_args=None):
     parser.add_argument(
         "--sampler",
         type=str,
-        default="heun",
+        default="edm",
         help="The sampler to use when generating trajectories with a diffusion model"
-        "(heun/edm) (default: heun)",
+        "(heun/edm) (default: edm)",
     )
 
     # Training options
@@ -435,7 +435,7 @@ def main(input_args=None):
     args.var_leads_metrics_watch = {
         int(k): v for k, v in json.loads(args.var_leads_metrics_watch).items()
     }
-
+    print(f"Loading data config from: {args.data_config}")
     config_loader = config.Config.from_file(args.data_config)
 
     # Asserts for arguments
@@ -582,9 +582,6 @@ def main(input_args=None):
 
     # Only init once, on rank 0 only
     if trainer.global_rank == 0:
-        print("Initializing wandb metrics...")
-        print(args.val_steps_to_log)
-        print(logger)
         utils.init_wandb_metrics(
             logger, args.val_steps_to_log
         )  # Do after wandb.init
