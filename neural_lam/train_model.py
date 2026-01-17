@@ -201,7 +201,7 @@ def main(input_args=None):
     parser.add_argument(
         "--sampler",
         type=str,
-        default="heun",
+        default="edm",
         help="The sampler to use when generating trajectories with a diffusion model"
         "(heun/edm) (default: heun)",
     )
