@@ -451,7 +451,7 @@ def main(input_args=None):
     random_run_id = random.randint(0, 9999)
 
     # Set seed
-    seed.seed_everything(args.seed)
+    # seed.seed_everything(args.seed)
 
     # Load data
     train_loader = torch.utils.data.DataLoader(
@@ -558,6 +558,7 @@ def main(input_args=None):
     logger = pl.loggers.WandbLogger(
         project=args.wandb_project, name=run_name, config=args
     )
+    print(f"Wandb logger: {logger}")
 
     # Training strategy
     # If doing pure autoencoder training (kl_beta = 0), the prior network is not
@@ -581,6 +582,9 @@ def main(input_args=None):
 
     # Only init once, on rank 0 only
     if trainer.global_rank == 0:
+        print("Initializing wandb metrics...")
+        print(args.val_steps_to_log)
+        print(logger)
         utils.init_wandb_metrics(
             logger, args.val_steps_to_log
         )  # Do after wandb.init
@@ -626,7 +630,7 @@ def main(input_args=None):
         trainer.fit(
             model=model,
             train_dataloaders=train_loader,
-            # val_dataloaders=val_loader, # No validation during training for diffusion model
+            val_dataloaders=val_loader,  # No validation during training for diffusion model
             ckpt_path=args.load,
         )
 
