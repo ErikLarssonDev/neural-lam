@@ -302,6 +302,12 @@ def main(input_args=None):
         default=0.005,
         help="Eps for IR-SDE. (default: 0.005)",
     )
+    parser.add_argument(
+        "--keep_cond",
+        action="store_true",
+        help="If the conditioning should be kept during training of IR-SDE/SI "
+        "(default: False)",
+    )
 
     # EDM Options
     # resample_filter=args.resample_filter,
@@ -387,10 +393,36 @@ def main(input_args=None):
         help="If the diffusion steps output of 1 sample should be saved to the folder diffusion_steps (default: False)",
     )
     parser.add_argument(
+        "--beta_fn",
+        type=str,
+        default="t^2",
+        help="Beta function to use in diffusion model (linear/t^2) (default: t^2)",
+    )
+    parser.add_argument(
         "--sigma_coef",
         type=float,
         default=1,
         help="Sigma coefficient for stochatic interpolants (default: 1)",
+    )
+    parser.add_argument(
+        "--sigma_coef_sampling",
+        type=float,
+        default=1,
+        help="Sigma coefficient for stochatic interpolants during sampling (default: 1)",
+    )
+    parser.add_argument(
+        "--diffusion_fn",
+        type=str,
+        default=None,
+        help="Diffusion function to use in stochastic interpolants during sampling (g_sigma/g_sigma_pow4) (default: None (use trained one))",
+    )
+
+    # CorrDiff options
+    parser.add_argument(
+        "--residual_model",
+        type=str,
+        default="EDM",
+        help="Model to use for residual prediction in CorrDiff (EDM/SI) (default: EDM)",
     )
 
     # Logger Settings
@@ -581,8 +613,6 @@ def main(input_args=None):
     # Only init once, on rank 0 only
     if trainer.global_rank == 0:
         print("Initializing wandb metrics...")
-        print(args.val_steps_to_log)
-        print(logger)
         utils.init_wandb_metrics(
             logger, args.val_steps_to_log
         )  # Do after wandb.init
@@ -596,8 +626,8 @@ def main(input_args=None):
         else:  # Test
             eval_loader = torch.utils.data.DataLoader(
                 NetCDFDataset(
-                    start_date=config_loader.dataset.validation_start_date,
-                    end_date=config_loader.dataset.validation_end_date,
+                    start_date=config_loader.dataset.test_start_date,
+                    end_date=config_loader.dataset.test_end_date,
                     input_path=config_loader.dataset.input_path,
                     input_files=config_loader.dataset.input_files,
                     ground_truth_path=config_loader.dataset.ground_truth_path,

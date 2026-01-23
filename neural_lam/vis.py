@@ -256,13 +256,13 @@ def plot_spatial_error(
 
     fig, ax = plt.subplots(
         figsize=(5, 4.8),
-        subplot_kw={"projection": data_config.coords_projection},
+        # subplot_kw={"projection": data_config.coords_projection},
     )
 
     im = plot_on_axis(
         ax,
         error,
-        data_config,
+        # data_config,
         vmin=vmin,
         vmax=vmax,
         cmap="OrRd",

@@ -188,7 +188,7 @@ class ARModel(pl.LightningModule):
 
         prediction, pred_std = self.unroll_prediction(LQ)
 
-        return prediction, HQ.permute(0, 2, 3, 1).flatten(1, 2), pred_std
+        return prediction, HQ.permute(0, 2, 3, 1).flatten(1, 2).unsqueeze(1), pred_std
 
     def training_step(self, batch):
         """
@@ -282,12 +282,14 @@ class ARModel(pl.LightningModule):
         time_step_loss = torch.mean(
             self.loss(
                 prediction,
-                target,
+                target,  # (B, 1, num_grid_nodes, d_f)
                 pred_std,
             ),
             dim=0,
         )  # (time_steps-1,)
         mean_loss = torch.mean(time_step_loss)
+
+        print(f"Time step loss: {time_step_loss.shape}")
 
         # Log loss per time step forward and mean
         test_log_dict = {
@@ -440,19 +442,17 @@ class ARModel(pl.LightningModule):
                     "all"
                 )  # Close all figs for this time step, saves memory
 
-            # Save pred and target as .pt files
-            torch.save(
-                pred_slice.cpu(),
-                os.path.join(
-                    wandb.run.dir, f"example_pred_{self.plotted_examples}.pt"
-                ),
-            )
-            torch.save(
-                target_slice.cpu(),
-                os.path.join(
-                    wandb.run.dir, f"example_target_{self.plotted_examples}.pt"
-                ),
-            )
+            # Save slices to wandb
+            output_dir = f"output/{wandb.run.name}"
+            os.makedirs(output_dir, exist_ok=True)
+
+            # TODO: Check that the saving is correct, we want to save one sample and not the entire batch
+            # Save predictions to the output folder
+            if self.args.save_output:
+                torch.save(
+                    pred_slice[0], f"{output_dir}/pred_{self.plotted_examples}.pt")
+                torch.save(
+                    target_slice[0], f"{output_dir}/example_target_{self.plotted_examples}.pt")
 
     def create_metric_log_dict(self, metric_tensor, prefix, metric_name):
         """
@@ -474,6 +474,7 @@ class ARModel(pl.LightningModule):
         )
         full_log_name = f"{prefix}_{metric_name}"
         log_dict[full_log_name] = wandb.Image(metric_fig)
+        log_dict[f"{full_log_name}_data"] = torch.mean(metric_tensor)
 
         if prefix == "test":
             # Save pdf
@@ -563,7 +564,7 @@ class ARModel(pl.LightningModule):
                     loss_map,
                     self.config_loader,
                     title=f"Test loss, t={t_i} ({self.step_length * t_i} h)",
-                    grid_limits=self.grid_limits,
+                    # grid_limits=self.grid_limits,
                 )
                 for t_i, loss_map in zip(
                     self.args.val_steps_to_log, mean_spatial_loss
@@ -577,7 +578,7 @@ class ARModel(pl.LightningModule):
             # also make without title and save as pdf
             pdf_loss_map_figs = [
                 vis.plot_spatial_error(
-                    loss_map, self.config_loader, grid_limits=self.grid_limits
+                    loss_map, self.config_loader,  # grid_limits=self.grid_limits
                 )
                 for loss_map in mean_spatial_loss
             ]

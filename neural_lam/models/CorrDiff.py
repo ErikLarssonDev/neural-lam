@@ -16,6 +16,7 @@ from neural_lam import constants, metrics, utils, vis
 
 from neural_lam.models.unet import UNET
 from neural_lam.models.diffusion import Diffusion
+from neural_lam.models.stochastic_interpolants import SI
 
 
 class CorrDiff(ARModel):
@@ -27,55 +28,25 @@ class CorrDiff(ARModel):
         super().__init__(args)
 
         mean_ckpt_path = "/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/UNET_Static_50e-unet-6x128-12_12_16-6743/last.ckpt"
-        # TODO: Should be loaded with checkpoint and frozen
-        self.mean_model = UNET(args)
+        # Loaded with checkpoint and frozen
+        self.mean_model = UNET.load_from_checkpoint(mean_ckpt_path, args=args)
         self.ensemble_size = args.ensemble_size
         self.save_output = args.save_output
         self.save_output_wandb = args.save_output_wandb
-
-        # Load into mean_model (allow partial loading)
-        try:
-            ckpt = torch.load(mean_ckpt_path, map_location="cpu")
-            # extract state_dict if Lightning .ckpt style
-            if isinstance(ckpt, dict) and "state_dict" in ckpt:
-                state_dict = ckpt["state_dict"]
-            elif isinstance(ckpt, dict) and all(
-                isinstance(v, torch.Tensor) for v in ckpt.values()
-            ):
-                state_dict = ckpt
-            else:
-                state_dict = None
-
-            if state_dict is not None:
-                # strip common prefixes that appear in Lightning checkpoints
-                stripped = {}
-                for k, v in state_dict.items():
-                    new_k = k
-                    for p in ("model.", "mean_model.", "mean_model.module.", "module."):
-                        if new_k.startswith(p):
-                            new_k = new_k[len(p):]
-                    stripped[new_k] = v
-
-                self.mean_model.load_state_dict(stripped, strict=False)
-                for p in self.mean_model.parameters():
-                    p.requires_grad = False
-                self.mean_model.eval()
-                print(
-                    f"Loaded mean model from '{mean_ckpt_path}' and froze it.")
-            else:
-                print(
-                    f"No state_dict found in checkpoint '{mean_ckpt_path}'.")
-        except Exception as e:
-            print(
-                f"Failed to load mean model checkpoint '{mean_ckpt_path}': {e}")
 
         # Freeze parameters and set eval mode
         for p in self.mean_model.parameters():
             p.requires_grad = False
         self.mean_model.eval()
         print(f"Loaded and froze mean model from: {mean_ckpt_path}")
-
-        self.diffusion_model = Diffusion(args)
+        print(f"Using residual model: {args.residual_model}")
+        if args.residual_model == "EDM":
+            self.diffusion_model = Diffusion(args)
+        elif args.residual_model == "SI" or args.residual_model == "SI_mean":
+            self.diffusion_model = SI(args)
+        else:
+            raise ValueError(
+                f"Unknown residual model type: {args.residual_model}")
 
         self.test_metrics = {
             "ens_mae": [],
@@ -115,11 +86,15 @@ class CorrDiff(ARModel):
         # Predict the residual
         input_grid = torch.cat(
             [LQ, mean_grid], dim=1)
+
         residual, _ = self.diffusion_model.predict_step(
             input_grid)
 
-        # Add the residual to the mean
-        sample = mean + residual
+        if self.args.pred_residual:
+            # Add the residual to the mean
+            sample = mean + residual
+        else:
+            sample = residual
 
         return sample, None
 
@@ -146,19 +121,33 @@ class CorrDiff(ARModel):
 
         # Call diffusion training step to obtain a prediction and a weight
         # sample: (B, N_grid, d_f), weight: broadcastable tensor
-        sample, _, weight = self.diffusion_model.predict_step_train(
-            input_grid, HQ)
+        if self.args.residual_model == "EDM":
+            if self.args.pred_residual:
+                HQ_target = HQ - mean_grid
+            else:
+                HQ_target = HQ
+            residual, _, weight = self.diffusion_model.predict_step_train(
+                input_grid, HQ_target)
 
-        # Build target in same flattened layout: (B, N_grid, d_f)
-        target = HQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2)
+            if self.args.pred_residual:
+                # Add the residual to the mean
+                sample = mean + residual
+            else:
+                sample = residual
 
-        # Our loss expects a time/unroll dimension (pred_steps). Add that dim
-        pred = sample.unsqueeze(1)  # (B, 1, N_grid, d_f)
-        targ = target.unsqueeze(1)  # (B, 1, N_grid, d_f)
+            # Build target in same flattened layout: (B, N_grid, d_f)
+            target = HQ.permute(0, 2, 3, 1).contiguous().flatten(1, 2)
 
-        # Use the configured loss (inherited from ARModel) and include weight
-        # weight from the diffusion model is already shaped for broadcasting
-        loss = self.loss(pred, targ, self.per_var_std, weight=weight)
+            # Our loss expects a time/unroll dimension (pred_steps). Add that dim
+            pred = sample.unsqueeze(1)  # (B, 1, N_grid, d_f)
+            targ = target.unsqueeze(1)  # (B, 1, N_grid, d_f)
+
+            # Use the configured loss (inherited from ARModel) and include weight
+            # weight from the diffusion model is already shaped for broadcasting
+            loss = self.loss(pred, targ, self.per_var_std, weight=weight)
+        else:
+            sample, _, loss = self.diffusion_model.predict_step_train(
+                input_grid, HQ)
 
         return sample, None, loss
 
@@ -399,19 +388,20 @@ class CorrDiff(ARModel):
             self.plotted_examples += 1  # Increment already here
 
             # Save slices to wandb
-            os.makedirs("output", exist_ok=True)
+            output_dir = f"output/{wandb.run.name}"
+            os.makedirs(output_dir, exist_ok=True)
 
             # TODO: Check that the saving is correct, we want to save one sample and not the entire batch
             # Save predictions to the output folder
             if self.save_output:
                 torch.save(
-                    ens_mean_slice[0], f"output/example_ens_mean_{self.plotted_examples}.pt")
+                    ens_mean_slice[0], f"{output_dir}/example_ens_mean_{self.plotted_examples}.pt")
                 torch.save(
-                    ens_std_slice[0], f"output/example_ens_std_{self.plotted_examples}.pt")
+                    ens_std_slice[0], f"{output_dir}/example_ens_std_{self.plotted_examples}.pt")
                 torch.save(
-                    traj_slice[0], f"output/example_ens_members_{self.plotted_examples}.pt")
+                    traj_slice[0], f"{output_dir}/example_ens_members_{self.plotted_examples}.pt")
                 torch.save(
-                    target_slice[0], f"output/example_target_{self.plotted_examples}.pt")
+                    target_slice[0], f"{output_dir}/example_target_{self.plotted_examples}.pt")
 
                 # Save files to wandb
                 if self.save_output_wandb:
@@ -450,6 +440,23 @@ class CorrDiff(ARModel):
                          for i in self.config_loader.dataset.downscaling_idx]
             var_units = [self.config_loader.dataset.var_units[i]
                          for i in self.config_loader.dataset.downscaling_idx]
+            print(f"init_slice shape before: {init_slice.shape}")
+            plots_dir = os.path.join("plots", "init_slices")
+            os.makedirs(plots_dir, exist_ok=True)
+            # init_slice shape: (pred_steps, N_grid, n_cond) or (1, N_grid, n_cond)
+            n_cond = init_slice.shape[-1]
+            for cond_i in range(n_cond):
+                # take the first (and usually only) time step / entry
+                vec = init_slice[0, :, cond_i]
+                fig, ax = plt.subplots(figsize=(6, 6))
+                # plot_on_axis handles flattened grid vectors
+                vis.plot_on_axis(ax, vec)
+                ax.set_title(
+                    f"init_slice_cond{cond_i}_example{self.plotted_examples}", fontsize=12)
+                fname = os.path.join(
+                    plots_dir, f"init_slice_example{self.plotted_examples}_cond{cond_i}.png")
+                fig.savefig(fname, bbox_inches="tight", dpi=150)
+                plt.close(fig)
             init_slice = init_slice[:, :,
                                     self.config_loader.dataset.downscaling_idx]
 
@@ -556,12 +563,9 @@ class CorrDiff(ARModel):
         """
         Run validation on single batch
         """
-        prediction, target, pred_std, weight = self.common_step_train(
+        prediction, target, pred_std, loss = self.common_step_train(
             batch)
 
-        loss = self.loss(
-            prediction, target, pred_std, weight=weight  # mask=self.interior_mask_bool
-        )
         mean_loss = torch.mean(loss)
 
         # Log loss per time step forward and mean

@@ -36,6 +36,15 @@ class SI(ARModel):
             + len(self.config_loader.dataset.downscaling_idx)  # Diffusion noise
         )
 
+        if args.model == 'CorrDiff':
+            # Mean conditioning
+            self.grid_dim += len(self.config_loader.dataset.downscaling_idx)
+
+        self.cond_idx = self.config_loader.dataset.downscaling_idx
+        if args.residual_model == 'SI_mean':
+            # Mean conditioning on the last two variables
+            self.cond_idx = [-2, -1]
+
         # Some dimensionalities that can be useful to have stored
         self.ensemble_size = args.ensemble_size
         self.sampler = args.sampler
@@ -54,8 +63,8 @@ class SI(ARModel):
                                   channel_mult=args.channel_mult,
                                   encoder_type=args.encoder_type,
                                   attn_resolutions=args.attn_resolutions,
-                                  ir_sde=True,
-                                  target_idx=self.config_loader.dataset.downscaling_idx,
+                                  ir_sde=(not args.keep_cond),
+                                  target_idx=self.cond_idx,
                                   )
         else:
             raise ValueError(
@@ -81,7 +90,7 @@ class SI(ARModel):
             }
         )
 
-        self.I = Interpolant(sigma_coef=args.sigma_coef, beta_fn='t^2')
+        self.I = Interpolant(sigma_coef=args.sigma_coef, beta_fn=args.beta_fn)
         # self.EM_sample_steps = 500
         self.t_min_sampling = 0.0  # no min time needed
         self.t_max_sampling = .999
@@ -167,7 +176,7 @@ class SI(ARModel):
                 xt, mu = step_fn_2(xt, tscalar * ones,
                                    ts[i+1] * ones, label=label)
             else:
-                print(f"Euler step {i+1} of {len(ts)}")
+                # print(f"Euler step {i+1} of {len(ts)}")
                 xt, mu = step_fn(xt, tscalar * ones, label=label)
             if self.save_steps:
                 save_dir = 'diffusion_steps'
@@ -258,7 +267,7 @@ class SI(ARModel):
         pred_std: None
         """
         # Prepare batch
-        D = {'z0': LQ[:, self.config_loader.dataset.downscaling_idx, ...], 'label': None,
+        D = {'z0': LQ[:, self.cond_idx, ...], 'label': None,
              'N': LQ.shape[0]}  # We want precipitation (6) and temperature (8)
 
         # Conditioning on LQ
@@ -270,15 +279,16 @@ class SI(ARModel):
         # list diffusion funcs
         # None means use the one you trained with
         diffusion_fns = {
-            'g_sigma': None,
-            'g_sigma_01': lambda t: self.sigma_coef * self.wide(1-t) * 0.1,
-            'g_other': lambda t: self.sigma_coef * self.wide(1-t).pow(4),
+            'g_sigma': lambda t: self.args.sigma_coef_sampling * self.wide(1-t),
+            'g_sigma_pow4': lambda t: self.args.sigma_coef_sampling * self.wide(1-t).pow(4),
         }
+        if self.args.diffusion_fn is not None:
+            diffusion_fn = diffusion_fns[self.args.diffusion_fn]
+        else:
+            diffusion_fn = None
 
-        # TODO: Implement Euler solver
         # None because we want to use the diffusion function we trained with, TODO: Experiment with this later
-        sample = self.EM(diffusion_fn=None, **EM_args)
-
+        sample = self.EM(diffusion_fn=diffusion_fn, **EM_args)
         # TODO: Implement Heun solver
 
         return sample.permute(0, 2, 3, 1).flatten(1, 2), None
@@ -294,7 +304,7 @@ class SI(ARModel):
         pred_std: None 
         """
         # Prepare batch
-        D = {'z0': LQ[:, self.config_loader.dataset.downscaling_idx, ...],
+        D = {'z0': LQ[:, self.cond_idx, ...],
              'z1': HQ, 'label': None, 'N': LQ.shape[0]}
 
         # Get random batch of times
@@ -502,7 +512,7 @@ class SI(ARModel):
                 vis.plot_on_axis(axes[0], diff_state[0, ..., var_idx])
                 axes[1].set_title("LQ", size=15)
                 vis.plot_on_axis(
-                    axes[1], LQ[0, ..., self.config_loader.dataset.downscaling_idx[var_idx]])
+                    axes[1], LQ[0, ..., self.cond_idx[var_idx]])
 
                 os.makedirs(
                     f"output/diffusion_steps/{var_name}", exist_ok=True)
@@ -560,19 +570,20 @@ class SI(ARModel):
             self.plotted_examples += 1  # Increment already here
 
             # Save slices to wandb
-            os.makedirs("output", exist_ok=True)
+            output_dir = f"output/{wandb.run.name}"
+            os.makedirs(output_dir, exist_ok=True)
 
             # TODO: Check that the saving is correct, we want to save one sample and not the entire batch
             # Save predictions to the output folder
             if self.save_output:
                 torch.save(
-                    ens_mean_slice[0], f"output/example_ens_mean_{self.plotted_examples}.pt")
+                    ens_mean_slice[0], f"{output_dir}/example_ens_mean_{self.plotted_examples}.pt")
                 torch.save(
-                    ens_std_slice[0], f"output/example_ens_std_{self.plotted_examples}.pt")
+                    ens_std_slice[0], f"{output_dir}/example_ens_std_{self.plotted_examples}.pt")
                 torch.save(
-                    traj_slice[0], f"output/example_ens_members_{self.plotted_examples}.pt")
+                    traj_slice[0], f"{output_dir}/example_ens_members_{self.plotted_examples}.pt")
                 torch.save(
-                    target_slice[0], f"output/example_target_{self.plotted_examples}.pt")
+                    target_slice[0], f"{output_dir}/example_target_{self.plotted_examples}.pt")
 
                 # Save files to wandb
                 if self.save_output_wandb:
@@ -612,7 +623,7 @@ class SI(ARModel):
             var_units = [self.config_loader.dataset.var_units[i]
                          for i in self.config_loader.dataset.downscaling_idx]
             init_slice = init_slice[:, :,
-                                    self.config_loader.dataset.downscaling_idx]
+                                    self.cond_idx]
 
             # Iterate over prediction horizon time steps
             for t_i, (samples_t, init_t, target_t, ens_mean_t, ens_std_t) in enumerate(

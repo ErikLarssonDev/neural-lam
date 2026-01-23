@@ -123,8 +123,10 @@ class Diffusion(ARModel):
             self.plot_diffusion_steps(diff_states, LQ)
 
         # Add residual if needed
-        if self.pred_residual:
-            print(f"Pred residual is not supported as we don't have the residual/normalization in the training data")
+        if self.pred_residual and self.args.model != 'CorrDiff':
+            next_state = next_state + \
+                LQ[:, self.config_loader.dataset.downscaling_idx, ...]
+            #     print(f"Pred residual is not supported as we don't have the residual/normalization in the training data")
             # next_state = (next_state * self.step_diff_std[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1)) + self.step_diff_mean[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1) # Unormalize residual
             # next_state = LQ + next_state
 
@@ -154,9 +156,11 @@ class Diffusion(ARModel):
 
         # TODO: Pred residual is not supported as we don't have the residual/normalization in the training data
         # Make y residual if needed
-        if self.pred_residual:
-            raise NotImplementedError(
-                "Pred residual is not supported as we don't have the residual/normalization in the training data")
+        if self.pred_residual and self.args.model != 'CorrDiff':
+            y = HQ - LQ[:, self.config_loader.dataset.downscaling_idx, ...]
+        # if self.pred_residual:
+        #     raise NotImplementedError(
+        #         "Pred residual is not supported as we don't have the residual/normalization in the training data")
         #     y = HQ - LQ
         #     y = (y - self.step_diff_mean[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1)) / self.step_diff_std[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1) # Normalize residual
 
@@ -167,9 +171,9 @@ class Diffusion(ARModel):
         next_state = self.forward(noisy_input, sigma, input_grid)
 
         # Add residual if needed
-        # if self.pred_residual:
-        #     next_state = (next_state * self.step_diff_std[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1)) + self.step_diff_mean[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1) # Unormalize residual
-        #     next_state = LQ + next_state
+        if self.pred_residual and self.args.model != 'CorrDiff':
+            next_state = next_state + \
+                LQ[:, self.config_loader.dataset.downscaling_idx, ...]
 
         weight = (sigma ** 2 + self.sigma_data ** 2) / \
             (sigma * self.sigma_data) ** 2
@@ -413,19 +417,20 @@ class Diffusion(ARModel):
             self.plotted_examples += 1  # Increment already here
 
             # Save slices to wandb
-            os.makedirs("output", exist_ok=True)
+            output_dir = f"output/{wandb.run.name}"
+            os.makedirs(output_dir, exist_ok=True)
 
             # TODO: Check that the saving is correct, we want to save one sample and not the entire batch
             # Save predictions to the output folder
             if self.save_output:
                 torch.save(
-                    ens_mean_slice[0], f"output/example_ens_mean_{self.plotted_examples}.pt")
+                    ens_mean_slice[0], f"{output_dir}/example_ens_mean_{self.plotted_examples}.pt")
                 torch.save(
-                    ens_std_slice[0], f"output/example_ens_std_{self.plotted_examples}.pt")
+                    ens_std_slice[0], f"{output_dir}/example_ens_std_{self.plotted_examples}.pt")
                 torch.save(
-                    traj_slice[0], f"output/example_ens_members_{self.plotted_examples}.pt")
+                    traj_slice[0], f"{output_dir}/example_ens_members_{self.plotted_examples}.pt")
                 torch.save(
-                    target_slice[0], f"output/example_target_{self.plotted_examples}.pt")
+                    target_slice[0], f"{output_dir}/example_target_{self.plotted_examples}.pt")
 
                 # Save files to wandb
                 if self.save_output_wandb:

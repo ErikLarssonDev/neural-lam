@@ -22,7 +22,7 @@ class UNET(ARModel):
                               encoder_type=args.encoder_type,
                               attn_resolutions=args.attn_resolutions,
                               ir_sde=False,
-                              target_idx=self.config_loader.dataset.downscaling_idx,
+                              target_idx=None,
                               )
 
     def predict_step(self, LQ):
