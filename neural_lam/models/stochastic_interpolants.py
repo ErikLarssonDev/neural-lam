@@ -800,14 +800,14 @@ class SI(ARModel):
             self.val_metrics["crps_ens"].append(crps_batch)
 
             # Plot example predictions (on rank 0 only)
-            if self.trainer.is_global_zero and batch_idx == 0:
-                self.plot_examples(
-                    batch,
-                    1,
-                    prediction=trajectories,
-                )
-                # Decrease counter, we don't want to increase it in the validation step
-                self.plotted_examples -= 1
+            #if self.trainer.is_global_zero and batch_idx == 0:
+            #    self.plot_examples(
+            #        batch,
+            #        1,
+            #        prediction=trajectories,
+            #    )
+            #    # Decrease counter, we don't want to increase it in the validation step
+            #    self.plotted_examples -= 1
 
     def log_spsk_ratio(self, metric_vals, prefix):
         """

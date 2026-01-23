@@ -8,6 +8,7 @@ import wandb
 import copy
 import math
 import time
+import datetime
 import os
 import einops
 
@@ -32,6 +33,7 @@ class CorrDiff(ARModel):
         self.mean_model = UNET.load_from_checkpoint(mean_ckpt_path, args=args)
         self.ensemble_size = args.ensemble_size
         self.save_output = args.save_output
+        self.output_path = args.output_path
         self.save_output_wandb = args.save_output_wandb
 
         # Freeze parameters and set eval mode
@@ -338,11 +340,11 @@ class CorrDiff(ARModel):
                     f"output/diffusion_steps/{var_name}/step_{i+1}.png")
                 plt.close(fig)
 
-    def plot_examples(self, batch, n_examples, prediction=None):
+    def plot_examples(self, batch, prediction=None):
         """
         Plot ensemble forecast + mean and std
         """
-        LQ, HQ = batch["LQ"], batch["HQ"]
+        LQ, HQ, date_ordinal = batch["LQ"], batch["HQ"], batch["date"]
         if prediction is None:
             print(f"Sampling new trajectories for plotting!")
             trajectories, _ = self.sample_trajectories(
@@ -352,6 +354,7 @@ class CorrDiff(ARModel):
         else:
             trajectories = prediction
         # (B, S, pred_steps, num_grid_nodes, d_f)
+
 
         initial_states = LQ.permute(0, 2, 3, 1).contiguous().flatten(
             1, 2).unsqueeze(1)  # (B, 1, num_grid_nodes, d_f)
@@ -374,13 +377,18 @@ class CorrDiff(ARModel):
             traj_rescaled, dim=1
         )  # (B, pred_steps, num_grid_nodes, d_f)
 
+        dates = []
+        for date in date_ordinal:
+            dates.append(datetime.date.fromordinal(date).strftime("%Y-%m-%d"))
+
         # Iterate over the examples
-        for init_slice, traj_slice, target_slice, ens_mean_slice, ens_std_slice in zip(
-            initial_states_rescaled[:n_examples],
-            traj_rescaled[:n_examples],
-            target_rescaled[:n_examples],
-            ens_mean[:n_examples],
-            ens_std[:n_examples],
+        for init_slice, traj_slice, target_slice, ens_mean_slice, ens_std_slice, date in zip(
+            initial_states_rescaled,
+            traj_rescaled,
+            target_rescaled,
+            ens_mean,
+            ens_std,
+            dates
         ):
             # traj_slice is (S, pred_steps, num_grid_nodes, d_f)
             # others are (pred_steps, num_grid_nodes, d_f)
@@ -391,17 +399,18 @@ class CorrDiff(ARModel):
             output_dir = f"output/{wandb.run.name}"
             os.makedirs(output_dir, exist_ok=True)
 
-            # TODO: Check that the saving is correct, we want to save one sample and not the entire batch
             # Save predictions to the output folder
             if self.save_output:
-                torch.save(
-                    ens_mean_slice[0], f"{output_dir}/example_ens_mean_{self.plotted_examples}.pt")
-                torch.save(
-                    ens_std_slice[0], f"{output_dir}/example_ens_std_{self.plotted_examples}.pt")
-                torch.save(
-                    traj_slice[0], f"{output_dir}/example_ens_members_{self.plotted_examples}.pt")
-                torch.save(
-                    target_slice[0], f"{output_dir}/example_target_{self.plotted_examples}.pt")
+                print(f"Saving sample from {date} to {self.output_path}")
+                print(f"Shape of ens_mean_slice: {ens_mean_slice.shape}")
+                torch.save(ens_mean_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_mean_{date}.pt")
+                torch.save(ens_std_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_std_{date}.pt")
+
+                for ensemble_member in range(len(traj_slice)):
+                    tensor_to_save = traj_slice[ensemble_member].detach().cpu().contiguous()
+                    torch.save(tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
+
+                torch.save(target_slice.detach().cpu().contiguous(), f"{self.output_path}/target_{date}.pt")
 
                 # Save files to wandb
                 if self.save_output_wandb:
@@ -624,16 +633,16 @@ class CorrDiff(ARModel):
             self.val_metrics["crps_ens"].append(crps_batch)
 
             # Plot example predictions (on rank 0 only)
-            if self.trainer.is_global_zero:
-                self.plot_examples(
-                    batch,
-                    1,
-                    prediction=trajectories,
-                    # Only plot 1 step ahead during validation
-                    # lead_times_to_plot=constants.VAL_PLOT_STEPS,
-                )
-                # Decrease counter, we don't want to increase it in the validation step
-                self.plotted_examples -= 1
+            #if self.trainer.is_global_zero:
+            #    self.plot_examples(
+            #        batch,
+            #        1,
+            #        prediction=trajectories,
+            #        # Only plot 1 step ahead during validation
+            #        # lead_times_to_plot=constants.VAL_PLOT_STEPS,
+            #    )
+            #    # Decrease counter, we don't want to increase it in the validation step
+            #    self.plotted_examples -= 1
 
     def log_spsk_ratio(self, metric_vals, prefix):
         """
@@ -714,20 +723,15 @@ class CorrDiff(ARModel):
         )  # (B, pred_steps, d_f)
         self.test_metrics["crps_ens"].append(crps_batch)
 
-        # Plot example predictions (on rank 0 only)
-        if (
-            self.trainer.is_global_zero
-            and self.plotted_examples < self.n_example_pred
-        ):
-            # Need to plot more example predictions
-            n_additional_examples = min(
-                trajectories.shape[0], self.n_example_pred -
-                self.plotted_examples
-            )
+        # Plot example predictions on every rank
+        # Need to plot more example predictions
+        #n_additional_examples = min(
+        #    trajectories.shape[0], self.n_example_pred - self.plotted_examples
+        #)
 
-            self.plot_examples(
-                batch, n_additional_examples, prediction=trajectories
-            )
+        self.plot_examples(
+            batch, prediction=trajectories
+        )
 
     def on_test_epoch_end(self):
         """
