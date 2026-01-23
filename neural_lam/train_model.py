@@ -22,15 +22,20 @@ from neural_lam.models.graphcast import GraphCast
 from neural_lam.models.diffusion import Diffusion
 from neural_lam.models.ir_sde import IR_SDE
 from neural_lam.models.stochastic_interpolants import SI
+from neural_lam.models.unet import UNET
+from neural_lam.models.CorrDiff import CorrDiff
 
 MODELS = {
     "graphcast": GraphCast,
     "graph_fm": GraphFM,
     "graph_efm": GraphEFM,
     "diffusion": Diffusion,
-    "ir_sde": IR_SDE, 
+    "ir_sde": IR_SDE,
     "SI": SI,
+    "unet": UNET,
+    "CorrDiff": CorrDiff,
 }
+
 
 def list_of_ints(arg):
     return list(map(int, arg.split(',')))
@@ -108,9 +113,9 @@ def main(input_args=None):
     parser.add_argument(
         "--diffusion_model",
         type=str,
-        default="graphcast",
+        default="edm",
         help="Model to use in the diffusion model"
-        "(default: graphcast)",
+        "(default: edm)",
     )
     parser.add_argument(
         "--hidden_dim",
@@ -188,7 +193,7 @@ def main(input_args=None):
     parser.add_argument(
         "--vertical_propnets",
         type=int,
-        default=1, # TODO: Change to 1 as it is used in the paper
+        default=1,  # TODO: Change to 1 as it is used in the paper
         help="If PropagationNets should be used for all vertical message "
         "passing (g2m, m2g, up in hierarchy), in deterministic models."
         "(default: 1 (Yes))",
@@ -196,7 +201,7 @@ def main(input_args=None):
     parser.add_argument(
         "--sampler",
         type=str,
-        default="heun",
+        default="edm",
         help="The sampler to use when generating trajectories with a diffusion model"
         "(heun/edm) (default: heun)",
     )
@@ -287,7 +292,8 @@ def main(input_args=None):
     parser.add_argument(
         "--sigma_max",
         type=float,
-        default=10 / 255, # To get the same sigma max as the paper (IR-SDE), normalize by 255 to get it into the image domain. TODO: Experiment with this for better results for atmospheric data
+        # To get the same sigma max as the paper (IR-SDE), normalize by 255 to get it into the image domain. TODO: Experiment with this for better results for atmospheric data
+        default=10 / 255,
         help="Sigma max for training. (default: 10)",
     )
     parser.add_argument(
@@ -296,13 +302,19 @@ def main(input_args=None):
         default=0.005,
         help="Eps for IR-SDE. (default: 0.005)",
     )
+    parser.add_argument(
+        "--keep_cond",
+        action="store_true",
+        help="If the conditioning should be kept during training of IR-SDE/SI "
+        "(default: False)",
+    )
 
     # EDM Options
     # resample_filter=args.resample_filter,
     parser.add_argument(
         "--sigma_min",
         type=float,
-        default=0.002, # TODO: Do we need lower sigma_min for atmospheric data?
+        default=0.002,  # TODO: Do we need lower sigma_min for atmospheric data?
         help="Sigma min for training. (default: 0.002)",
     )
     parser.add_argument(
@@ -387,12 +399,37 @@ def main(input_args=None):
         help="If the diffusion steps output of 1 sample should be saved to the folder diffusion_steps (default: False)",
     )
     parser.add_argument(
+        "--beta_fn",
+        type=str,
+        default="t^2",
+        help="Beta function to use in diffusion model (linear/t^2) (default: t^2)",
+    )
+    parser.add_argument(
         "--sigma_coef",
         type=float,
         default=1,
         help="Sigma coefficient for stochatic interpolants (default: 1)",
     )
+    parser.add_argument(
+        "--sigma_coef_sampling",
+        type=float,
+        default=1,
+        help="Sigma coefficient for stochatic interpolants during sampling (default: 1)",
+    )
+    parser.add_argument(
+        "--diffusion_fn",
+        type=str,
+        default=None,
+        help="Diffusion function to use in stochastic interpolants during sampling (g_sigma/g_sigma_pow4) (default: None (use trained one))",
+    )
 
+    # CorrDiff options
+    parser.add_argument(
+        "--residual_model",
+        type=str,
+        default="EDM",
+        help="Model to use for residual prediction in CorrDiff (EDM/SI) (default: EDM)",
+    )
 
     # Logger Settings
     parser.add_argument(
@@ -410,8 +447,8 @@ def main(input_args=None):
     parser.add_argument(
         "--val_steps_to_log",
         type=list,
-        default=[1, 2, 3, 5, 10, 15, 19],
-        help="Steps to log val loss for (default: [1, 2, 3, 5, 10, 15, 19])",
+        default=[1],
+        help="Steps to log val loss for (default: [1])",
     )
     parser.add_argument(
         "--metrics_watch",
@@ -453,7 +490,7 @@ def main(input_args=None):
     random_run_id = random.randint(0, 9999)
 
     # Set seed
-    seed.seed_everything(args.seed)
+    # seed.seed_everything(args.seed)
 
     # Load data
     train_loader = torch.utils.data.DataLoader(
@@ -469,6 +506,11 @@ def main(input_args=None):
             is_inference_dataset=False,
             normalize_ground_truth=config_loader.dataset.normalize_ground_truth,
             subset_ds=args.subset_ds,
+            upscale_inputs=config_loader.dataset.upscale_inputs,
+            static_fields_files=config_loader.dataset.static_fields_files,
+            interpolation_mode=config_loader.dataset.interpolation_mode,
+            provide_coordinates=config_loader.dataset.provide_coordinates,
+            provide_day_of_year=config_loader.dataset.provide_day_of_year
         ),
         args.batch_size,
         shuffle=True,
@@ -488,6 +530,11 @@ def main(input_args=None):
             is_inference_dataset=False,
             normalize_ground_truth=config_loader.dataset.normalize_ground_truth,
             subset_ds=args.subset_ds,
+            upscale_inputs=config_loader.dataset.upscale_inputs,
+            static_fields_files=config_loader.dataset.static_fields_files,
+            interpolation_mode=config_loader.dataset.interpolation_mode,
+            provide_coordinates=config_loader.dataset.provide_coordinates,
+            provide_day_of_year=config_loader.dataset.provide_day_of_year
         ),
         args.batch_size,
         shuffle=False,
@@ -515,7 +562,7 @@ def main(input_args=None):
     prefix = "subset-" if args.subset_ds else ""
     if args.eval:
         prefix = prefix + f"eval-{args.eval}-"
-    
+
     prefix = f"{args.wandb_run_name}-{prefix}" if args.wandb_run_name else prefix
     run_name = (
         f"{prefix}{args.model}-{args.processor_layers}x{args.hidden_dim}-"
@@ -548,12 +595,12 @@ def main(input_args=None):
     logger = pl.loggers.WandbLogger(
         project=args.wandb_project, name=run_name, config=args
     )
+    print(f"Wandb logger: {logger}")
 
     # Training strategy
     # If doing pure autoencoder training (kl_beta = 0), the prior network is not
     # used at all in producing the loss. This is desired, but DDP complains.
     strategy = "ddp" if args.kl_beta > 0 else "ddp_find_unused_parameters_true"
-
 
     # profiler = AdvancedProfiler(dirpath=".", filename="perf_logs") # Profiler for performance logging
 
@@ -572,6 +619,7 @@ def main(input_args=None):
 
     # Only init once, on rank 0 only
     if trainer.global_rank == 0:
+        print("Initializing wandb metrics...")
         utils.init_wandb_metrics(
             logger, args.val_steps_to_log
         )  # Do after wandb.init
@@ -585,8 +633,8 @@ def main(input_args=None):
         else:  # Test
             eval_loader = torch.utils.data.DataLoader(
                 NetCDFDataset(
-                    start_date=config_loader.dataset.validation_start_date,
-                    end_date=config_loader.dataset.validation_end_date,
+                    start_date=config_loader.dataset.test_start_date,
+                    end_date=config_loader.dataset.test_end_date,
                     input_path=config_loader.dataset.input_path,
                     input_files=config_loader.dataset.input_files,
                     ground_truth_path=config_loader.dataset.ground_truth_path,
@@ -596,6 +644,11 @@ def main(input_args=None):
                     is_inference_dataset=False,
                     normalize_ground_truth=config_loader.dataset.normalize_ground_truth,
                     subset_ds=args.subset_ds,
+                    upscale_inputs=config_loader.dataset.upscale_inputs,
+                    static_fields_files=config_loader.dataset.static_fields_files,
+                    interpolation_mode=config_loader.dataset.interpolation_mode,
+                    provide_coordinates=config_loader.dataset.provide_coordinates,
+                    provide_day_of_year=config_loader.dataset.provide_day_of_year
                 ),
                 args.batch_size,
                 shuffle=False,
@@ -603,15 +656,15 @@ def main(input_args=None):
                 pin_memory=True,
                 persistent_workers=True,
             )
-    
+
         print(f"Running evaluation on {args.eval}")
         trainer.test(model=model, dataloaders=eval_loader, ckpt_path=args.load)
     else:
         # Train model
         trainer.fit(
             model=model,
-            train_dataloaders=train_loader, 
-            # val_dataloaders=val_loader, # No validation during training for diffusion model
+            train_dataloaders=train_loader,
+            val_dataloaders=val_loader,  # No validation during training for diffusion model
             ckpt_path=args.load,
         )
 

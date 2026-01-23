@@ -9,7 +9,7 @@ import numpy as np
 #     365 * 24 * 60 * 60
 # )  # Assuming no leap years in dataset (2024 is next)
 
-# # Log prediction error for these lead times
+# Log prediction error for these lead times
 # VAL_STEP_LOG_ERRORS = np.array([1])
 # # Also save checkpoints for minimum loss at these lead times
 # VAL_STEP_CHECKPOINTS = [1]
