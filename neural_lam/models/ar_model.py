@@ -467,20 +467,20 @@ class ARModel(pl.LightningModule):
         log_dict: dict with everything to log for given metric
         """
         log_dict = {}
-        metric_fig = vis.plot_error_map(
-            metric_tensor,
-            self.config_loader,
-            step_length=self.step_length,
-        )
+        #metric_fig = vis.plot_error_map( # Commenting out because of ValueError: not enough values to unpack (expected 2, got 1)
+        #    metric_tensor,
+        #    self.config_loader,
+        #    step_length=self.step_length,
+        #)
         full_log_name = f"{prefix}_{metric_name}"
-        log_dict[full_log_name] = wandb.Image(metric_fig)
+        #log_dict[full_log_name] = wandb.Image(metric_fig)
         log_dict[f"{full_log_name}_data"] = torch.mean(metric_tensor)
 
         if prefix == "test":
             # Save pdf
-            metric_fig.savefig(
-                os.path.join(wandb.run.dir, f"{full_log_name}.pdf")
-            )
+            #metric_fig.savefig(
+            #    os.path.join(wandb.run.dir, f"{full_log_name}.pdf")
+            #)
             # Save errors also as csv
             np.savetxt(
                 os.path.join(wandb.run.dir, f"{full_log_name}.csv"),

@@ -241,12 +241,15 @@ class NetCDFDataset(Dataset):
             self.ground_truth_mean, self.ground_truth_std = self.ground_truth_stats
             ground_truth_batch_data = (
                 ground_truth_batch_data - self.ground_truth_mean) / self.ground_truth_std
+            
+        current_date = self.get_current_ordinal_date(idx)
 
         # return input_batch_data, ground_truth_batch_data
         states = {
             # "LQ": F.interpolate(input_batch_data.unsqueeze(0), size=(400, 550), mode='bilinear', align_corners=False).squeeze(0), # [B, 23, 40, 55] -> [B, 23, 400, 550], NOTE: We need the low-res input on the same grid as the high-res output
             "LQ": input_batch_data,  # [B, n_input, 400, 550]
             "HQ": ground_truth_batch_data,  # [B, 2, 400, 550]
+            "date": current_date
         }
 
         return states

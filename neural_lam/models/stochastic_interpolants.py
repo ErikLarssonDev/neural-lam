@@ -585,6 +585,8 @@ class SI(ARModel):
 
             # Save predictions to the output folder
             if self.save_output:
+                print(f"Saving sample from {date} to {self.output_path}")
+                print(f"Shape of ens_mean_slice: {ens_mean_slice.shape}")
                 torch.save(ens_mean_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_mean_{date}.pt")
                 torch.save(ens_std_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_std_{date}.pt")
 
