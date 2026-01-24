@@ -396,8 +396,7 @@ class CorrDiff(ARModel):
             self.plotted_examples += 1  # Increment already here
 
             # Save slices to wandb
-            output_dir = f"output/{wandb.run.name}"
-            os.makedirs(output_dir, exist_ok=True)
+            os.makedirs(self.output_path, exist_ok=True)
 
             # Save predictions to the output folder
             if self.save_output:
