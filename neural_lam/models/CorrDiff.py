@@ -504,14 +504,15 @@ class CorrDiff(ARModel):
                 ]
 
                 example_title = f"example_{self.plotted_examples}"
-                wandb.log(
-                    {
-                        f"{var_name}_{example_title}": wandb.Image(fig)
-                        for var_name, fig in zip(
-                            var_names, var_figs
-                        )
-                    }
-                )
+                if self.trainer.is_global_zero:
+                    wandb.log(
+                        {
+                            f"{var_name}_{example_title}": wandb.Image(fig)
+                            for var_name, fig in zip(
+                                var_names, var_figs
+                            )
+                        }
+                    )
                 plt.close(
                     "all"
                 )  # Close all figs for this time step, saves memory

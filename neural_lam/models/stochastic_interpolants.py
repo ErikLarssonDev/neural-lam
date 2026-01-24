@@ -653,7 +653,7 @@ class SI(ARModel):
                 time_title_part = f"t={t_i} ({self.step_length*t_i} h)"
                 # Create one figure per variable at this time step
 
-                var_figs = [
+                var_fwangs = [
                     vis.plot_ensemble_prediction(
                         init_t[:, var_i],
                         samples_t[:, :, var_i],
