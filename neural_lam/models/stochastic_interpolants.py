@@ -673,18 +673,18 @@ class SI(ARModel):
                 ]
 
                 example_title = f"example_{self.plotted_examples}"
-                if self.trainer.is_global_zero:
-                    wandb.log(
-                        {
-                            f"{var_name}_{example_title}": wandb.Image(fig)
-                            for var_name, fig in zip(
-                                var_names, var_figs
-                            )
-                        }
-                    )
-                plt.close(
-                    "all"
-                )  # Close all figs for this time step, saves memory
+                #if self.trainer.is_global_zero:
+                #    wandb.log(
+                #        {
+                #            f"{var_name}_{example_title}": wandb.Image(fig)
+                #            for var_name, fig in zip(
+                #                var_names, var_figs
+                #            )
+                #        }
+                #    )
+                #plt.close(
+                #    "all"
+                #)  # Close all figs for this time step, saves memory
 
     def ensemble_common_step(self, batch):
         """
