@@ -31,7 +31,7 @@ def load_pt_batch(
         torch.load(f'{pt_data_path}/target_{date_str}.pt').numpy().reshape(size[0], size[1], n_vars))
     ensemble_mean = destandardize(
         torch.load(f'{pt_data_path}/ens_mean_{date_str}.pt').numpy().reshape(size[0], size[1], n_vars))
-    if not args.deterministic:
+    if not deterministic:
         ensemble_std = destandardize(
             torch.load(f'{pt_data_path}/ens_std_{date_str}.pt').numpy().reshape(size[0], size[1], n_vars), std_dataset=True)
         ensemble_members = []
@@ -40,7 +40,10 @@ def load_pt_batch(
                 torch.load(f'{pt_data_path}/member_{ensemble_index}_{date_str}.pt').numpy().reshape(size[0], size[1], n_vars))
             ensemble_members.append(ensemble_member)
 
-    return target, ensemble_mean, ensemble_std, ensemble_members
+    if not deterministic:
+        return target, ensemble_mean, ensemble_std, ensemble_members
+    else:
+        return target, ensemble_mean, None, None
 
 def write_to_netCDF4(data, netCDF4_dataset, variable_standard_name, var_index, time_idx, input_timestamps):
     for var_name in netCDF4_dataset.variables:
