@@ -5,10 +5,10 @@ export HDF5_USE_FILE_LOCKING=FALSE
 REPO_PATH="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam"
 
 n_workers=16
-pt_data_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/230126/test_CorrDiff"
-output_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/230126/test_CorrDiff"
+pt_data_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/230126/test_SI"
+output_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/230126/testing/"
 data_config="neural_lam/clim_config.yaml"
-model="CorrDiff" # SI or CorrDiff
+model="SI" # SI/CorrDiff/UNet
 ensemble_size=20
 var_index=0
 variable_name="pr"
@@ -30,6 +30,7 @@ apptainer exec \
   --variable_units "$variable_units" \
   --variable_standard_name "$variable_name" \
   --variable_long_name "$variable_name" \
+  #--deterministic
 
 var_index=1
 variable_name="tas"
@@ -50,4 +51,5 @@ apptainer exec \
   --variable_units "$variable_units" \
   --variable_standard_name "$variable_name" \
   --variable_long_name "$variable_name" \
+  #--deterministic
   
