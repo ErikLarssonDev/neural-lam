@@ -3,7 +3,7 @@ dataset:
   train_end_date: 2008-12-31
   validation_start_date: 2009-01-01
   validation_end_date: 2009-12-31 
-  test_start_date: 2014-12-01 # 2010-01-01
+  test_start_date: 2010-01-01 # 2010-01-01
   test_end_date: 2014-12-31 # 2014-12-31
   input_path: /mimer/NOBACKUP/groups/mlhighres/projects/detex/EC-Earth3-Veg/standardized_new/
   levels: [100000, 85000, 70000, 50000, 25000]

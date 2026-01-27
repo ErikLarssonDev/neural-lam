@@ -184,11 +184,11 @@ class ARModel(pl.LightningModule):
             (B, pred_steps, num_boundary_nodes, d_boundary_forcing),
             where index 0 corresponds to index 1 of init_states
         """
-        LQ, HQ = batch["LQ"], batch["HQ"]
+        LQ, HQ, date_ordinal = batch["LQ"], batch["HQ"], batch["date"]
 
         prediction, pred_std = self.unroll_prediction(LQ)
 
-        return prediction, HQ.permute(0, 2, 3, 1).flatten(1, 2).unsqueeze(1), pred_std
+        return prediction, HQ.permute(0, 2, 3, 1).flatten(1, 2).unsqueeze(1), pred_std, date_ordinal
 
     def training_step(self, batch):
         """

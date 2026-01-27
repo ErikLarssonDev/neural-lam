@@ -53,7 +53,7 @@ class UNET(ARModel):
         """
         Run test on single batch
         """
-        prediction, target, pred_std = self.common_step(batch)
+        prediction, target, pred_std, date_ordinal = self.common_step(batch)
         # prediction: (B, pred_steps, num_grid_nodes, d_f)
         # pred_std: (B, pred_steps, num_grid_nodes, d_f) or (d_f,)
 
@@ -111,8 +111,6 @@ class UNET(ARModel):
         # (B, N_log, num_grid_nodes)
 
         if self.save_output:
-            _, _, date_ordinal = batch["LQ"], batch["HQ"], batch["date"]
-
             dates = []
             for date in date_ordinal:
                 dates.append(datetime.date.fromordinal(date).strftime("%Y-%m-%d"))
