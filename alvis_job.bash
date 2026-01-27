@@ -5,6 +5,7 @@
 #SBATCH -t 72:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=erila85@liu.se
+#SBATCH --output ./slurm_logs/%A_%x.out
 
 # -A NAISS2024-22-955 -p alvis
 # NAISS2024/6-323 
@@ -40,6 +41,7 @@ EDM_50e_stand="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_mod
 UNET_50e_stand="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/UNET_Static_50e-unet-6x128-12_12_16-6743/last.ckpt"
 CorrDiff_Static_50e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/CorrDiff_Static_50e-CorrDiff-6x128-12_15_19-5090/last.ckpt"
 CorrSI_mean_25e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/CorrSI_mean-CorrDiff-6x128-01_21_10-4310/last.ckpt"
+CorrSI_mean_50e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/CorrSI_mean-CorrDiff-6x128-01_22_17-1490/last.ckpt"
 
 # EDM
 # Training
@@ -92,3 +94,12 @@ CorrSI_mean_25e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_m
 # python3 neural_lam/train_model.py --model CorrDiff $RUN_NAME --n_workers 2 --batch_size 2 --epochs 25 --lr 0.00001 --val_interval 10 --sampler_steps 50 --residual_model SI_mean --diffusion_model song_unet --eval val --load $CorrSI_mean_25e --subset_ds --diffusion_fn g_sigma --sigma_coef_sampling 2.0 # CorrSI_mean
 
 
+# Tips and tricks on alvis:
+
+# Monitoring jobs:
+# job_stats.py # Opens a page in the terminal that updates every few seconds with info about your jobs
+# jobinfo # Gives a summary of available and used resources
+
+
+# CorrSI_mean_50e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/CorrSI_mean-CorrDiff-6x128-01_22_17-1490/last.ckpt"
+# python3 neural_lam/train_model.py --model CorrDiff $RUN_NAME --n_workers 16 --batch_size 10 --epochs 25 --lr 0.00001 --val_interval 10 --sampler_steps 50 --residual_model SI_mean --diffusion_model song_unet --eval val --load $CorrSI_mean_50e

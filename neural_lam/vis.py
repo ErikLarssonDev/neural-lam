@@ -87,7 +87,8 @@ def plot_on_axis(
 
     # ax.coastlines()  # Add coastline outlines
     im = ax.imshow(
-        data.reshape(*constants.FULL_GRID_SHAPE).cpu().numpy(),
+        data.reshape(
+            *constants.FULL_GRID_SHAPE).to(torch.float32).cpu().numpy(),
         origin="lower",
         vmin=vmin,
         vmax=vmax,
