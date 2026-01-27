@@ -164,8 +164,8 @@ def main():
     pt_data_path = args.pt_data_path
     output_path = args.output_path
     model_name = args.model_name
-    start_date = config_loader.dataset.validation_start_date
-    end_date = config_loader.dataset.validation_end_date
+    start_date = config_loader.dataset.test_start_date
+    end_date = config_loader.dataset.test_end_date
     ensemble_size = args.ensemble_size
     num_workers = args.n_workers
     var_index = args.var_index
@@ -178,17 +178,22 @@ def main():
 
     inference_dataloader = torch.utils.data.DataLoader(
         NetCDFDataset(
-            start_date=start_date,
-            end_date=end_date,
+            start_date=config_loader.dataset.test_start_date,
+            end_date=config_loader.dataset.test_end_date,
             input_path=config_loader.dataset.input_path,
             input_files=config_loader.dataset.input_files,
             ground_truth_path=config_loader.dataset.ground_truth_path,
             ground_truth_files=config_loader.dataset.ground_truth_files,
             ground_truth_stats_path=config_loader.dataset.ground_truth_stats_path,
             levels=config_loader.dataset.levels,
-            is_inference_dataset=True,
+            is_inference_dataset=False,
             normalize_ground_truth=config_loader.dataset.normalize_ground_truth,
             subset_ds=False,
+            upscale_inputs=config_loader.dataset.upscale_inputs,
+            static_fields_files=config_loader.dataset.static_fields_files,
+            interpolation_mode=config_loader.dataset.interpolation_mode,
+            provide_coordinates=config_loader.dataset.provide_coordinates,
+            provide_day_of_year=config_loader.dataset.provide_day_of_year
         ),
         batch_size=batch_size,
         shuffle=False,
