@@ -26,18 +26,19 @@ def destandardize(
         return sample * np.array([pr_std, tas_std]) + np.array([pr_mean, tas_mean])
 
 def load_pt_batch(
-        pt_data_path, date_str, ensemble_size, size=(400, 550), n_vars=2):
+        pt_data_path, date_str, ensemble_size, size=(400, 550), n_vars=2, deterministic=False):
     target = destandardize(
         torch.load(f'{pt_data_path}/target_{date_str}.pt').numpy().reshape(size[0], size[1], n_vars))
     ensemble_mean = destandardize(
         torch.load(f'{pt_data_path}/ens_mean_{date_str}.pt').numpy().reshape(size[0], size[1], n_vars))
-    ensemble_std = destandardize(
-        torch.load(f'{pt_data_path}/ens_std_{date_str}.pt').numpy().reshape(size[0], size[1], n_vars), std_dataset=True)
-    ensemble_members = []
-    for ensemble_index in range(ensemble_size):
-        ensemble_member = destandardize(
-            torch.load(f'{pt_data_path}/member_{ensemble_index}_{date_str}.pt').numpy().reshape(size[0], size[1], n_vars))
-        ensemble_members.append(ensemble_member)
+    if not args.deterministic:
+        ensemble_std = destandardize(
+            torch.load(f'{pt_data_path}/ens_std_{date_str}.pt').numpy().reshape(size[0], size[1], n_vars), std_dataset=True)
+        ensemble_members = []
+        for ensemble_index in range(ensemble_size):
+            ensemble_member = destandardize(
+                torch.load(f'{pt_data_path}/member_{ensemble_index}_{date_str}.pt').numpy().reshape(size[0], size[1], n_vars))
+            ensemble_members.append(ensemble_member)
 
     return target, ensemble_mean, ensemble_std, ensemble_members
 
@@ -115,6 +116,20 @@ def main():
         help="Model name (only used for output name)."
     )
     parser.add_argument(
+        "--n_vars",
+        type=int,
+        default=2,
+        help="Number of climate variables (default: 2)",
+    )
+    parser.add_argument(
+        "--size",
+        nargs=2,
+        type=int,
+        default=(400, 550),
+        metavar=("WIDTH", "HEIGHT"),
+        help="Size of the target grid (default: 400 550)",
+    )
+    parser.add_argument(
         "--ensemble_size",
         type=int,
         default=25,
@@ -156,6 +171,11 @@ def main():
         type=str,
         help="Variable units (kg m-2, K, etc.)"
     )
+    parser.add_argument(
+        '--deterministic',
+        action="store_true",
+        help="Deterministic model (default: False)"
+    )
 
     args = parser.parse_args()
     
@@ -169,12 +189,16 @@ def main():
     ensemble_size = args.ensemble_size
     num_workers = args.n_workers
     var_index = args.var_index
+    n_vars = args.n_vars
+    size = args.size
     batch_size = 1
 
     variable_name = args.variable_name
     variable_standard_name = args.variable_standard_name
     variable_long_name = args.variable_long_name
     variable_units = args.variable_units
+
+    deterministic = args.deterministic
 
     inference_dataloader = torch.utils.data.DataLoader(
         NetCDFDataset(
@@ -217,18 +241,6 @@ def main():
         variable_long_name,
         variable_units)
     
-    netCDF4_dataset_ensemble_std = initialize_output(
-        inference_dataloader, output_path,
-        start_date, end_date, f"{variable_name}_ensemble_std_{model_name}", var_index
-    )
-
-    edit_netCDF4_attributes(
-        netCDF4_dataset_ensemble_std,
-        variable_name,
-        variable_standard_name,
-        variable_long_name,
-        variable_units)
-    
     netCDF4_dataset_target = initialize_output(
         inference_dataloader, output_path,
         start_date, end_date, f"{variable_name}_target_{model_name}", var_index
@@ -241,38 +253,58 @@ def main():
         variable_long_name,
         variable_units)
     
-    netCDF4_dataset_ensemble_members = []
-    for ensemble_index in range(ensemble_size):
-        netCDF4_dataset_ensemble_member = initialize_output(
+    if not deterministic:
+        netCDF4_dataset_ensemble_std = initialize_output(
             inference_dataloader, output_path,
-            start_date, end_date, f"{variable_name}_ensemble_member_{ensemble_index}_{model_name}", var_index
+            start_date, end_date, f"{variable_name}_ensemble_std_{model_name}", var_index
         )
+
         edit_netCDF4_attributes(
-            netCDF4_dataset_ensemble_member,
+            netCDF4_dataset_ensemble_std,
             variable_name,
             variable_standard_name,
             variable_long_name,
             variable_units)
+    
+        netCDF4_dataset_ensemble_members = []
+        for ensemble_index in range(ensemble_size):
+            netCDF4_dataset_ensemble_member = initialize_output(
+                inference_dataloader, output_path,
+                start_date, end_date, f"{variable_name}_ensemble_member_{ensemble_index}_{model_name}", var_index
+            )
+            edit_netCDF4_attributes(
+                netCDF4_dataset_ensemble_member,
+                variable_name,
+                variable_standard_name,
+                variable_long_name,
+                variable_units)
 
-        netCDF4_dataset_ensemble_members.append(netCDF4_dataset_ensemble_member)
+            netCDF4_dataset_ensemble_members.append(netCDF4_dataset_ensemble_member)
 
     for time_idx in tqdm(range(len(input_timestamps)), desc=f"Processing samples"):
         current_date = inference_dataloader.dataset.get_current_ordinal_date(time_idx)
         date_str = date.fromordinal(current_date).strftime("%Y-%m-%d")
-        target, ensemble_mean, ensemble_std, ensemble_members = load_pt_batch(
-            pt_data_path, date_str, ensemble_size
-        )
+        if not deterministic:
+            target, ensemble_mean, ensemble_std, ensemble_members = load_pt_batch(
+                pt_data_path, date_str, ensemble_size, size, n_vars, deterministic
+            )
+        else:
+            target, ensemble_mean, _, _ = load_pt_batch(
+                pt_data_path, date_str, ensemble_size, size, n_vars, deterministic
+            )
         write_to_netCDF4(ensemble_mean, netCDF4_dataset_ensemble_mean, variable_standard_name, var_index, time_idx, input_timestamps)
-        write_to_netCDF4(ensemble_std, netCDF4_dataset_ensemble_std, variable_standard_name, var_index, time_idx, input_timestamps)
         write_to_netCDF4(target, netCDF4_dataset_target, variable_standard_name, var_index, time_idx, input_timestamps)
-        for ensemble_member_data, netCDF4_dataset_ensemble_member in zip(ensemble_members, netCDF4_dataset_ensemble_members):
-            write_to_netCDF4(ensemble_member_data, netCDF4_dataset_ensemble_member, variable_standard_name, var_index, time_idx, input_timestamps)
+        if not deterministic:
+            write_to_netCDF4(ensemble_std, netCDF4_dataset_ensemble_std, variable_standard_name, var_index, time_idx, input_timestamps)
+            for ensemble_member_data, netCDF4_dataset_ensemble_member in zip(ensemble_members, netCDF4_dataset_ensemble_members):
+                write_to_netCDF4(ensemble_member_data, netCDF4_dataset_ensemble_member, variable_standard_name, var_index, time_idx, input_timestamps)
 
     netCDF4_dataset_ensemble_mean.close()
-    netCDF4_dataset_ensemble_std.close()
     netCDF4_dataset_target.close()
-    for netCDF4_dataset_ensemble_member in netCDF4_dataset_ensemble_members:
-        netCDF4_dataset_ensemble_member.close()
+    if not deterministic:
+        netCDF4_dataset_ensemble_std.close()
+        for netCDF4_dataset_ensemble_member in netCDF4_dataset_ensemble_members:
+            netCDF4_dataset_ensemble_member.close()
     print("Done!")
 
 if __name__ == "__main__":

@@ -5,9 +5,10 @@ export HDF5_USE_FILE_LOCKING=FALSE
 REPO_PATH="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam"
 
 n_workers=16
-pt_data_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/230126/test_SI_r2"
-output_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/230126/test_SI_r2"
-model="SI" # SI or CorrDiff
+pt_data_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/230126/test_CorrDiff"
+output_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/230126/test_CorrDiff"
+data_config="neural_lam/clim_config.yaml"
+model="CorrDiff" # SI or CorrDiff
 ensemble_size=20
 var_index=0
 variable_name="pr"
@@ -18,7 +19,7 @@ apptainer exec \
   --bind ${REPO_PATH}:/opt/neural-lam \
   --pwd /opt/neural-lam \
   ~/neural-lam.sif python3 neural_lam/convert_to_netCDF.py \
-  --data_config neural_lam/clim_config.yaml \
+  --data_config "$data_config" \
   --model "$model" \
   --pt_data_path "$pt_data_path" \
   --output_path "$output_path" \
@@ -38,7 +39,7 @@ apptainer exec \
   --bind ${REPO_PATH}:/opt/neural-lam \
   --pwd /opt/neural-lam \
   ~/neural-lam.sif python3 neural_lam/convert_to_netCDF.py \
-  --data_config neural_lam/clim_config.yaml \
+  --data_config "$data_config" \
   --model "$model" \
   --pt_data_path "$pt_data_path" \
   --output_path "$output_path" \
