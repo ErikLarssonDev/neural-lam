@@ -97,8 +97,8 @@ def main(input_args=None):
     parser.add_argument(
         "--precision",
         type=str,
-        default=32,
-        help="Numerical precision to use for model (32/16/bf16) (default: 32)",
+        default="bf16-mixed",
+        help="Numerical precision to use for model (32/16/bf16/bf16-mixed) (default: bf16-mixed)",
     )
 
     # Model architecture
@@ -428,6 +428,12 @@ def main(input_args=None):
         type=str,
         default="EDM",
         help="Model to use for residual prediction in CorrDiff (EDM/SI) (default: EDM)",
+    )
+    parser.add_argument(
+        "--mean_model_ckpt_path",
+        type=str,
+        default="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/UNET_Static_50e-unet-6x128-12_12_16-6743/last.ckpt",
+        help="Path to checkpoint of mean model to load in CorrDiff (default: '')",
     )
 
     # Logger Settings

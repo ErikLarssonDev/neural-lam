@@ -28,7 +28,7 @@ class CorrDiff(ARModel):
     def __init__(self, args):
         super().__init__(args)
 
-        mean_ckpt_path = "/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/UNET_Static_50e-unet-6x128-12_12_16-6743/last.ckpt"
+        mean_ckpt_path = args.mean_model_ckpt_path
         # Loaded with checkpoint and frozen
         self.mean_model = UNET.load_from_checkpoint(mean_ckpt_path, args=args)
         self.ensemble_size = args.ensemble_size
