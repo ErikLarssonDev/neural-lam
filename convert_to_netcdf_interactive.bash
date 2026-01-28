@@ -5,11 +5,11 @@ export HDF5_USE_FILE_LOCKING=FALSE
 REPO_PATH="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam"
 
 n_workers=16
-pt_data_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/230126/test_SI"
-output_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/230126/testing/"
-data_config="neural_lam/clim_config.yaml"
-model="SI" # SI/CorrDiff/UNet
-ensemble_size=20
+pt_data_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/270126/test_UNet_small_r2"
+output_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/270126/test_UNet_small_r2"
+data_config="neural_lam/clim_config_r2.yaml"
+model="UNet" # SI/CorrDiff/UNet
+ensemble_size=5
 var_index=0
 variable_name="pr"
 variable_units="kg m-2"
@@ -30,7 +30,7 @@ apptainer exec \
   --variable_units "$variable_units" \
   --variable_standard_name "$variable_name" \
   --variable_long_name "$variable_name" \
-  #--deterministic
+  --deterministic
 
 var_index=1
 variable_name="tas"
@@ -51,5 +51,5 @@ apptainer exec \
   --variable_units "$variable_units" \
   --variable_standard_name "$variable_name" \
   --variable_long_name "$variable_name" \
-  #--deterministic
+  --deterministic
   
