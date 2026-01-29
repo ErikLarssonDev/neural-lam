@@ -2,10 +2,9 @@
 #SBATCH -J neural-lam
 #SBATCH -A NAISS2025-1-11 -p alvis
 #SBATCH -N 1 --gpus-per-node=A40:1
-#SBATCH -t 2-00:00:00
-#SBATCH --output=test_SI_cont.out
+#SBATCH -t 24:00:00
+#SBATCH --output=EDM_100.out
 
-#export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=1200
 export HDF5_USE_FILE_LOCKING=FALSE
 
 RUN_NAME="--wandb_run_name test_EDM_small"
@@ -14,14 +13,14 @@ RUN_NAME="--wandb_run_name test_EDM_small"
 cd /mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam
 
 # If we run on multiple GPUs, check so that we don't overwrite output from other runs.
-output_path="output/230126/test_EDM_small"
-ensemble_size=20 # 5 - val, 20 - test, should probably run 5 per GPU.
-sampler_steps=20
+output_path="output/280126/EDM_100"
+ensemble_size=5 # 5 - val, 20 - test, should probably run 5 per GPU.
+sampler_steps=100
 sampler="edm"
-batch_size=8
-n_workers=8
+batch_size=5
+n_workers=16
 diffusion_model="edm"
-model="EDM" 
+model="diffusion" 
 data_config="neural_lam/clim_config.yaml"
 
 mkdir -p $output_path
@@ -49,7 +48,7 @@ apptainer exec \
     --diffusion_model $diffusion_model \
     --output_path $output_path \
     --n_workers $n_workers \
-    --eval test \
+    --eval val \
     --batch_size $batch_size \
     --ensemble_size $ensemble_size \
     --sampler_steps $sampler_steps \

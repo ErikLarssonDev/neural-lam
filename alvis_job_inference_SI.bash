@@ -2,8 +2,8 @@
 #SBATCH -J neural-lam
 #SBATCH -A NAISS2025-1-11 -p alvis
 #SBATCH -N 1 --gpus-per-node=A100:1
-#SBATCH -t 4:00:00
-#SBATCH --output=val_SI_small_r2.out
+#SBATCH -t 14:00:00
+#SBATCH --output=SI_200.out
 
 export HDF5_USE_FILE_LOCKING=FALSE
 
@@ -13,15 +13,15 @@ RUN_NAME="--wandb_run_name test_SI_small"
 cd /mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam
 
 # If we run on multiple GPUs, check so that we don't overwrite output from other runs.
-output_path="output/270126/val_SI_small_r2"
+output_path="output/280126/SI_200"
 ensemble_size=5 # 5 - val, 20 - test, should probably run 5 per GPU.
-sampler_steps=40
+sampler_steps=200
 sampler="euler"
 batch_size=5
 n_workers=16
 diffusion_model="song_unet"
 model="SI"
-data_config="neural_lam/clim_config_r2.yaml"
+data_config="neural_lam/clim_config.yaml"
 
 mkdir -p $output_path
 cp alvis_job_inference_SI.bash $output_path

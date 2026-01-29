@@ -2,8 +2,8 @@
 #SBATCH -J neural-lam
 #SBATCH -A NAISS2025-1-11 -p alvis
 #SBATCH -N 1 --gpus-per-node=A100:1
-#SBATCH -t 4:00:00
-#SBATCH --output=val_CorrDiff_small_r2.out
+#SBATCH -t 16:00:00
+#SBATCH --output=CorrDiff_100.out
 
 export HDF5_USE_FILE_LOCKING=FALSE
 
@@ -13,15 +13,15 @@ RUN_NAME="--wandb_run_name test_CorrDiff"
 cd /mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam
 
 # If we run on multiple GPUs, check so that we don't overwrite output from other runs.
-output_path="output/270126/val_CorrDiff_small_r2"
+output_path="output/280126/CorrDiff_100"
 ensemble_size=5 # 5 - val, 20 - test, should probably run 5 per GPU.
-sampler_steps=20
+sampler_steps=50
 sampler="edm"
 batch_size=5
 n_workers=16
 diffusion_model="edm"
 model="CorrDiff"
-data_config="neural_lam/clim_config_r2.yaml"
+data_config="neural_lam/clim_config.yaml"
 
 mkdir -p $output_path
 cp alvis_job_inference_CorrDiff.bash $output_path
