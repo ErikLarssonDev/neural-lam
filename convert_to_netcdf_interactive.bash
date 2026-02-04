@@ -10,6 +10,7 @@ output_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/2
 data_config="neural_lam/clim_config.yaml"
 model="SI" # SI/CorrDiff/UNet
 ensemble_size=20
+
 var_index=0
 variable_name="pr"
 variable_units="kg m-2"

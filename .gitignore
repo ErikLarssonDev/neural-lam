@@ -21,6 +21,16 @@ samples
 predictions
 output/
 diffusion_steps/
+output*/
+*.npy
+*.ckpt
+*.pth
+*.pt
+*.log
+*.csv
+*.tex
+*.pdf
+*.png
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
