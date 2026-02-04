@@ -57,7 +57,7 @@ class SI(ARModel):
         self.data_std = 1
 
         if args.diffusion_model == 'song_unet':
-            self.model = SongUNet(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
+            self.model = SongUNet(img_resolution=torch.as_tensor(self.config_loader.dataset.FULL_GRID_SHAPE),
                                   in_channels=self.grid_dim,
                                   out_channels=self.grid_output_dim,
                                   embedding_type=args.noise_embedding,
@@ -662,6 +662,7 @@ class SI(ARModel):
                         ens_std_t[:, var_i],
                         title=f"{var_name} ({var_unit}), {time_title_part}",
                         vrange=var_vrange,
+                        data_config=self.config_loader,
                     )
                     for var_i, (var_name, var_unit, var_vrange) in enumerate(
                         zip(

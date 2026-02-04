@@ -493,6 +493,7 @@ class CorrDiff(ARModel):
                         ens_std_t[:, var_i],
                         title=f"{var_name} ({var_unit}), {time_title_part}",
                         vrange=var_vrange,
+                        data_config=self.config_loader,
                     )
                     for var_i, (var_name, var_unit, var_vrange) in enumerate(
                         zip(

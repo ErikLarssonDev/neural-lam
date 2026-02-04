@@ -202,7 +202,7 @@ def main(input_args=None):
         type=str,
         default="edm",
         help="The sampler to use when generating trajectories with a diffusion model"
-        "(heun/edm) (default: heun)",
+        "(heun/edm) (default: edm)",
     )
 
     # Training options
@@ -479,7 +479,7 @@ def main(input_args=None):
     args.var_leads_metrics_watch = {
         int(k): v for k, v in json.loads(args.var_leads_metrics_watch).items()
     }
-
+    print(f"Loading data config from: {args.data_config}")
     config_loader = config.Config.from_file(args.data_config)
 
     # Asserts for arguments
@@ -514,6 +514,7 @@ def main(input_args=None):
             upscale_inputs=config_loader.dataset.upscale_inputs,
             static_fields_files=config_loader.dataset.static_fields_files,
             interpolation_mode=config_loader.dataset.interpolation_mode,
+            coordinate_names=config_loader.dataset.coordinate_names,
             provide_coordinates=config_loader.dataset.provide_coordinates,
             provide_day_of_year=config_loader.dataset.provide_day_of_year
         ),
@@ -538,6 +539,7 @@ def main(input_args=None):
             upscale_inputs=config_loader.dataset.upscale_inputs,
             static_fields_files=config_loader.dataset.static_fields_files,
             interpolation_mode=config_loader.dataset.interpolation_mode,
+            coordinate_names=config_loader.dataset.coordinate_names,
             provide_coordinates=config_loader.dataset.provide_coordinates,
             provide_day_of_year=config_loader.dataset.provide_day_of_year
         ),
@@ -652,6 +654,7 @@ def main(input_args=None):
                     upscale_inputs=config_loader.dataset.upscale_inputs,
                     static_fields_files=config_loader.dataset.static_fields_files,
                     interpolation_mode=config_loader.dataset.interpolation_mode,
+                    coordinate_names=config_loader.dataset.coordinate_names,
                     provide_coordinates=config_loader.dataset.provide_coordinates,
                     provide_day_of_year=config_loader.dataset.provide_day_of_year
                 ),

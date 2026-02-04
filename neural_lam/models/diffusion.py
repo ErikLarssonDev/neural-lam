@@ -107,7 +107,7 @@ class Diffusion(ARModel):
         input_grid = LQ
         latents = torch.randn([LQ.shape[0], self.grid_output_dim, *
                               # (B, N_grid, d_state)
-                               constants.FULL_GRID_SHAPE], device=LQ.device)
+                               self.config_loader.dataset.FULL_GRID_SHAPE], device=LQ.device)
 
         # Run through sampler
         if self.sampler == "heun":
@@ -498,7 +498,8 @@ class Diffusion(ARModel):
                         ens_mean_t[:, var_i],
                         ens_std_t[:, var_i],
                         title=f"{var_name} ({var_unit}), {time_title_part}",
-                        # vrange=var_vrange,
+                        vrange=var_vrange,
+                        data_config=self.config_loader,
                     )
                     for var_i, (var_name, var_unit, var_vrange) in enumerate(
                         zip(

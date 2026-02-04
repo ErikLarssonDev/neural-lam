@@ -1,0 +1,99 @@
+dataset:
+  train_start_date: 1961-01-01
+  train_end_date: 1976-12-31 
+  validation_start_date: 1977-01-01
+  validation_end_date: 1980-12-31 
+  input_path: /mimer/NOBACKUP/groups/mlhighres/data/CORDEX/ALPS_domain/train/ESD_pseudo_reality/predictors/separate_vars/standardized_global
+  levels: []
+  input_files: [
+    'standardized.q_500_CNRM-CM5_1961-1980.nc',
+    'standardized.q_700_CNRM-CM5_1961-1980.nc',
+    'standardized.q_850_CNRM-CM5_1961-1980.nc',
+    'standardized.t_500_CNRM-CM5_1961-1980.nc',
+    'standardized.t_700_CNRM-CM5_1961-1980.nc',
+    'standardized.t_850_CNRM-CM5_1961-1980.nc',
+    'standardized.u_500_CNRM-CM5_1961-1980.nc',
+    'standardized.u_700_CNRM-CM5_1961-1980.nc',
+    'standardized.u_850_CNRM-CM5_1961-1980.nc',
+    'standardized.v_500_CNRM-CM5_1961-1980.nc',
+    'standardized.v_700_CNRM-CM5_1961-1980.nc',
+    'standardized.v_850_CNRM-CM5_1961-1980.nc',
+    'standardized.z_500_CNRM-CM5_1961-1980.nc',
+    'standardized.z_700_CNRM-CM5_1961-1980.nc',
+    'standardized.z_850_CNRM-CM5_1961-1980.nc',
+    ]
+  ground_truth_path: /mimer/NOBACKUP/groups/mlhighres/data/CORDEX/ALPS_domain/train/ESD_pseudo_reality/target/separate_vars/standardized_global
+  ground_truth_files: [
+    'standardized.pr_CNRM-CM5_1961-1980.nc',
+    'standardized.tasmax_CNRM-CM5_1961-1980.nc'
+    ]
+  ground_truth_stats_path: ''
+  save_path: /mimer/NOBACKUP/groups/mlhighres/projects/CORDEX-ML/neural-lam/ALPS/ESD_pseudo_reality/global_std/orog 
+  normalize_ground_truth: False # The data on the files is already standardized
+  upscale_inputs: True
+  static_fields_files: ['standardized.orog_ALPS.nc',]
+  interpolation_mode: 'bicubic'
+  coordinate_names: ['x', 'y'] # ['lat', 'lon']
+  provide_coordinates: True
+  provide_day_of_year: True
+  name: clim
+  downscaling_idx: [2,5] # picking q_850 and t_850 as the closest to pr and tasmax (downscaling targets)
+  var_names:
+    - q_500
+    - q_700
+    - q_850
+    - t_500
+    - t_700
+    - t_850
+    - u_500
+    - u_700
+    - u_850
+    - v_500
+    - v_700
+    - v_850
+    - z_500
+    - z_700
+    - z_850
+  var_units: 
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+  var_longnames:
+    - humidity_500
+    - humidity_700
+    - humidity_850
+    - temperature_500
+    - temperature_700
+    - temperature_850
+    - wind_u_500
+    - wind_u_700
+    - wind_u_850
+    - wind_v_500
+    - wind_v_700
+    - wind_v_850
+    - geopotential_height_500
+    - geopotential_height_700
+    - geopotential_height_850
+
+  num_forcing_features: 0 # TODO: Update this, all inputs that are not in the output is considered forcing
+  num_static_features: 5 # TODO: Update this, land-sea mask, orography, etc.
+  FULL_GRID_SHAPE: [128, 128] # TODO: Update this
+# TODO: NOTE: We don't need a projection here, as the data is already in a regular grid.
+# projection:
+#   class: LambertConformal
+#   kwargs:
+#     central_longitude: 15.0
+#     central_latitude: 63.3
+#     standard_parallels: [63.3, 63.3]

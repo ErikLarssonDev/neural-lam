@@ -72,6 +72,7 @@ def plot_error_map(errors, data_config, title=None, step_length=3):
 def plot_on_axis(
     ax,
     data,
+    data_config,
     vmin=None,
     vmax=None,
     ax_title=None,
@@ -87,8 +88,7 @@ def plot_on_axis(
 
     # ax.coastlines()  # Add coastline outlines
     im = ax.imshow(
-        data.reshape(
-            *constants.FULL_GRID_SHAPE).to(torch.float32).cpu().numpy(),
+        data.reshape(*data_config.dataset.FULL_GRID_SHAPE).cpu().numpy(),
         origin="lower",
         vmin=vmin,
         vmax=vmax,
@@ -133,7 +133,7 @@ def plot_prediction(
     # Plot pred and target
     for ax, data in zip(axes, (target, pred)):
         im = plot_on_axis(
-            ax, data, vmin, vmax,  # grid_limits=grid_limits
+            ax, data, vmin, vmax, data_config=data_config  # grid_limits=grid_limits
         )
 
     # Ticks and labels
@@ -150,7 +150,7 @@ def plot_prediction(
 
 @matplotlib.rc_context(utils.fractional_plot_bundle(1))
 def plot_ensemble_prediction(
-    init, samples, target, ens_mean, ens_std, title=None, vrange=None
+    init, samples, target, ens_mean, ens_std, data_config, title=None, vrange=None,
 ):
     """
     Plot example predictions, ground truth, mean and std.-dev.
@@ -187,6 +187,7 @@ def plot_ensemble_prediction(
         vmin=vmin,
         vmax=vmax,
         ax_title="Ground Truth",
+        data_config=data_config,
     )
 
     plot_on_axis(
@@ -195,11 +196,13 @@ def plot_ensemble_prediction(
         vmin=vmin,
         vmax=vmax,
         ax_title="Ens. Mean",
+        data_config=data_config,
     )
     std_im = plot_on_axis(
         axes[2],
         ens_std,
-        ax_title="Ens. Std."
+        ax_title="Ens. Std.",
+        data_config=data_config,
     )  # Own vrange
 
     plot_on_axis(
@@ -208,6 +211,7 @@ def plot_ensemble_prediction(
         vmin=vmin,
         vmax=vmax,
         ax_title="Low-Res. Init.",
+        data_config=data_config,
     )
 
     # Plot samples
@@ -220,6 +224,7 @@ def plot_ensemble_prediction(
             vmin=vmin,
             vmax=vmax,
             ax_title=f"Member {member_i}",
+            data_config=data_config,
         )
 
     # Turn off unused axes

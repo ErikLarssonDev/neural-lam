@@ -109,7 +109,7 @@ import numpy as np
 # Hard coded for now, but should eventually be part of dataset desc. files
 # GRID_SHAPE = (268, 238) # (268, 238), for CNN (256, 232)  # (y, x)
 # GRID_SHAPE = (248, 218)  # (y, x) without border
-FULL_GRID_SHAPE = (400, 550)
+# FULL_GRID_SHAPE = (400, 550)
 
 # LAMBERT_PROJ_PARAMS = {
 #     "a": 6367470,

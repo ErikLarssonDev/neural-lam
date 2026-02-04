@@ -14,7 +14,7 @@ from collections import OrderedDict
 import torch.nn as nn
 # from torch_utils import persistence
 from torch.nn.functional import silu
-from neural_lam import utils, constants, config
+from neural_lam import config
 
 # ----------------------------------------------------------------------------
 # Unified routine for initializing weights and biases.
