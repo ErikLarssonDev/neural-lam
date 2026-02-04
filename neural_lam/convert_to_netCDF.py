@@ -27,23 +27,37 @@ def destandardize(
 
 def load_pt_batch(
         pt_data_path, date_str, ensemble_size, size=(400, 550), n_vars=2, deterministic=False):
-    target = destandardize(
-        torch.load(f'{pt_data_path}/target_{date_str}.pt').numpy().reshape(size[0], size[1], n_vars))
-    ensemble_mean = destandardize(
-        torch.load(f'{pt_data_path}/ens_mean_{date_str}.pt').numpy().reshape(size[0], size[1], n_vars))
-    if not deterministic:
-        ensemble_std = destandardize(
-            torch.load(f'{pt_data_path}/ens_std_{date_str}.pt').numpy().reshape(size[0], size[1], n_vars), std_dataset=True)
-        ensemble_members = []
-        for ensemble_index in range(ensemble_size):
-            ensemble_member = destandardize(
-                torch.load(f'{pt_data_path}/member_{ensemble_index}_{date_str}.pt').numpy().reshape(size[0], size[1], n_vars))
-            ensemble_members.append(ensemble_member)
+
+    def load_and_cast(file_path):
+        """Load a PyTorch tensor and cast to float32 if needed, then convert to numpy."""
+        tensor = torch.load(file_path)
+        if tensor.dtype == torch.bfloat16:
+            tensor = tensor.to(torch.float32)
+        return tensor.numpy().reshape(size[0], size[1], n_vars)
+
+    # Load target
+    target = destandardize(load_and_cast(f'{pt_data_path}/target_{date_str}.pt'))
+
+    # Load ensemble mean
+    ensemble_mean = destandardize(load_and_cast(f'{pt_data_path}/ens_mean_{date_str}.pt'))
+
+    ensemble_std = None
+    ensemble_members = []
 
     if not deterministic:
-        return target, ensemble_mean, ensemble_std, ensemble_members
-    else:
-        return target, ensemble_mean, None, None
+        # Load ensemble std
+        ensemble_std = destandardize(
+            load_and_cast(f'{pt_data_path}/ens_std_{date_str}.pt'),
+            std_dataset=True
+        )
+
+        # Load all ensemble members
+        for ensemble_index in range(ensemble_size):
+            member_file = f'{pt_data_path}/member_{ensemble_index}_{date_str}.pt'
+            ensemble_member = destandardize(load_and_cast(member_file))
+            ensemble_members.append(ensemble_member)
+
+    return target, ensemble_mean, ensemble_std, ensemble_members
 
 def write_to_netCDF4(data, netCDF4_dataset, variable_standard_name, var_index, time_idx, input_timestamps):
     for var_name in netCDF4_dataset.variables:

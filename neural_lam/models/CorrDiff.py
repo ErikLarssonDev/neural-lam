@@ -532,7 +532,7 @@ class CorrDiff(ARModel):
         ens_mse_batch: (B, d_f)
         """
         # Compute and store metrics for ensemble forecast
-        LQ, HQ = batch["LQ"], batch["HQ"]
+        LQ, HQ, date_ordinal = batch["LQ"], batch["HQ"], batch["date"]
 
         target_states = HQ.permute(0, 2, 3, 1).contiguous().flatten(
             1, 2).unsqueeze(1)  # (B, pred_steps, d_f)
@@ -566,6 +566,7 @@ class CorrDiff(ARModel):
             target_states,
             spread_squared_batch,
             ens_mse_batch,
+            date_ordinal
         )
 
     def validation_step(self, batch, batch_idx):
@@ -604,6 +605,7 @@ class CorrDiff(ARModel):
                 target_states,
                 spread_squared_batch,
                 ens_mse_batch,
+                date_ordinal
             ) = self.ensemble_common_step(batch)
 
             self.val_metrics["spread_squared"].append(spread_squared_batch)
@@ -694,6 +696,7 @@ class CorrDiff(ARModel):
             target_states,
             spread_squared_batch,
             ens_mse_batch,
+            date_ordinal
         ) = self.ensemble_common_step(batch)
         self.test_metrics["spread_squared"].append(spread_squared_batch)
         self.test_metrics["ens_mse"].append(ens_mse_batch)
@@ -723,15 +726,43 @@ class CorrDiff(ARModel):
         )  # (B, pred_steps, d_f)
         self.test_metrics["crps_ens"].append(crps_batch)
 
+        if self.save_output:
+            dates = []
+            for date in date_ordinal:
+                dates.append(datetime.date.fromordinal(date).strftime("%Y-%m-%d"))
+            
+            if self.trainer.is_global_zero:
+                os.makedirs(self.output_path, exist_ok=True)
+
+            # Iterate over the examples
+            for traj_slice, target_slice, ens_mean_slice, ens_std_slice, date in zip(
+                trajectories,
+                target_states,
+                ens_mean,
+                ens_std,
+                dates
+            ):
+                # Save predictions to the output folder
+                print(f"Saving sample from {date} to {self.output_path}")
+                print(f"Shape of ens_mean_slice: {ens_mean_slice.shape}")
+                torch.save(ens_mean_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_mean_{date}.pt")
+                torch.save(ens_std_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_std_{date}.pt")
+
+                for ensemble_member in range(len(traj_slice)):
+                    tensor_to_save = traj_slice[ensemble_member].detach().cpu().contiguous()
+                    torch.save(tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
+
+                torch.save(target_slice.detach().cpu().contiguous(), f"{self.output_path}/target_{date}.pt")
+
         # Plot example predictions on every rank
         # Need to plot more example predictions
         #n_additional_examples = min(
         #    trajectories.shape[0], self.n_example_pred - self.plotted_examples
         #)
 
-        self.plot_examples(
-            batch, prediction=trajectories
-        )
+        #self.plot_examples(
+        #    batch, prediction=trajectories
+        #)
 
     def on_test_epoch_end(self):
         """

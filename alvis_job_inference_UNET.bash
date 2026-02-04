@@ -1,11 +1,10 @@
 #!/bin/bash
 #SBATCH -J neural-lam
 #SBATCH -A NAISS2025-1-11 -p alvis
-#SBATCH -N 1 --gpus-per-node=A40:1
-#SBATCH -t 2-00:00:00
-#SBATCH --output=test_SI_cont.out
+#SBATCH -N 1 --gpus-per-node=A100:1
+#SBATCH -t 01:00:00
+#SBATCH --output=val_UNet_small_r2.out
 
-#export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=1200
 export HDF5_USE_FILE_LOCKING=FALSE
 
 RUN_NAME="--wandb_run_name UNET_small"
@@ -13,11 +12,11 @@ RUN_NAME="--wandb_run_name UNET_small"
 # Switch to the correct directory
 cd /mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam
 
-output_path="output/230126/test_UNET_small"
-batch_size=8
-n_workers=8
+output_path="output/270126/val_UNet_small_r2"
+batch_size=5
+n_workers=16
 model="unet"
-data_config="neural_lam/clim_config.yaml"
+data_config="neural_lam/clim_config_r2.yaml"
 
 mkdir -p $output_path
 cp alvis_job_inference_UNET.bash $output_path
@@ -43,7 +42,7 @@ apptainer exec \
     --data_config $data_config \
     --output_path $output_path \
     --n_workers $n_workers \
-    --eval test \
+    --eval val \
     --batch_size $batch_size \
     --load $UNET_xsmall_25e \
     --hidden_dim 32 \

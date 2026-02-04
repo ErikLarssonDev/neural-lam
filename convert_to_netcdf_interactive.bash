@@ -5,8 +5,8 @@ export HDF5_USE_FILE_LOCKING=FALSE
 REPO_PATH="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam"
 
 n_workers=16
-pt_data_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/230126/test_SI"
-output_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/230126/testing/"
+pt_data_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/280126/EDM_20"
+output_path="/mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam/output/280126/EDM_20"
 data_config="neural_lam/clim_config.yaml"
 model="SI" # SI/CorrDiff/UNet
 ensemble_size=20
