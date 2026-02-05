@@ -52,6 +52,7 @@ def mask_and_reduce_metric(metric_entry_vals, mask, average_grid, sum_vars):
 
     return metric_entry_vals
 
+
 def wmse(pred, target, pred_std, mask=None, average_grid=True, sum_vars=True, **kwargs):
     """
     Weighted Mean Squared Error
@@ -291,7 +292,7 @@ def crps_ens(
         # This is the rank-based implementation with O(M*log(M)) compute and
         # O(M) memory. See Zamo and Naveau and WB2 for explanation.
         # For smaller ensemble we can compute all of this directly in memory.
-        
+
         mean_mae = torch.mean(
             torch.abs(pred - target.unsqueeze(ens_dim)), dim=ens_dim
         )  # (..., N, d_state)

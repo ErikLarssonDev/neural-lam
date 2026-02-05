@@ -8,6 +8,7 @@ import wandb
 import copy
 import math
 import time
+import datetime
 import os
 
 from neural_lam.models.ar_model import ARModel
@@ -43,6 +44,7 @@ class Diffusion(ARModel):
         self.sigma_data = 1
         self.rho = 7
         self.sampler = args.sampler
+        self.output_path = args.output_path
         self.save_output = args.save_output
         self.save_output_wandb = args.save_output_wandb
         self.sampler_steps = args.sampler_steps
@@ -123,8 +125,10 @@ class Diffusion(ARModel):
             self.plot_diffusion_steps(diff_states, LQ)
 
         # Add residual if needed
-        if self.pred_residual:
-            print(f"Pred residual is not supported as we don't have the residual/normalization in the training data")
+        if self.pred_residual and self.args.model != 'CorrDiff':
+            next_state = next_state + \
+                LQ[:, self.config_loader.dataset.downscaling_idx, ...]
+            #     print(f"Pred residual is not supported as we don't have the residual/normalization in the training data")
             # next_state = (next_state * self.step_diff_std[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1)) + self.step_diff_mean[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1) # Unormalize residual
             # next_state = LQ + next_state
 
@@ -154,9 +158,11 @@ class Diffusion(ARModel):
 
         # TODO: Pred residual is not supported as we don't have the residual/normalization in the training data
         # Make y residual if needed
-        if self.pred_residual:
-            raise NotImplementedError(
-                "Pred residual is not supported as we don't have the residual/normalization in the training data")
+        if self.pred_residual and self.args.model != 'CorrDiff':
+            y = HQ - LQ[:, self.config_loader.dataset.downscaling_idx, ...]
+        # if self.pred_residual:
+        #     raise NotImplementedError(
+        #         "Pred residual is not supported as we don't have the residual/normalization in the training data")
         #     y = HQ - LQ
         #     y = (y - self.step_diff_mean[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1)) / self.step_diff_std[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1) # Normalize residual
 
@@ -167,9 +173,9 @@ class Diffusion(ARModel):
         next_state = self.forward(noisy_input, sigma, input_grid)
 
         # Add residual if needed
-        # if self.pred_residual:
-        #     next_state = (next_state * self.step_diff_std[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1)) + self.step_diff_mean[constants.USED_PARAMS].view(1, len(constants.USED_PARAMS), 1, 1) # Unormalize residual
-        #     next_state = LQ + next_state
+        if self.pred_residual and self.args.model != 'CorrDiff':
+            next_state = next_state + \
+                LQ[:, self.config_loader.dataset.downscaling_idx, ...]
 
         weight = (sigma ** 2 + self.sigma_data ** 2) / \
             (sigma * self.sigma_data) ** 2
@@ -413,19 +419,20 @@ class Diffusion(ARModel):
             self.plotted_examples += 1  # Increment already here
 
             # Save slices to wandb
-            os.makedirs("output", exist_ok=True)
+            output_dir = f"output/{wandb.run.name}"
+            os.makedirs(output_dir, exist_ok=True)
 
             # TODO: Check that the saving is correct, we want to save one sample and not the entire batch
             # Save predictions to the output folder
             if self.save_output:
                 torch.save(
-                    ens_mean_slice[0], f"output/example_ens_mean_{self.plotted_examples}.pt")
+                    ens_mean_slice[0], f"{output_dir}/example_ens_mean_{self.plotted_examples}.pt")
                 torch.save(
-                    ens_std_slice[0], f"output/example_ens_std_{self.plotted_examples}.pt")
+                    ens_std_slice[0], f"{output_dir}/example_ens_std_{self.plotted_examples}.pt")
                 torch.save(
-                    traj_slice[0], f"output/example_ens_members_{self.plotted_examples}.pt")
+                    traj_slice[0], f"{output_dir}/example_ens_members_{self.plotted_examples}.pt")
                 torch.save(
-                    target_slice[0], f"output/example_target_{self.plotted_examples}.pt")
+                    target_slice[0], f"{output_dir}/example_target_{self.plotted_examples}.pt")
 
                 # Save files to wandb
                 if self.save_output_wandb:
@@ -531,7 +538,7 @@ class Diffusion(ARModel):
         ens_mse_batch: (B, d_f)
         """
         # Compute and store metrics for ensemble forecast
-        LQ, HQ = batch["LQ"], batch["HQ"]
+        LQ, HQ, date_ordinal = batch["LQ"], batch["HQ"], batch["date"]
 
         target_states = HQ.permute(0, 2, 3, 1).contiguous().flatten(
             1, 2).unsqueeze(1)  # (B, pred_steps, d_f)
@@ -565,6 +572,7 @@ class Diffusion(ARModel):
             target_states,
             spread_squared_batch,
             ens_mse_batch,
+            date_ordinal
         )
 
     def validation_step(self, batch, batch_idx):
@@ -606,6 +614,7 @@ class Diffusion(ARModel):
                 target_states,
                 spread_squared_batch,
                 ens_mse_batch,
+                date_ordinal
             ) = self.ensemble_common_step(batch)
 
             self.val_metrics["spread_squared"].append(spread_squared_batch)
@@ -696,6 +705,7 @@ class Diffusion(ARModel):
             target_states,
             spread_squared_batch,
             ens_mse_batch,
+            date_ordinal
         ) = self.ensemble_common_step(batch)
         self.test_metrics["spread_squared"].append(spread_squared_batch)
         self.test_metrics["ens_mse"].append(ens_mse_batch)
@@ -724,6 +734,34 @@ class Diffusion(ARModel):
             sum_vars=False,
         )  # (B, pred_steps, d_f)
         self.test_metrics["crps_ens"].append(crps_batch)
+
+        if self.save_output:
+            dates = []
+            for date in date_ordinal:
+                dates.append(datetime.date.fromordinal(date).strftime("%Y-%m-%d"))
+            
+            if self.trainer.is_global_zero:
+                os.makedirs(self.output_path, exist_ok=True)
+
+            # Iterate over the examples
+            for traj_slice, target_slice, ens_mean_slice, ens_std_slice, date in zip(
+                trajectories,
+                target_states,
+                ens_mean,
+                ens_std,
+                dates
+            ):
+                # Save predictions to the output folder
+                print(f"Saving sample from {date} to {self.output_path}")
+                print(f"Shape of ens_mean_slice: {ens_mean_slice.shape}")
+                torch.save(ens_mean_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_mean_{date}.pt")
+                torch.save(ens_std_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_std_{date}.pt")
+
+                for ensemble_member in range(len(traj_slice)):
+                    tensor_to_save = traj_slice[ensemble_member].detach().cpu().contiguous()
+                    torch.save(tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
+
+                torch.save(target_slice.detach().cpu().contiguous(), f"{self.output_path}/target_{date}.pt")
 
         # Plot example predictions (on rank 0 only)
         if (

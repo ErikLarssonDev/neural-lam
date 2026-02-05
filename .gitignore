@@ -1,4 +1,6 @@
 ### Project Specific ###
+neural_lam/.ipynb_checkpoints/
+*out
 wandb
 slurm_log*
 saved_models
@@ -19,6 +21,16 @@ samples
 predictions
 output/
 diffusion_steps/
+output*/
+*.npy
+*.ckpt
+*.pth
+*.pt
+*.log
+*.csv
+*.tex
+*.pdf
+*.png
 *.out
 
 ### Python ###
@@ -94,3 +106,6 @@ tags
 .pdm-python
 # exclude pdm.lock file so that both cpu and gpu versions of torch will be accepted by pdm
 pdm.lock
+
+# jupyter
+.ipynb_checkpoints/*

@@ -36,7 +36,6 @@ MODELS = {
     "CorrDiff": CorrDiff,
 }
 
-
 def list_of_ints(arg):
     return list(map(int, arg.split(',')))
 
@@ -98,8 +97,8 @@ def main(input_args=None):
     parser.add_argument(
         "--precision",
         type=str,
-        default=32,
-        help="Numerical precision to use for model (32/16/bf16) (default: 32)",
+        default="bf16-mixed",
+        help="Numerical precision to use for model (32/16/bf16/bf16-mixed) (default: bf16-mixed)",
     )
 
     # Model architecture
@@ -302,6 +301,12 @@ def main(input_args=None):
         default=0.005,
         help="Eps for IR-SDE. (default: 0.005)",
     )
+    parser.add_argument(
+        "--keep_cond",
+        action="store_true",
+        help="If the conditioning should be kept during training of IR-SDE/SI "
+        "(default: False)",
+    )
 
     # EDM Options
     # resample_filter=args.resample_filter,
@@ -382,15 +387,53 @@ def main(input_args=None):
         help="If the model output should be saved to the output folder (default: False)",
     )
     parser.add_argument(
+        "--output_path",
+        type=str,
+        default="output",
+        help="Path to the saved output (default: 'output')",
+    )
+    parser.add_argument(
         "--save_steps",
         action="store_true",
         help="If the diffusion steps output of 1 sample should be saved to the folder diffusion_steps (default: False)",
+    )
+    parser.add_argument(
+        "--beta_fn",
+        type=str,
+        default="t^2",
+        help="Beta function to use in diffusion model (linear/t^2) (default: t^2)",
     )
     parser.add_argument(
         "--sigma_coef",
         type=float,
         default=1,
         help="Sigma coefficient for stochatic interpolants (default: 1)",
+    )
+    parser.add_argument(
+        "--sigma_coef_sampling",
+        type=float,
+        default=1,
+        help="Sigma coefficient for stochatic interpolants during sampling (default: 1)",
+    )
+    parser.add_argument(
+        "--diffusion_fn",
+        type=str,
+        default=None,
+        help="Diffusion function to use in stochastic interpolants during sampling (g_sigma/g_sigma_pow4) (default: None (use trained one))",
+    )
+
+    # CorrDiff options
+    parser.add_argument(
+        "--residual_model",
+        type=str,
+        default="EDM",
+        help="Model to use for residual prediction in CorrDiff (EDM/SI) (default: EDM)",
+    )
+    parser.add_argument(
+        "--mean_model_ckpt_path",
+        type=str,
+        default="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/UNET_Static_50e-unet-6x128-12_12_16-6743/last.ckpt",
+        help="Path to checkpoint of mean model to load in CorrDiff (default: '')",
     )
 
     # Logger Settings
@@ -432,6 +475,7 @@ def main(input_args=None):
     )
 
     args = parser.parse_args(input_args)
+    print(args)
     args.var_leads_metrics_watch = {
         int(k): v for k, v in json.loads(args.var_leads_metrics_watch).items()
     }
@@ -582,6 +626,7 @@ def main(input_args=None):
 
     # Only init once, on rank 0 only
     if trainer.global_rank == 0:
+        print("Initializing wandb metrics...")
         utils.init_wandb_metrics(
             logger, args.val_steps_to_log
         )  # Do after wandb.init
@@ -595,8 +640,8 @@ def main(input_args=None):
         else:  # Test
             eval_loader = torch.utils.data.DataLoader(
                 NetCDFDataset(
-                    start_date=config_loader.dataset.validation_start_date,
-                    end_date=config_loader.dataset.validation_end_date,
+                    start_date=config_loader.dataset.test_start_date,
+                    end_date=config_loader.dataset.test_end_date,
                     input_path=config_loader.dataset.input_path,
                     input_files=config_loader.dataset.input_files,
                     ground_truth_path=config_loader.dataset.ground_truth_path,
