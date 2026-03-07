@@ -28,9 +28,14 @@ class CorrDiff(ARModel):
     def __init__(self, args):
         super().__init__(args)
 
-        mean_ckpt_path = args.mean_model_ckpt_path
-        # Loaded with checkpoint and frozen
-        self.mean_model = UNET.load_from_checkpoint(mean_ckpt_path, args=args)
+        if args.mean_model_ckpt_path is None:
+            self.mean_model = UNET(args)
+            print(f"WARNING! No checkpoint given for UNET!")
+        else:
+            mean_ckpt_path = args.mean_model_ckpt_path
+            # Loaded with checkpoint and frozen
+            self.mean_model = UNET.load_from_checkpoint(
+                mean_ckpt_path, args=args)
         self.ensemble_size = args.ensemble_size
         self.save_output = args.save_output
         self.output_path = args.output_path
@@ -355,7 +360,6 @@ class CorrDiff(ARModel):
             trajectories = prediction
         # (B, S, pred_steps, num_grid_nodes, d_f)
 
-
         initial_states = LQ.permute(0, 2, 3, 1).contiguous().flatten(
             1, 2).unsqueeze(1)  # (B, 1, num_grid_nodes, d_f)
         target_states = HQ.permute(
@@ -402,14 +406,19 @@ class CorrDiff(ARModel):
             if self.save_output:
                 print(f"Saving sample from {date} to {self.output_path}")
                 print(f"Shape of ens_mean_slice: {ens_mean_slice.shape}")
-                torch.save(ens_mean_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_mean_{date}.pt")
-                torch.save(ens_std_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_std_{date}.pt")
+                torch.save(ens_mean_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/ens_mean_{date}.pt")
+                torch.save(ens_std_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/ens_std_{date}.pt")
 
                 for ensemble_member in range(len(traj_slice)):
-                    tensor_to_save = traj_slice[ensemble_member].detach().cpu().contiguous()
-                    torch.save(tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
+                    tensor_to_save = traj_slice[ensemble_member].detach(
+                    ).cpu().contiguous()
+                    torch.save(
+                        tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
 
-                torch.save(target_slice.detach().cpu().contiguous(), f"{self.output_path}/target_{date}.pt")
+                torch.save(target_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/target_{date}.pt")
 
                 # Save files to wandb
                 if self.save_output_wandb:
@@ -636,16 +645,16 @@ class CorrDiff(ARModel):
             self.val_metrics["crps_ens"].append(crps_batch)
 
             # Plot example predictions (on rank 0 only)
-            #if self.trainer.is_global_zero:
-            #    self.plot_examples(
-            #        batch,
-            #        1,
-            #        prediction=trajectories,
-            #        # Only plot 1 step ahead during validation
-            #        # lead_times_to_plot=constants.VAL_PLOT_STEPS,
-            #    )
-            #    # Decrease counter, we don't want to increase it in the validation step
-            #    self.plotted_examples -= 1
+            if self.trainer.is_global_zero:
+                self.plot_examples(
+                    batch,
+                    1,
+                    prediction=trajectories,
+                    # Only plot 1 step ahead during validation
+                    # lead_times_to_plot=constants.VAL_PLOT_STEPS,
+                )
+                # Decrease counter, we don't want to increase it in the validation step
+                self.plotted_examples -= 1
 
     def log_spsk_ratio(self, metric_vals, prefix):
         """
@@ -730,8 +739,9 @@ class CorrDiff(ARModel):
         if self.save_output:
             dates = []
             for date in date_ordinal:
-                dates.append(datetime.date.fromordinal(date).strftime("%Y-%m-%d"))
-            
+                dates.append(datetime.date.fromordinal(
+                    date).strftime("%Y-%m-%d"))
+
             if self.trainer.is_global_zero:
                 os.makedirs(self.output_path, exist_ok=True)
 
@@ -746,24 +756,29 @@ class CorrDiff(ARModel):
                 # Save predictions to the output folder
                 print(f"Saving sample from {date} to {self.output_path}")
                 print(f"Shape of ens_mean_slice: {ens_mean_slice.shape}")
-                torch.save(ens_mean_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_mean_{date}.pt")
-                torch.save(ens_std_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_std_{date}.pt")
+                torch.save(ens_mean_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/ens_mean_{date}.pt")
+                torch.save(ens_std_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/ens_std_{date}.pt")
 
                 for ensemble_member in range(len(traj_slice)):
-                    tensor_to_save = traj_slice[ensemble_member].detach().cpu().contiguous()
-                    torch.save(tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
+                    tensor_to_save = traj_slice[ensemble_member].detach(
+                    ).cpu().contiguous()
+                    torch.save(
+                        tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
 
-                torch.save(target_slice.detach().cpu().contiguous(), f"{self.output_path}/target_{date}.pt")
+                torch.save(target_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/target_{date}.pt")
 
         # Plot example predictions on every rank
         # Need to plot more example predictions
-        #n_additional_examples = min(
+        # n_additional_examples = min(
         #    trajectories.shape[0], self.n_example_pred - self.plotted_examples
-        #)
+        # )
 
-        #self.plot_examples(
+        # self.plot_examples(
         #    batch, prediction=trajectories
-        #)
+        # )
 
     def on_test_epoch_end(self):
         """

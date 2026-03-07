@@ -10,6 +10,7 @@ from neural_lam.models.edm_networks_2 import SongUNet
 # Local
 from .. import config, metrics, utils, vis, constants
 
+
 class UNET(ARModel):
     """
     A deterministic UNET model for downscaling
@@ -18,9 +19,10 @@ class UNET(ARModel):
     def __init__(self, args):
         super().__init__(args)
 
-        self.model = SongUNet(img_resolution=torch.as_tensor(constants.FULL_GRID_SHAPE),
+        self.model = SongUNet(img_resolution=torch.as_tensor(self.config_loader.dataset.FULL_GRID_SHAPE),
                               in_channels=self.grid_dim,
                               out_channels=self.grid_output_dim,
+                              model_channels=args.hidden_dim,
                               embedding_type=None,
                               resample_filter=args.resample_filter,
                               channel_mult=args.channel_mult,
@@ -29,7 +31,7 @@ class UNET(ARModel):
                               ir_sde=False,
                               target_idx=None,
                               )
-        
+
         self.save_output = args.save_output
         self.output_path = args.output_path
         self.save_output_wandb = args.save_output_wandb
@@ -48,7 +50,7 @@ class UNET(ARModel):
         sample = self.model(LQ, z)
 
         return sample.permute(0, 2, 3, 1).flatten(1, 2), None
-    
+
     def test_step(self, batch, batch_idx):
         """
         Run test on single batch
@@ -67,7 +69,7 @@ class UNET(ARModel):
         )  # (time_steps-1,)
         mean_loss = torch.mean(time_step_loss)
 
-        #print(f"Time step loss: {time_step_loss.shape}")
+        # print(f"Time step loss: {time_step_loss.shape}")
 
         # Log loss per time step forward and mean
         test_log_dict = {
@@ -113,21 +115,24 @@ class UNET(ARModel):
         if self.save_output:
             dates = []
             for date in date_ordinal:
-                dates.append(datetime.date.fromordinal(date).strftime("%Y-%m-%d"))
-            
+                dates.append(datetime.date.fromordinal(
+                    date).strftime("%Y-%m-%d"))
+
             if self.trainer.is_global_zero:
                 os.makedirs(self.output_path, exist_ok=True)
 
             for prediction_slice, target_slice, date in zip(
                 prediction, target, dates
-            ): 
+            ):
                 if self.save_output:
                     print(f"Saving sample from {date} to {self.output_path}")
                     print(f"Shape of the prediction: {prediction.shape}")
                     print(f"Shape of the target: {target.shape}")
-                    torch.save(prediction_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_mean_{date}.pt")
-                    torch.save(target_slice.detach().cpu().contiguous(), f"{self.output_path}/target_{date}.pt")
-        
+                    torch.save(prediction_slice.detach().cpu().contiguous(
+                    ), f"{self.output_path}/ens_mean_{date}.pt")
+                    torch.save(target_slice.detach().cpu().contiguous(),
+                               f"{self.output_path}/target_{date}.pt")
+
     def on_test_epoch_end(self):
         """
         Compute test metrics and make plots at the end of test epoch.

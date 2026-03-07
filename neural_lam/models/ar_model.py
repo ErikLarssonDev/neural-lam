@@ -194,7 +194,7 @@ class ARModel(pl.LightningModule):
         """
         Train on single batch
         """
-        prediction, target, pred_std = self.common_step(batch)
+        prediction, target, pred_std, date_ordinal = self.common_step(batch)
 
         # Compute loss
         batch_loss = torch.mean(
@@ -228,7 +228,7 @@ class ARModel(pl.LightningModule):
         """
         Run validation on single batch
         """
-        prediction, target, pred_std = self.common_step(batch)
+        prediction, target, pred_std, date_ordinal = self.common_step(batch)
 
         time_step_loss = torch.mean(
             self.loss(
@@ -275,7 +275,7 @@ class ARModel(pl.LightningModule):
         """
         Run test on single batch
         """
-        prediction, target, pred_std = self.common_step(batch)
+        prediction, target, pred_std, date_ordinal = self.common_step(batch)
         # prediction: (B, pred_steps, num_grid_nodes, d_f)
         # pred_std: (B, pred_steps, num_grid_nodes, d_f) or (d_f,)
 
@@ -358,7 +358,8 @@ class ARModel(pl.LightningModule):
         """
         LQ, HQ = batch["LQ"], batch["HQ"]
         if prediction is None:
-            prediction, target = self.common_step(batch)
+            prediction, target, pred_std, date_ordinal = self.common_step(
+                batch)
 
         initial_states = LQ.permute(0, 2, 3, 1).contiguous().flatten(
             1, 2).unsqueeze(1)  # (B, 1, num_grid_nodes, d_f)
@@ -467,20 +468,20 @@ class ARModel(pl.LightningModule):
         log_dict: dict with everything to log for given metric
         """
         log_dict = {}
-        #metric_fig = vis.plot_error_map(
+        # metric_fig = vis.plot_error_map(
         #    metric_tensor,
         #    self.config_loader,
         #    step_length=self.step_length,
-        #)
+        # )
         full_log_name = f"{prefix}_{metric_name}"
-        #log_dict[full_log_name] = wandb.Image(metric_fig)
+        # log_dict[full_log_name] = wandb.Image(metric_fig)
         log_dict[f"{full_log_name}_data"] = torch.mean(metric_tensor)
 
         if prefix == "test":
             # Save pdf
-            #metric_fig.savefig(
+            # metric_fig.savefig(
             #    os.path.join(wandb.run.dir, f"{full_log_name}.pdf")
-            #)
+            # )
             # Save errors also as csv
             np.savetxt(
                 os.path.join(wandb.run.dir, f"{full_log_name}.csv"),

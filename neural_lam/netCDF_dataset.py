@@ -25,6 +25,8 @@ class NetCDFDataset(Dataset):
                  coordinate_names=('lat', 'lon'),
                  provide_coordinates=False,
                  provide_day_of_year=False):
+        if coordinate_names is None:
+            coordinate_names = ('lat', 'lon')
         print(f"input_files: {input_files}")
         self.input_paths = [os.path.join(input_path, file)
                             for file in input_files]
@@ -77,7 +79,8 @@ class NetCDFDataset(Dataset):
         self.coord_grid = None
         if provide_coordinates:
             print(f"Providing ground truth coordinate grid...")
-            self.coord_grid = self.generate_coordinate_grids(coords=coordinate_names)
+            self.coord_grid = self.generate_coordinate_grids(
+                coords=coordinate_names)
         else:
             print(f"Ground truth coordinate grid is not provided.")
 
@@ -118,7 +121,7 @@ class NetCDFDataset(Dataset):
                 f"Ground truth size {self.ground_truth_size} does not match static field shape {static_data.shape[1:]}"
 
         return torch.tensor(static_data, dtype=torch.float32)
-    
+
     def generate_coordinate_grids(self, coords=('lat', 'lon')):
         """Generates 2D from the ground truth dataset coordinates."""
         ds = self.ground_truth_datasets[0]
@@ -131,13 +134,13 @@ class NetCDFDataset(Dataset):
 
         y_norm = (y_grid - y_grid.min()) / (y_grid.max() - y_grid.min())
         x_norm = (x_grid - x_grid.min()) / (x_grid.max() - x_grid.min())
-        
+
         # Convert to torch tensor with shape [1, H, W]
         y_tensor = torch.tensor(y_norm[np.newaxis, :, :], dtype=torch.float32)
         x_tensor = torch.tensor(x_norm[np.newaxis, :, :], dtype=torch.float32)
 
         return torch.cat([y_tensor, x_tensor], dim=0)  # Shape: [2, H, W]
-    
+
     def get_time_array(self):
         return self.input_datasets[0].coords['time']
 
@@ -173,7 +176,7 @@ class NetCDFDataset(Dataset):
             ds = ds.sel({pressure_dim: self.levels})
 
         return ds
-    
+
     def get_current_ordinal_date(self, idx):
         """
         Returns the number of days since the 1st of January of 1 AD for the current date.
@@ -239,7 +242,7 @@ class NetCDFDataset(Dataset):
             self.ground_truth_mean, self.ground_truth_std = self.ground_truth_stats
             ground_truth_batch_data = (
                 ground_truth_batch_data - self.ground_truth_mean) / self.ground_truth_std
-            
+
         current_date = self.get_current_ordinal_date(idx)
 
         # return input_batch_data, ground_truth_batch_data
@@ -251,6 +254,7 @@ class NetCDFDataset(Dataset):
         }
 
         return states
+
 
 def parse_config(config_keyword="input", config_path="config.toml"):
     """Parses and returns TOML input config.

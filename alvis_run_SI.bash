@@ -31,33 +31,33 @@ SI_xsmall_25e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_mod
 SI_xxsmall_25e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_xxsmall-SI-6x32-01_26_03-1571/last.ckpt"
 
 # Training
-# python3 neural_lam/train_model.py \
-#     --model SI \
-#     --diffusion_model song_unet \
-#     $RUN_NAME  \
-#     --n_workers 16 \
-#     --batch_size 4 \
-#     --epochs 25 \
-#     --lr 0.00001 \
-#     --sampler euler \
-#     --sampler_steps 50 \
-#     --val_interval 10 \
-#     --hidden_dim 32 \
-#     --channel_mult "1,1,1,1"
-
-# Testing SI with static input data
 python3 neural_lam/train_model.py \
     --model SI \
     --diffusion_model song_unet \
     $RUN_NAME  \
     --n_workers 16 \
-    --batch_size 20 \
-    --epochs 50 \
+    --batch_size 4 \
+    --epochs 25 \
     --lr 0.00001 \
-    --load $SI_xxsmall_25e \
-    --eval val \
     --sampler euler \
-    --sampler_steps 40 \
-    --ensemble_size 1 \
+    --sampler_steps 50 \
+    --val_interval 10 \
     --hidden_dim 32 \
-    --channel_mult "1,1,1,1" \
+    --channel_mult "1,1,1,1"
+
+# Testing SI with static input data
+# python3 neural_lam/train_model.py \
+#     --model SI \
+#     --diffusion_model song_unet \
+#     $RUN_NAME  \
+#     --n_workers 16 \
+#     --batch_size 20 \
+#     --epochs 50 \
+#     --lr 0.00001 \
+#     --load $SI_xxsmall_25e \
+#     --eval val \
+#     --sampler euler \
+#     --sampler_steps 100 \
+#     --ensemble_size 1 \
+#     --hidden_dim 32 \
+#     --channel_mult "1,1,1,1" \

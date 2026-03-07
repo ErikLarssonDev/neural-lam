@@ -59,6 +59,7 @@ class Diffusion(ARModel):
             self.model = EDMPrecond(img_resolution=torch.as_tensor(self.config_loader.dataset.FULL_GRID_SHAPE),
                                     in_channels=self.grid_dim,  # We have noise and LQ as input
                                     out_channels=self.grid_output_dim,
+                                    model_channels=args.hidden_dim,
                                     model_type='SongUNet',
                                     embedding_type=args.noise_embedding,
                                     sigma_data=self.sigma_data,
@@ -738,8 +739,9 @@ class Diffusion(ARModel):
         if self.save_output:
             dates = []
             for date in date_ordinal:
-                dates.append(datetime.date.fromordinal(date).strftime("%Y-%m-%d"))
-            
+                dates.append(datetime.date.fromordinal(
+                    date).strftime("%Y-%m-%d"))
+
             if self.trainer.is_global_zero:
                 os.makedirs(self.output_path, exist_ok=True)
 
@@ -754,14 +756,19 @@ class Diffusion(ARModel):
                 # Save predictions to the output folder
                 print(f"Saving sample from {date} to {self.output_path}")
                 print(f"Shape of ens_mean_slice: {ens_mean_slice.shape}")
-                torch.save(ens_mean_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_mean_{date}.pt")
-                torch.save(ens_std_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_std_{date}.pt")
+                torch.save(ens_mean_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/ens_mean_{date}.pt")
+                torch.save(ens_std_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/ens_std_{date}.pt")
 
                 for ensemble_member in range(len(traj_slice)):
-                    tensor_to_save = traj_slice[ensemble_member].detach().cpu().contiguous()
-                    torch.save(tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
+                    tensor_to_save = traj_slice[ensemble_member].detach(
+                    ).cpu().contiguous()
+                    torch.save(
+                        tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
 
-                torch.save(target_slice.detach().cpu().contiguous(), f"{self.output_path}/target_{date}.pt")
+                torch.save(target_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/target_{date}.pt")
 
         # Plot example predictions (on rank 0 only)
         if (

@@ -60,6 +60,7 @@ class SI(ARModel):
             self.model = SongUNet(img_resolution=torch.as_tensor(self.config_loader.dataset.FULL_GRID_SHAPE),
                                   in_channels=self.grid_dim,
                                   out_channels=self.grid_output_dim,
+                                  model_channels=args.hidden_dim,
                                   embedding_type=args.noise_embedding,
                                   resample_filter=args.resample_filter,
                                   channel_mult=args.channel_mult,
@@ -516,15 +517,17 @@ class SI(ARModel):
                 vis.plot_on_axis(
                     axes[1], LQ[0, ..., self.cond_idx[var_idx]])
 
-                os.makedirs(f"{self.output_path}/diffusion_steps/{var_name}", exist_ok=True)
-                plt.savefig(f"{self.output_path}/diffusion_steps/{var_name}/step_{i+1}.png")
+                os.makedirs(
+                    f"{self.output_path}/diffusion_steps/{var_name}", exist_ok=True)
+                plt.savefig(
+                    f"{self.output_path}/diffusion_steps/{var_name}/step_{i+1}.png")
                 plt.close(fig)
-    
+
     def plot_examples(self, batch, prediction=None):
         """
         Plot ensemble forecast + mean and std
         """
-        #print("\n\nPlotting examples...\n\n")
+        # print("\n\nPlotting examples...\n\n")
         LQ, HQ, date_ordinal = batch["LQ"], batch["HQ"], batch["date"]
         if prediction is None:
             print(f"Sampling new trajectories for plotting!")
@@ -549,7 +552,7 @@ class SI(ARModel):
         # * self.data_std[constants.USED_PARAMS] + self.data_mean[constants.USED_PARAMS]
         initial_states_rescaled = initial_states
 
-        #print(f"traj_rescaled shape: {traj_rescaled.shape}")
+        # print(f"traj_rescaled shape: {traj_rescaled.shape}")
 
         # Compute mean and std of ensemble
         ens_mean = torch.mean(
@@ -559,7 +562,7 @@ class SI(ARModel):
             traj_rescaled, dim=1
         )  # (B, pred_steps, num_grid_nodes, d_f)
 
-        #print(f"ens_mean shape: {ens_mean.shape}")
+        # print(f"ens_mean shape: {ens_mean.shape}")
 
         dates = []
         for date in date_ordinal:
@@ -574,7 +577,7 @@ class SI(ARModel):
             ens_std,
             dates
         ):
-            #print(f"traj_slice shape: {traj_slice.shape}")
+            # print(f"traj_slice shape: {traj_slice.shape}")
             # traj_slice is (S, pred_steps, num_grid_nodes, d_f)
             # others are (pred_steps, num_grid_nodes, d_f)
 
@@ -587,14 +590,19 @@ class SI(ARModel):
             if self.save_output:
                 print(f"Saving sample from {date} to {self.output_path}")
                 print(f"Shape of ens_mean_slice: {ens_mean_slice.shape}")
-                torch.save(ens_mean_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_mean_{date}.pt")
-                torch.save(ens_std_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_std_{date}.pt")
+                torch.save(ens_mean_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/ens_mean_{date}.pt")
+                torch.save(ens_std_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/ens_std_{date}.pt")
 
                 for ensemble_member in range(len(traj_slice)):
-                    tensor_to_save = traj_slice[ensemble_member].detach().cpu().contiguous()
-                    torch.save(tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
+                    tensor_to_save = traj_slice[ensemble_member].detach(
+                    ).cpu().contiguous()
+                    torch.save(
+                        tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
 
-                torch.save(target_slice.detach().cpu().contiguous(), f"{self.output_path}/target_{date}.pt")
+                torch.save(target_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/target_{date}.pt")
 
             if self.trainer.is_global_zero:
                 # Save files to wandb
@@ -653,7 +661,7 @@ class SI(ARModel):
                 time_title_part = f"t={t_i} ({self.step_length*t_i} h)"
                 # Create one figure per variable at this time step
 
-                var_fwangs = [
+                var_figs = [
                     vis.plot_ensemble_prediction(
                         init_t[:, var_i],
                         samples_t[:, :, var_i],
@@ -674,18 +682,18 @@ class SI(ARModel):
                 ]
 
                 example_title = f"example_{self.plotted_examples}"
-                #if self.trainer.is_global_zero:
-                #    wandb.log(
-                #        {
-                #            f"{var_name}_{example_title}": wandb.Image(fig)
-                #            for var_name, fig in zip(
-                #                var_names, var_figs
-                #            )
-                #        }
-                #    )
-                #plt.close(
-                #    "all"
-                #)  # Close all figs for this time step, saves memory
+                if self.trainer.is_global_zero:
+                    wandb.log(
+                        {
+                            f"{var_name}_{example_title}": wandb.Image(fig)
+                            for var_name, fig in zip(
+                                var_names, var_figs
+                            )
+                        }
+                    )
+                plt.close(
+                    "all"
+                )  # Close all figs for this time step, saves memory
 
     def ensemble_common_step(self, batch):
         """
@@ -803,14 +811,13 @@ class SI(ARModel):
             self.val_metrics["crps_ens"].append(crps_batch)
 
             # Plot example predictions (on rank 0 only)
-            #if self.trainer.is_global_zero and batch_idx == 0:
-            #    self.plot_examples(
-            #        batch,
-            #        1,
-            #        prediction=trajectories,
-            #    )
-            #    # Decrease counter, we don't want to increase it in the validation step
-            #    self.plotted_examples -= 1
+            if self.trainer.is_global_zero and batch_idx == 0:
+                self.plot_examples(
+                    batch,
+                    prediction=trajectories,
+                )
+                # Decrease counter, we don't want to increase it in the validation step
+                self.plotted_examples -= 1
 
     def log_spsk_ratio(self, metric_vals, prefix):
         """
@@ -895,8 +902,9 @@ class SI(ARModel):
         if self.save_output:
             dates = []
             for date in date_ordinal:
-                dates.append(datetime.date.fromordinal(date).strftime("%Y-%m-%d"))
-            
+                dates.append(datetime.date.fromordinal(
+                    date).strftime("%Y-%m-%d"))
+
             if self.trainer.is_global_zero:
                 os.makedirs(self.output_path, exist_ok=True)
 
@@ -911,24 +919,29 @@ class SI(ARModel):
                 # Save predictions to the output folder
                 print(f"Saving sample from {date} to {self.output_path}")
                 print(f"Shape of ens_mean_slice: {ens_mean_slice.shape}")
-                torch.save(ens_mean_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_mean_{date}.pt")
-                torch.save(ens_std_slice.detach().cpu().contiguous(), f"{self.output_path}/ens_std_{date}.pt")
+                torch.save(ens_mean_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/ens_mean_{date}.pt")
+                torch.save(ens_std_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/ens_std_{date}.pt")
 
                 for ensemble_member in range(len(traj_slice)):
-                    tensor_to_save = traj_slice[ensemble_member].detach().cpu().contiguous()
-                    torch.save(tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
+                    tensor_to_save = traj_slice[ensemble_member].detach(
+                    ).cpu().contiguous()
+                    torch.save(
+                        tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
 
-                torch.save(target_slice.detach().cpu().contiguous(), f"{self.output_path}/target_{date}.pt")
+                torch.save(target_slice.detach().cpu().contiguous(),
+                           f"{self.output_path}/target_{date}.pt")
 
         # Plot example predictions on every rank
         # Need to plot more example predictions
-        #n_additional_examples = min(
-        #    trajectories.shape[0], self.n_example_pred - self.plotted_examples
-        #)
-
-        #self.plot_examples(
-        #    batch, prediction=trajectories
-        #)
+        n_additional_examples = min(
+            trajectories.shape[0], self.n_example_pred - self.plotted_examples
+        )
+        if self.trainer.is_global_zero and batch_idx == 0 and n_additional_examples > 0:
+            self.plot_examples(
+                batch, prediction=trajectories
+            )
 
     def on_test_epoch_end(self):
         """

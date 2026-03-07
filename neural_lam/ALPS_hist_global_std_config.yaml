@@ -1,7 +1,7 @@
 dataset:
   train_start_date: 1961-01-01
-  train_end_date: 1976-12-31 
-  validation_start_date: 1977-01-01
+  train_end_date: 1980-12-31
+  validation_start_date: 1980-01-01 # NOTE: Training on all data
   validation_end_date: 1980-12-31 
   input_path: /mimer/NOBACKUP/groups/mlhighres/data/CORDEX/ALPS_domain/train/ESD_pseudo_reality/predictors/separate_vars/standardized_global
   levels: []
