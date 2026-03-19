@@ -1,0 +1,123 @@
+dataset:
+  train_start_date: 1951-01-01
+  train_end_date: 2008-12-31
+  validation_start_date: 2009-01-01
+  validation_end_date: 2009-12-31 
+  test_start_date: 2009-01-01 # 2010-01-01
+  test_end_date: 2009-01-31 # 2014-12-31
+  input_path: /mimer/NOBACKUP/groups/mlhighres/projects/detex/no_extremes/no_extremes_top235_from_HCLIM_swe_fin_dnk_no_norway_poly/ec-earth/
+  levels: [100000, 85000, 70000, 50000, 25000]
+  input_files: [
+    'standardized.clt_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap_no_extremes_top235_swe_fin_dnk_no_norway_poly.nc',
+    'standardized.hus_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap_no_extremes_top235_swe_fin_dnk_no_norway_poly.nc',
+    'standardized.pr_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_mm_day_noleap_no_extremes_top235_swe_fin_dnk_no_norway_poly.nc',
+    'standardized.psl_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap_no_extremes_top235_swe_fin_dnk_no_norway_poly.nc',
+    'standardized.tas_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap_no_extremes_top235_swe_fin_dnk_no_norway_poly.nc',
+    'standardized.ta_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap_no_extremes_top235_swe_fin_dnk_no_norway_poly.nc',
+    'standardized.ua_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap_no_extremes_top235_swe_fin_dnk_no_norway_poly.nc',
+    'standardized.va_day_EC-Earth3-Veg_historical_r1i1p1f1_gr_1951-2014_noleap_no_extremes_top235_swe_fin_dnk_no_norway_poly.nc',
+    ]
+  ground_truth_path: /mimer/NOBACKUP/groups/mlhighres/projects/detex/no_extremes/no_extremes_top235_from_HCLIM_swe_fin_dnk_no_norway_poly/ground_truth/
+  ground_truth_files: [
+    'standardized.remapped.pr_EUR-11_EC-Earth3-Veg_historical_r1i1p1f1_HCLIMcom-SMHI_HCLIM43-ALADIN_v1-r1_day_1951-2014_mm_day_noleap_no_extremes_top235_swe_fin_dnk_no_norway_poly.nc',
+    'standardized.remapped.tas_EUR-11_EC-Earth3-Veg_historical_r1i1p1f1_HCLIMcom-SMHI_HCLIM43-ALADIN_v1-r1_day_1951-2014_noleap_no_extremes_top235_swe_fin_dnk_no_norway_poly.nc',
+    ]
+  ground_truth_stats_path: '/mimer/NOBACKUP/groups/mlhighres/projects/detex/HCLIM_EC-Earth3-Veg/stats/mean_std/mean_std_pr_EUR-11_EC-Earth3-Veg_historical_r1i1p1f1_HCLIMcom-SMHI_HCLIM43-ALADIN_v1-r1_day_1951-2014_mm_day_noleap.npy'
+  save_path: /mimer/NOBACKUP/groups/mlhighres/projects/neural-lam/experiment-no_extremes_nordics/short_val # Save 2014 of downscaling results here
+  normalize_ground_truth: False # The data on the files is already standardized
+  upscale_inputs: True
+  static_fields_files: [
+    'standardized.remapped.orog_EUR-12_EC-Earth3-Veg_historical_r1i1p1f1_HCLIMcom-SMHI_HCLIM43-ALADIN_v1-r1_fx.nc',
+    'scaled.remapped.sftlf_EUR-12_EC-Earth3-Veg_historical_r1i1p1f1_HCLIMcom-SMHI_HCLIM43-ALADIN_v1-r1_fx.nc'
+  ]
+  interpolation_mode: 'bicubic'
+  provide_coordinates: True
+  provide_day_of_year: True
+  name: clim
+  downscaling_idx: [6,8] # 6,8
+  var_names:
+    - clt
+    - hus_1000
+    - hus_850
+    - hus_700
+    - hus_500
+    - hus_250
+    - pr # 6
+    - psl
+    - t2m # 8
+    - ta_1000 # 9
+    - ta_850
+    - ta_700
+    - ta_500
+    - ta_250 
+    - ua_1000
+    - ua_850
+    - ua_700
+    - ua_500
+    - ua_250
+    - va_1000
+    - va_850
+    - va_700
+    - va_500
+    - va_250
+  var_units: 
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+    - UNIT
+  var_longnames:
+    - cloud_cover
+    - humidity_1000
+    - humidity_850
+    - humidity_700
+    - humidity_500
+    - humidity_250
+    - precipitation
+    - sea_level_pressure
+    - temperature_2m
+    - temperature_1000
+    - temperature_850
+    - temperature_700
+    - temperature_500
+    - temperature_250
+    - wind_u_1000
+    - wind_u_850
+    - wind_u_700
+    - wind_u_500
+    - wind_u_250
+    - wind_v_1000
+    - wind_v_850
+    - wind_v_700
+    - wind_v_500
+    - wind_v_250
+  num_forcing_features: 0 # TODO: Update this, all inputs that are not in the output is considered forcing
+  num_static_features: 6 # TODO: Update this, land-sea mask, orography, etc.
+  FULL_GRID_SHAPE: [400, 550] # TODO: Update this
+# TODO: NOTE: We don't need a projection here, as the data is already in a regular grid.
+# projection:
+#   class: LambertConformal
+#   kwargs:
+#     central_longitude: 15.0
+#     central_latitude: 63.3
+#     standard_parallels: [63.3, 63.3]

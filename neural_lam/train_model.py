@@ -613,7 +613,7 @@ def main(input_args=None):
         callbacks=callbacks,
         check_val_every_n_epoch=args.val_interval,
         precision=args.precision,
-        profiler="simple",
+        # profiler="simple",
     )
 
     # Only init once, on rank 0 only
