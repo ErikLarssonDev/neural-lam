@@ -19,6 +19,7 @@ samples
 predictions
 output/
 diffusion_steps/
+analysis/
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
