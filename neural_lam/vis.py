@@ -59,7 +59,8 @@ def plot_error_map(errors, data_config, title=None, step_length=3):
     ]
 
     y_ticklabels = [y_ticklabels[i]
-                    for i in [6, 12]]  # We don't downscale all variables
+                    # We don't downscale all variables
+                    for i in data_config.dataset.downscaling_idx]
 
     ax.set_yticklabels(y_ticklabels, rotation=30, size=label_size)
 
