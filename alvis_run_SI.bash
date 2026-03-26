@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J SI_25e
+#SBATCH -J SI_75e
 #SBATCH -A naiss2025-1-11 -p alvis
 #SBATCH -N 1 --gpus-per-node=A100:3
 #SBATCH -t 10:00:00
@@ -17,7 +17,7 @@
 
 export HDF5_USE_FILE_LOCKING=FALSE
 
-RUN_NAME="--wandb_run_name SI_25e"
+RUN_NAME="--wandb_run_name SI_75e"
     
 # Activate environment
 source ~/.bashrc
@@ -69,7 +69,7 @@ python3 neural_lam/train_model.py \
     --batch_size 10 \
     --epochs 50 \
     --lr 0.00001 \
-    --load $SI_25e \
+    --load $SI_75e \
     --eval val \
     --sampler euler \
     --sampler_steps 40 \

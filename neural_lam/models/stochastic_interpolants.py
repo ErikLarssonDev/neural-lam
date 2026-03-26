@@ -237,7 +237,6 @@ class SI(ARModel):
                 xt, mu = step_fn(xt, tscalar * ones)
 
             if tscalar > self.args.corr_tmin:
-                print(f"Doing corrector step at t: {tscalar}")
                 xt = langevin_corrector(
                     xt,
                     tscalar * ones,

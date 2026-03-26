@@ -3,6 +3,7 @@ import json
 import random
 import time
 from argparse import ArgumentParser
+import os
 
 # Third-party
 import pytorch_lightning as pl
@@ -510,7 +511,7 @@ def main(input_args=None):
     }
     print(f"Loading data config from: {args.data_config}")
     config_loader = config.Config.from_file(args.data_config)
-
+    
     # Asserts for arguments
     assert args.model in MODELS, f"Unknown model: {args.model}"
     assert args.step_length <= 3, "Too high step length"
@@ -590,11 +591,8 @@ def main(input_args=None):
 
     print(f"Using device: {device_name}")
     args.device_name = device_name
-
-    # Load model parameters Use new args for model
-    model_class = MODELS[args.model]
-    model = model_class(args)
-
+    
+    
     prefix = "subset-" if args.subset_ds else ""
     if args.eval:
         prefix = prefix + f"eval-{args.eval}-"
@@ -604,6 +602,12 @@ def main(input_args=None):
         f"{prefix}{args.model}-{args.processor_layers}x{args.hidden_dim}-"
         f"{time.strftime('%m_%d_%H')}-{random_run_id:04d}"
     )
+    
+    args.output_path = os.path.join(args.output_path, run_name)
+    
+    # Load model parameters Use new args for model
+    model_class = MODELS[args.model]
+    model = model_class(args)
 
     # Callbacks for saving model checkpoint
     callbacks = []
