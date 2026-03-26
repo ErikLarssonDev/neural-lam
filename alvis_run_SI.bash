@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH -J SI_corrector
-#SBATCH -A NAISS2025-22-1196 -p alvis
-#SBATCH -N 1 --gpus-per-node=V100:1
-#SBATCH -t 01:00:00
+#SBATCH -J SI_25e
+#SBATCH -A naiss2025-1-11 -p alvis
+#SBATCH -N 1 --gpus-per-node=A100:3
+#SBATCH -t 10:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=erila85@liu.se
 #SBATCH --output ./slurm_logs/%A_%x.out
@@ -17,7 +17,7 @@
 
 export HDF5_USE_FILE_LOCKING=FALSE
 
-RUN_NAME="--wandb_run_name SI_corrector"
+RUN_NAME="--wandb_run_name SI_25e"
     
 # Activate environment
 source ~/.bashrc
@@ -28,7 +28,7 @@ cd /mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam
 # cd /mimer/NOBACKUP/groups/mlhighres/users/mikhaili/neural-lam
 
 # Switch to the correct branch
-git switch clim-downscaling
+git switch clim-downscaling-inference
 
 # Activate wandb
 wandb online
@@ -42,6 +42,7 @@ DATA_CONFIG="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/neural_lam/
 
 SI_25e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_13_var-SI-6x128-03_23_14-4660/last.ckpt"
 SI_50e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_13_var-SI-6x128-03_24_10-0270/last.ckpt"
+SI_75e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_13_var-SI-6x128-03_25_12-7982/last.ckpt"
 
 # Training
 # python3 neural_lam/train_model.py \
@@ -65,16 +66,17 @@ python3 neural_lam/train_model.py \
     --diffusion_model song_unet \
     $RUN_NAME  \
     --n_workers 16 \
-    --batch_size 1 \
+    --batch_size 10 \
     --epochs 50 \
     --lr 0.00001 \
-    --load $SI_xsmall_25e \
+    --load $SI_25e \
     --eval val \
     --sampler euler \
     --sampler_steps 40 \
     --ensemble_size 5 \
-    --correction_steps 1 \
-    --snr 0.3 \
-    --corr_tmin 0.1 \
+    --data_config $DATA_CONFIG \
+    --save_output \
+    # --correction_steps 1 \
+    # --snr 0.3 \
+    # --corr_tmin 0.1 \
     # --subset_ds \
-    # --data_config $DATA_CONFIG \

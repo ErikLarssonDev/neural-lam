@@ -60,10 +60,10 @@ SI_50e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_
 #     --restore_opt \
 
 # Testing SI with static input data
-SAMPLER_STEPS_LIST=(100)
-CORRECTION_STEPS_LIST=(1)
-SNR_LIST=(0.01 0.05 0.1 0.3)
-CORR_TMIN_LIST=(0.02 0.05 0.1)
+SAMPLER_STEPS_LIST=(21 40 100)
+CORRECTION_STEPS_LIST=(1 2)
+SNR_LIST=(0.01 0.05 0.1 0.3 0.4 0.5)
+CORR_TMIN_LIST=(0.3 0.5 0.7 0.9)
 
 
 # =========================
