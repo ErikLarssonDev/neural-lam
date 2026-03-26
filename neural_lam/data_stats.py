@@ -24,17 +24,12 @@ from neural_lam.models.ir_sde import IR_SDE
 from neural_lam.models.stochastic_interpolants import SI
 from neural_lam.models.unet import UNET
 from neural_lam.models.CorrDiff import CorrDiff
+import matplotlib.pyplot as plt
+import numpy as np
 
-MODELS = {
-    "graphcast": GraphCast,
-    "graph_fm": GraphFM,
-    "graph_efm": GraphEFM,
-    "diffusion": Diffusion,
-    "ir_sde": IR_SDE,
-    "SI": SI,
-    "unet": UNET,
-    "CorrDiff": CorrDiff,
-}
+import torch
+from tqdm import tqdm
+import os
 
 def list_of_ints(arg):
     return list(map(int, arg.split(',')))
@@ -202,7 +197,7 @@ def main(input_args=None):
         type=str,
         default="edm",
         help="The sampler to use when generating trajectories with a diffusion model"
-        "(heun/edm) (default: edm)",
+        "(heun/edm) (default: heun)",
     )
 
     # Training options
@@ -414,12 +409,6 @@ def main(input_args=None):
         help="If the model output should be saved to the output folder (default: False)",
     )
     parser.add_argument(
-        "--output_path",
-        type=str,
-        default="output",
-        help="Path to the saved output (default: 'output')",
-    )
-    parser.add_argument(
         "--save_steps",
         action="store_true",
         help="If the diffusion steps output of 1 sample should be saved to the folder diffusion_steps (default: False)",
@@ -504,29 +493,12 @@ def main(input_args=None):
     )
 
     args = parser.parse_args(input_args)
-    print(args)
     args.var_leads_metrics_watch = {
         int(k): v for k, v in json.loads(args.var_leads_metrics_watch).items()
     }
-    print(f"Loading data config from: {args.data_config}")
+
     config_loader = config.Config.from_file(args.data_config)
 
-    # Asserts for arguments
-    assert args.model in MODELS, f"Unknown model: {args.model}"
-    assert args.step_length <= 3, "Too high step length"
-    assert args.eval in (
-        None,
-        "val",
-        "test",
-    ), f"Unknown eval setting: {args.eval}"
-
-    # Get an (actual) random run id as a unique identifier
-    random_run_id = random.randint(0, 9999)
-
-    # Set seed
-    # seed.seed_everything(args.seed)
-
-    # Load data
     train_loader = torch.utils.data.DataLoader(
         NetCDFDataset(
             start_date=config_loader.dataset.train_start_date,
@@ -543,7 +515,6 @@ def main(input_args=None):
             upscale_inputs=config_loader.dataset.upscale_inputs,
             static_fields_files=config_loader.dataset.static_fields_files,
             interpolation_mode=config_loader.dataset.interpolation_mode,
-            coordinate_names=config_loader.dataset.coordinate_names,
             provide_coordinates=config_loader.dataset.provide_coordinates,
             provide_day_of_year=config_loader.dataset.provide_day_of_year
         ),
@@ -552,159 +523,68 @@ def main(input_args=None):
         num_workers=args.n_workers,
     )
 
-    val_loader = torch.utils.data.DataLoader(
-        NetCDFDataset(
-            start_date=config_loader.dataset.validation_start_date,
-            end_date=config_loader.dataset.validation_end_date,
-            input_path=config_loader.dataset.input_path,
-            input_files=config_loader.dataset.input_files,
-            ground_truth_path=config_loader.dataset.ground_truth_path,
-            ground_truth_files=config_loader.dataset.ground_truth_files,
-            ground_truth_stats_path=config_loader.dataset.ground_truth_stats_path,
-            levels=config_loader.dataset.levels,
-            is_inference_dataset=False,
-            normalize_ground_truth=config_loader.dataset.normalize_ground_truth,
-            subset_ds=args.subset_ds,
-            upscale_inputs=config_loader.dataset.upscale_inputs,
-            static_fields_files=config_loader.dataset.static_fields_files,
-            interpolation_mode=config_loader.dataset.interpolation_mode,
-            coordinate_names=config_loader.dataset.coordinate_names,
-            provide_coordinates=config_loader.dataset.provide_coordinates,
-            provide_day_of_year=config_loader.dataset.provide_day_of_year
-        ),
-        args.batch_size,
-        shuffle=False,
-        num_workers=args.n_workers,
-    )
+    os.makedirs("plots_data", exist_ok=True)
+    os.makedirs("stats", exist_ok=True)
 
-    # Instantiate model + trainer
-    if torch.cuda.is_available():
-        device_name = "cuda"
-        torch.set_float32_matmul_precision(
-            "high"
-        )  # Allows using Tensor Cores on A100s
-    else:
-        device_name = "cpu"
 
-    # device_name = "cpu" # TODO: Remove when GPUs are running again
+    lq_means, hq_means = [], []
+    lq_sums, hq_sums = [], []
 
-    print(f"Using device: {device_name}")
-    args.device_name = device_name
+    for batch in tqdm(train_loader, desc="Computing field means"):
+        LQ = batch['LQ'][:, config_loader.dataset.downscaling_idx,...].cpu()
+        HQ = batch['HQ'].cpu()
 
-    # Load model parameters Use new args for model
-    model_class = MODELS[args.model]
-    model = model_class(args)
+        lq_means.append(LQ.mean(dim=(-2,-1)))
+        hq_means.append(HQ.mean(dim=(-2,-1)))
+        lq_sums.append(LQ.sum(dim=(-2,-1)))
+        hq_sums.append(HQ.sum(dim=(-2,-1)))
 
-    prefix = "subset-" if args.subset_ds else ""
-    if args.eval:
-        prefix = prefix + f"eval-{args.eval}-"
+    lq_means = torch.cat(lq_means, dim=0)
+    hq_means = torch.cat(hq_means, dim=0)
+    lq_sums = torch.cat(lq_sums, dim=0)
+    hq_sums = torch.cat(hq_sums, dim=0)
 
-    prefix = f"{args.wandb_run_name}-{prefix}" if args.wandb_run_name else prefix
-    run_name = (
-        f"{prefix}{args.model}-{args.processor_layers}x{args.hidden_dim}-"
-        f"{time.strftime('%m_%d_%H')}-{random_run_id:04d}"
-    )
+    print("LQ mean per channel:", lq_means.mean(dim=0))
+    print("HQ mean per channel:", hq_means.mean(dim=0))
+    print("LQ sum per channel:", lq_sums.mean(dim=0))
+    print("HQ sum per channel:", hq_sums.mean(dim=0))
 
-    # Callbacks for saving model checkpoint
-    callbacks = []
-    callbacks.append(
-        pl.callbacks.ModelCheckpoint(
-            dirpath=f"saved_models/{run_name}",
-            filename="min_val_loss",
-            monitor="val_mean_loss",
-            mode="min",
-            save_last=True,
-        )
-    )
-    callbacks.append(LearningRateMonitor(logging_interval='epoch'))
-    # Save checkpoints for minimum loss at specific lead times
-    # for unroll_time in constants.VAL_STEP_CHECKPOINTS:
-    #     metric_name = f"val_loss_unroll{unroll_time}"
-    #     callbacks.append(
-    #         pl.callbacks.ModelCheckpoint(
-    #             dirpath=f"saved_models/{run_name}",
-    #             filename=f"min_{metric_name}",
-    #             monitor=metric_name,
-    #             mode="min",
-    #         )
-    #     )
-    logger = pl.loggers.WandbLogger(
-        project=args.wandb_project, name=run_name, config=args
-    )
-    print(f"Wandb logger: {logger}")
+    for c in range(lq_means.shape[1]):
+        plt.figure(figsize=(10,4))
+        plt.hist(lq_means[:, c].numpy(), bins=50, alpha=0.5, label="LQ")
+        plt.hist(hq_means[:, c].numpy(), bins=50, alpha=0.5, label="HQ")
+        plt.title(f"Channel {c} mean distribution")
+        plt.xlabel("Spatial mean")
+        plt.ylabel("Frequency")
+        plt.legend()
+        plt.savefig(f'plots_data/channel_{c}_mean_dist.png')
+        plt.close()
 
-    # Training strategy
-    # If doing pure autoencoder training (kl_beta = 0), the prior network is not
-    # used at all in producing the loss. This is desired, but DDP complains.
-    strategy = "ddp" if args.kl_beta > 0 else "ddp_find_unused_parameters_true"
+    for c in range(lq_means.shape[1]):
+        plt.figure(figsize=(10,4))
+        plt.hist(lq_sums[:, c].numpy(), bins=50, alpha=0.5, label="LQ")
+        plt.hist(hq_sums[:, c].numpy(), bins=50, alpha=0.5, label="HQ")
+        plt.title(f"Channel {c} sum distribution")
+        plt.xlabel("Spatial mean")
+        plt.ylabel("Frequency")
+        plt.legend()
+        plt.savefig(f'plots_data/channel_{c}_sum_dist.png')
+        plt.close()
 
-    # profiler = AdvancedProfiler(dirpath=".", filename="perf_logs") # Profiler for performance logging
+    # save to files
+    torch.save({
+        'lq_means': lq_means,
+        'hq_means': hq_means,
+        'lq_sums': lq_sums,
+        'hq_sums': hq_sums
+    }, "stats/field_stats.pt")
 
-    trainer = pl.Trainer(
-        max_epochs=args.epochs,
-        deterministic=True,
-        strategy=strategy,
-        accelerator=device_name,
-        logger=logger,
-        log_every_n_steps=1,
-        callbacks=callbacks,
-        check_val_every_n_epoch=args.val_interval,
-        precision=args.precision,
-        # profiler="simple",
-    )
-
-    # Only init once, on rank 0 only
-    if trainer.global_rank == 0:
-        print("Initializing wandb metrics...")
-        utils.init_wandb_metrics(
-            logger, args.val_steps_to_log
-        )  # Do after wandb.init
-
-    if args.eval:
-        # if args.diffusion_model == "edm":
-        #     model = torch.compile(model)
-
-        if args.eval == "val":
-            eval_loader = val_loader
-        else:  # Test
-            eval_loader = torch.utils.data.DataLoader(
-                NetCDFDataset(
-                    start_date=config_loader.dataset.test_start_date,
-                    end_date=config_loader.dataset.test_end_date,
-                    input_path=config_loader.dataset.input_path,
-                    input_files=config_loader.dataset.input_files,
-                    ground_truth_path=config_loader.dataset.ground_truth_path,
-                    ground_truth_files=config_loader.dataset.ground_truth_files,
-                    ground_truth_stats_path=config_loader.dataset.ground_truth_stats_path,
-                    levels=config_loader.dataset.levels,
-                    is_inference_dataset=False,
-                    normalize_ground_truth=config_loader.dataset.normalize_ground_truth,
-                    subset_ds=args.subset_ds,
-                    upscale_inputs=config_loader.dataset.upscale_inputs,
-                    static_fields_files=config_loader.dataset.static_fields_files,
-                    interpolation_mode=config_loader.dataset.interpolation_mode,
-                    coordinate_names=config_loader.dataset.coordinate_names,
-                    provide_coordinates=config_loader.dataset.provide_coordinates,
-                    provide_day_of_year=config_loader.dataset.provide_day_of_year
-                ),
-                args.batch_size,
-                shuffle=False,
-                num_workers=args.n_workers,
-                pin_memory=True,
-                persistent_workers=True,
-            )
-
-        print(f"Running evaluation on {args.eval}")
-        trainer.test(model=model, dataloaders=eval_loader, ckpt_path=args.load)
-    else:
-        # Train model
-        trainer.fit(
-            model=model,
-            train_dataloaders=train_loader,
-            val_dataloaders=val_loader,  # No validation during training for diffusion model
-            ckpt_path=args.load,
-        )
-
+    # Optionally save as numpy for general use
+    np.savez("stats/field_stats.npz",
+            lq_means=lq_means.numpy(),
+            hq_means=hq_means.numpy(),
+            lq_sums=lq_sums.numpy(),
+            hq_sums=hq_sums.numpy())
 
 if __name__ == "__main__":
     main()

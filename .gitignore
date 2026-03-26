@@ -32,6 +32,9 @@ output*/
 *.pdf
 *.png
 *.out
+analysis/
+plots_data/
+stats/
 
 ### Python ###
 # Byte-compiled / optimized / DLL files

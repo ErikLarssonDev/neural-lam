@@ -112,8 +112,9 @@ class SI(ARModel):
         assert not bad(numer)
         assert not bad(denom)
         return numer / denom
+    
 
-    def EM(self, base=None, label=None, cond=None, diffusion_fn=None):
+    def EM(self, base=None, label=None, cond=None, diffusion_fn=None, ESM=None):
         steps = self.sampler_steps
         tmin, tmax = self.t_min_sampling, self.t_max_sampling
         ts = torch.linspace(tmin, tmax, steps).type_as(base)
@@ -127,7 +128,7 @@ class SI(ARModel):
         # otherwise, for a desired diffusion coefficient, do the model surgery to define
         # the correct drift coefficient
 
-        def step_fn(xt, t, label):
+        def step_fn(xt, t):
             D = self.I.interpolant_coefs({'t': t, 'zt': xt, 'z0': base})
 
             bF = self.model(xt, t, cond)
@@ -145,12 +146,66 @@ class SI(ARModel):
                 f = bF
                 g = sigma
 
+            # ---- Add mass-conservation guidance ----
+            if ESM is not None and self.args.conserve_mass_w > 0:
+                B, C, H, W = xt.shape
+                H_low, W_low = ESM.shape[2], ESM.shape[3]
+                h_block, w_block = H // H_low, W // W_low
+
+                # downsample high-res xt to low-res grid
+                xt_down = xt.reshape(B, C, H_low, h_block, W_low, w_block).mean(dim=(3,5))
+                resid = xt_down - ESM[:, self.config_loader.dataset.downscaling_idx,...]  # [B, C, H_low, W_low]
+
+                # upsample residual to high-res
+                resid_up = resid.repeat_interleave(h_block, dim=2).repeat_interleave(w_block, dim=3)
+                # resid_up is now [B, C, H, W], ready to use
+
+                # per-pixel scaling by contribution to block
+                block_sum = xt.reshape(B, C, H_low, h_block, W_low, w_block).sum(dim=(3,5), keepdim=True)
+                block_sum_up = block_sum.repeat_interleave(h_block, dim=3).repeat_interleave(w_block, dim=5)
+                block_sum_up = block_sum_up.permute(0,1,2,4,3,5).reshape(B,C,H,W)
+                block_sum_up = torch.clamp(block_sum_up, min=1e-6)
+
+                guidance = resid_up # (xt / block_sum_up) * resid_up
+
+                # add to drift
+                f = f - self.args.conserve_mass_w * guidance
+            # ----------------------------------------
+
             mu = xt + f * dt
             xt = mu + g * torch.randn_like(mu) * dt.sqrt()
             return xt, mu  # return sample and its mean
 
+        def langevin_corrector(x, t, snr=0.3, n_steps=1):
+            if n_steps < 1:
+                return x
+
+
+            for _ in range(n_steps):
+                x = x.detach()
+                D = self.I.interpolant_coefs({'t': t, 'zt': x, 'z0': base})
+                bF = self.model(x, t, cond)
+                D['bF'] = bF
+                score = self.drift_to_score(D)
+
+                noise = torch.randn_like(x)
+                grad_norm = torch.norm(score.reshape(
+                    score.shape[0], -1), dim=1).mean()
+                noise_norm = torch.norm(noise.reshape(
+                    noise.shape[0], -1), dim=1).mean()
+                print(
+                    f"SNR: {snr}, grad_norm: {grad_norm}, noise_norm: {noise_norm}")
+
+                # step_size = (snr * noise_norm / grad_norm)
+                step_size = (snr * noise_norm / grad_norm) ** 2
+                # step_size = (snr * noise_norm / grad_norm) ** 2 * 2
+
+                x = x + step_size * score + torch.sqrt(2 * step_size) * noise
+
+            return x
+
         # TODO: Only supporting the same diffusion function for now.
-        def step_fn_2(xt, t, t1, label):
+        def step_fn_2(xt, t, t1):
             bF = self.model(xt, t, cond)
 
             mu1 = xt + bF * dt
@@ -177,10 +232,19 @@ class SI(ARModel):
 
             if self.sampler == 'euler_2' and i < len(ts) - 1:
                 xt, mu = step_fn_2(xt, tscalar * ones,
-                                   ts[i+1] * ones, label=label)
+                                   ts[i+1] * ones)
             else:
-                # print(f"Euler step {i+1} of {len(ts)}")
-                xt, mu = step_fn(xt, tscalar * ones, label=label)
+                xt, mu = step_fn(xt, tscalar * ones)
+
+            if tscalar > self.args.corr_tmin:
+                print(f"Doing corrector step at t: {tscalar}")
+                xt = langevin_corrector(
+                    xt,
+                    tscalar * ones,
+                    snr=self.args.snr,  
+                    n_steps=self.args.correction_steps  
+                )
+
             if self.save_steps:
                 save_dir = 'diffusion_steps'
                 t = len(ts) - i
@@ -260,7 +324,7 @@ class SI(ARModel):
 
     # ----------------------------------------------------------------------------
 
-    def predict_step(self, LQ):
+    def predict_step(self, LQ, ESM=None):
         """
         Downscaling weather state
         LQ: (B, d_f, X, Y)
@@ -277,7 +341,11 @@ class SI(ARModel):
         D['cond'] = LQ
 
         # definently_sample
-        EM_args = {'base': D['z0'], 'label': D['label'], 'cond': D['cond']}
+        EM_args = {'base': D['z0'],
+                    'label': D['label'],
+                    'cond': D['cond'],
+                    'ESM': ESM
+                    }
 
         # list diffusion funcs
         # None means use the one you trained with
@@ -336,7 +404,7 @@ class SI(ARModel):
 
         return output.permute(0, 2, 3, 1).flatten(1, 2), None, loss
 
-    def unroll_prediction(self, LQ):
+    def unroll_prediction(self, LQ, ESM=None):
         """
         Roll out prediction taking multiple autoregressive steps with model
         LQ: (B, d_f, X, Y)
@@ -350,7 +418,7 @@ class SI(ARModel):
         pred_steps = 1
 
         for i in range(pred_steps):
-            pred_state, pred_std = self.predict_step(LQ)
+            pred_state, pred_std = self.predict_step(LQ, ESM)
 
             prediction_list.append(pred_state)
             if self.output_std:
@@ -457,6 +525,7 @@ class SI(ARModel):
         self,
         LQ,
         num_traj,
+        ESM=None
     ):
         """
         LQ: (B, d_f, X, Y)
@@ -471,7 +540,7 @@ class SI(ARModel):
         traj_list = []
         for i in range(num_traj):
             traj = unroll_func(
-                LQ,
+                LQ, ESM
             )
 
             traj_list.append(traj)
@@ -534,6 +603,7 @@ class SI(ARModel):
             trajectories, _ = self.sample_trajectories(
                 LQ,
                 self.ensemble_size,
+                ESM=batch["ESM"]
             )
         else:
             trajectories = prediction
@@ -718,6 +788,7 @@ class SI(ARModel):
         trajectories, traj_stds = self.sample_trajectories(
             LQ,
             self.ensemble_size,
+            ESM=batch["ESM"]
         )
 
         spread_squared_batch = metrics.spread_squared(

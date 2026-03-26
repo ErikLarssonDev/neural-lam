@@ -214,13 +214,13 @@ class NetCDFDataset(Dataset):
         input_batch_data = self.get_batch(self.input_datasets, idx)
         if self.upscale_inputs:
             # Add temporary batch dimension: [1, C, H, W]
-            input_batch_data = input_batch_data.unsqueeze(0)
-            input_batch_data = F.interpolate(
-                input_batch_data, size=self.ground_truth_size, mode=self.interpolation_mode, align_corners=False)
+            LQ_batch_data = input_batch_data.unsqueeze(0)
+            LQ_batch_data = F.interpolate(
+                LQ_batch_data, size=self.ground_truth_size, mode=self.interpolation_mode, align_corners=False)
             # Remove temporary batch dimension: [C, H_out, W_out]
-            input_batch_data = input_batch_data.squeeze(0)
+            LQ_batch_data = LQ_batch_data.squeeze(0)
             # Concatenate the input data with static fields
-            input_components = [input_batch_data]
+            input_components = [LQ_batch_data]
             if self.static_data is not None:
                 input_components.append(self.static_data)
             if self.coord_grid is not None:
@@ -229,11 +229,9 @@ class NetCDFDataset(Dataset):
                 time_tensor = self.get_day_of_year_tensor(
                     idx, self.ground_truth_size[0], self.ground_truth_size[1])
                 input_components.append(time_tensor)
-            # print(f"Input data shape: {input_batch_data.shape}")
-            # print(f"Static data shape: {self.static_data.shape}")
-            # print(f"Coordinate grid shape: {self.coord_grid.shape}")
-            # print(f"Time tensor shape: {time_tensor.shape}")
-            input_batch_data = torch.cat(input_components, dim=0)
+            LQ_batch_data = torch.cat(input_components, dim=0)
+        else:
+            LQ_batch_data = input_batch_data
         if self.is_inference_dataset:
             return input_batch_data
         ground_truth_batch_data = self.get_batch(
@@ -248,7 +246,8 @@ class NetCDFDataset(Dataset):
         # return input_batch_data, ground_truth_batch_data
         states = {
             # "LQ": F.interpolate(input_batch_data.unsqueeze(0), size=(400, 550), mode='bilinear', align_corners=False).squeeze(0), # [B, 23, 40, 55] -> [B, 23, 400, 550], NOTE: We need the low-res input on the same grid as the high-res output
-            "LQ": input_batch_data,  # [B, n_input, 400, 550]
+            "ESM": input_batch_data, # [B, n_input, 40, 55]
+            "LQ": LQ_batch_data,  # [B, n_input, 400, 550]
             "HQ": ground_truth_batch_data,  # [B, 2, 400, 550]
             "date": current_date
         }

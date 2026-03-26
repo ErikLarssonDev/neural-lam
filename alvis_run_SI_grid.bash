@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH -J SI_corrector
+#SBATCH -J SI_grid
 #SBATCH -A NAISS2025-22-1196 -p alvis
 #SBATCH -N 1 --gpus-per-node=V100:1
-#SBATCH -t 01:00:00
+#SBATCH -t 05:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=erila85@liu.se
 #SBATCH --output ./slurm_logs/%A_%x.out
@@ -60,10 +60,35 @@ SI_50e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_
 #     --restore_opt \
 
 # Testing SI with static input data
+SAMPLER_STEPS_LIST=(100)
+CORRECTION_STEPS_LIST=(1)
+SNR_LIST=(0.01 0.05 0.1 0.3)
+CORR_TMIN_LIST=(0.02 0.05 0.1)
+
+
+# =========================
+# LOOP
+# =========================
+
+for SAMPLER_STEPS in "${SAMPLER_STEPS_LIST[@]}"; do
+for CORRECTION_STEPS in "${CORRECTION_STEPS_LIST[@]}"; do
+for SNR in "${SNR_LIST[@]}"; do
+for CORR_TMIN in "${CORR_TMIN_LIST[@]}"; do
+
+RUN_NAME="--wandb_run_name SI_corr_ss${SAMPLER_STEPS}_cs${CORRECTION_STEPS}_snr${SNR}_ct${CORR_TMIN}"
+
+echo "======================================"
+echo "Running:"
+echo "sampler_steps=$SAMPLER_STEPS"
+echo "correction_steps=$CORRECTION_STEPS"
+echo "snr=$SNR"
+echo "corr_tmin=$CORR_TMIN"
+echo "======================================"
+
 python3 neural_lam/train_model.py \
     --model SI \
     --diffusion_model song_unet \
-    $RUN_NAME  \
+    $RUN_NAME \
     --n_workers 16 \
     --batch_size 1 \
     --epochs 50 \
@@ -71,10 +96,14 @@ python3 neural_lam/train_model.py \
     --load $SI_xsmall_25e \
     --eval val \
     --sampler euler \
-    --sampler_steps 40 \
+    --sampler_steps $SAMPLER_STEPS \
     --ensemble_size 5 \
-    --correction_steps 1 \
-    --snr 0.3 \
-    --corr_tmin 0.1 \
-    # --subset_ds \
-    # --data_config $DATA_CONFIG \
+    --correction_steps $CORRECTION_STEPS \
+    --snr $SNR \
+    --corr_tmin $CORR_TMIN \
+    --subset_ds
+
+done
+done
+done
+done
