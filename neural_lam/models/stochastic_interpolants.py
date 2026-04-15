@@ -351,6 +351,7 @@ class SI(ARModel):
         diffusion_fns = {
             'g_sigma': lambda t: self.args.sigma_coef_sampling * self.wide(1-t),
             'g_sigma_pow4': lambda t: self.args.sigma_coef_sampling * self.wide(1-t).pow(4),
+            'g_opt': lambda t: self.args.sigma_coef_sampling * self.wide((3-t)*(1-t)).sqrt()
         }
         if self.args.diffusion_fn is not None:
             diffusion_fn = diffusion_fns[self.args.diffusion_fn]
@@ -653,37 +654,37 @@ class SI(ARModel):
             self.plotted_examples += 1  # Increment already here
 
             # Save slices to wandb
-            os.makedirs(self.output_path, exist_ok=True)
+            # os.makedirs(self.output_path, exist_ok=True)
 
             # Save predictions to the output folder
-            if self.save_output:
-                print(f"Saving sample from {date} to {self.output_path}")
-                print(f"Shape of ens_mean_slice: {ens_mean_slice.shape}")
-                torch.save(ens_mean_slice.detach().cpu().contiguous(),
-                           f"{self.output_path}/ens_mean_{date}.pt")
-                torch.save(ens_std_slice.detach().cpu().contiguous(),
-                           f"{self.output_path}/ens_std_{date}.pt")
+            # if self.save_output:
+            #     print(f"Saving sample from {date} to {self.output_path}")
+            #     print(f"Shape of ens_mean_slice: {ens_mean_slice.shape}")
+            #     torch.save(ens_mean_slice.detach().cpu().contiguous(),
+            #                f"{self.output_path}/ens_mean_{date}.pt")
+            #     torch.save(ens_std_slice.detach().cpu().contiguous(),
+            #                f"{self.output_path}/ens_std_{date}.pt")
 
-                for ensemble_member in range(len(traj_slice)):
-                    tensor_to_save = traj_slice[ensemble_member].detach(
-                    ).cpu().contiguous()
-                    torch.save(
-                        tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
+            #     for ensemble_member in range(len(traj_slice)):
+            #         tensor_to_save = traj_slice[ensemble_member].detach(
+            #         ).cpu().contiguous()
+            #         torch.save(
+            #             tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
 
-                torch.save(target_slice.detach().cpu().contiguous(),
-                           f"{self.output_path}/target_{date}.pt")
+            #     torch.save(target_slice.detach().cpu().contiguous(),
+            #                f"{self.output_path}/target_{date}.pt")
 
-            if self.trainer.is_global_zero:
-                # Save files to wandb
-                if self.save_output_wandb:
-                    wandb.save(
-                        f"output/example_ens_mean_{self.plotted_examples}.pt")
-                    wandb.save(
-                        f"output/example_ens_std_{self.plotted_examples}.pt")
-                    wandb.save(
-                        f"output/example_ens_members_{self.plotted_examples}.pt")
-                    wandb.save(
-                        f"output/example_target_{self.plotted_examples}.pt")
+            # if self.trainer.is_global_zero:
+            #     # Save files to wandb
+            #     if self.save_output_wandb:
+            #         wandb.save(
+            #             f"output/example_ens_mean_{self.plotted_examples}.pt")
+            #         wandb.save(
+            #             f"output/example_ens_std_{self.plotted_examples}.pt")
+            #         wandb.save(
+            #             f"output/example_ens_members_{self.plotted_examples}.pt")
+            #         wandb.save(
+            #             f"output/example_target_{self.plotted_examples}.pt")
 
             # Note: min and max values can not be in ensemble mean
             var_vmin = (
@@ -887,7 +888,7 @@ class SI(ARModel):
                     prediction=trajectories,
                 )
                 # Decrease counter, we don't want to increase it in the validation step
-                self.plotted_examples -= 1
+                # self.plotted_examples -= 1
 
     def log_spsk_ratio(self, metric_vals, prefix):
         """
@@ -1068,13 +1069,13 @@ class SI(ARModel):
                 S_noise * randn_like(x_cur, device=latents.device)
 
             # Euler step.
-            denoised = self.forward(x_hat, t_hat, class_labels=class_labels)
+            denoised = self._forward(x_hat, t_hat, class_labels=class_labels)
             d_cur = (x_hat - denoised) / t_hat
             x_next = x_hat + (t_next - t_hat) * d_cur
 
             # Apply 2nd order correction.
             if i < num_steps - 1:
-                denoised = self.forward(
+                denoised = self._forward(
                     x_next, t_next, class_labels=class_labels)
                 d_prime = (x_next - denoised) / t_next
                 x_next = x_hat + (t_next - t_hat) * \
@@ -1105,13 +1106,13 @@ class SI(ARModel):
         # 0, ..., N-1
         for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])):
             x_cur = x_next
-            denoised = self.forward(x_cur, t_cur, class_labels=class_labels)
+            denoised = self._forward(x_cur, t_cur, class_labels=class_labels)
             d_cur = (x_cur - denoised) / t_cur
             x_next = x_cur + (t_next - t_cur) * d_cur
 
             # Apply 2nd order correction.
             if i < num_steps - 1:
-                denoised = self.forward(
+                denoised = self._forward(
                     x_next, t_next, class_labels=class_labels)
                 d_prime = (x_next - denoised) / t_next
                 x_next = x_cur + (t_next - t_cur) * \
@@ -1149,7 +1150,7 @@ class SI(ARModel):
             sigma_hat = sigmas[i] * (gamma + 1)
             if gamma > 0:
                 x = x + (sigma_hat**2 - sigmas[i] ** 2) ** 0.5 * noise
-            denoised = self.forward(x, sigma_hat, class_labels=class_labels)
+            denoised = self._forward(x, sigma_hat, class_labels=class_labels)
 
             if i == len(sigmas) - 2:
                 # final Euler step
@@ -1166,14 +1167,14 @@ class SI(ARModel):
 
                 u = sigma_mid / sigma_hat * x - \
                     (torch.exp(-r * h) - 1) * denoised
-                denoised_2 = self.forward(
+                denoised_2 = self._forward(
                     u, sigma_mid, class_labels=class_labels)
                 D = (1 - 1 / (2 * r)) * denoised + 1 / (2 * r) * denoised_2
                 x = sigmas[i + 1] / sigma_hat * x - (torch.exp(-h) - 1) * D
 
         return x, None
 
-    def forward(self, x, sigma, class_labels=None, force_fp32=False, **model_kwargs):
+    def _forward(self, x, sigma, class_labels=None, force_fp32=False, **model_kwargs):
         return self.model(x, sigma, class_labels=class_labels, **model_kwargs)
 
 
