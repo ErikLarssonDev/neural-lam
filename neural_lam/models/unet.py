@@ -48,7 +48,7 @@ class UNET(ARModel):
 
         z = torch.ones((LQ.shape[0], 1, 1, 1), device=LQ.device)
         sample = self.model(LQ, z)
-
+        
         return sample.permute(0, 2, 3, 1).flatten(1, 2), None
 
     def test_step(self, batch, batch_idx):
@@ -138,5 +138,6 @@ class UNET(ARModel):
         Compute test metrics and make plots at the end of test epoch.
         Will gather stored tensors and perform plotting and logging on rank 0.
         """
+        print("On test epoch end")
         # Create error maps for all test metrics
         self.aggregate_and_plot_metrics(self.test_metrics, prefix="test")

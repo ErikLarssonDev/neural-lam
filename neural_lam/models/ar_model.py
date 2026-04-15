@@ -131,6 +131,9 @@ class ARModel(pl.LightningModule):
         if x.dim() == 3:
             return x
         return x.unsqueeze(0).expand(batch_size, -1, -1)
+    
+    def forward(self, LQ):
+        return self.predict_step(LQ)
 
     def predict_step(self, LQ):
         """
@@ -263,6 +266,7 @@ class ARModel(pl.LightningModule):
         """
         Compute val metrics at the end of val epoch
         """
+        self.plotted_examples = 0 # We want to restart each epoch
         # Create error maps for all test metrics
         self.aggregate_and_plot_metrics(self.val_metrics, prefix="val")
 
@@ -468,20 +472,20 @@ class ARModel(pl.LightningModule):
         log_dict: dict with everything to log for given metric
         """
         log_dict = {}
-        # metric_fig = vis.plot_error_map(
-        #    metric_tensor,
-        #    self.config_loader,
-        #    step_length=self.step_length,
-        # )
+        metric_fig = vis.plot_error_map(
+           metric_tensor,
+           self.config_loader,
+           step_length=self.step_length,
+        )
         full_log_name = f"{prefix}_{metric_name}"
-        # log_dict[full_log_name] = wandb.Image(metric_fig)
+        log_dict[full_log_name] = wandb.Image(metric_fig)
         log_dict[f"{full_log_name}_data"] = torch.mean(metric_tensor)
 
-        if prefix == "test":
+        if self.args.eval is not None:
             # Save pdf
-            # metric_fig.savefig(
-            #    os.path.join(wandb.run.dir, f"{full_log_name}.pdf")
-            # )
+            metric_fig.savefig(
+               os.path.join(wandb.run.dir, f"{full_log_name}.pdf")
+            )
             # Save errors also as csv
             np.savetxt(
                 os.path.join(wandb.run.dir, f"{full_log_name}.csv"),
@@ -512,8 +516,10 @@ class ARModel(pl.LightningModule):
             with step-evals.
         prefix: string, prefix to use for logging
         """
+        print("Aggregating and plotting metrics")
         log_dict = {}
         for metric_name, metric_val_list in metrics_dict.items():
+            print(f"Metric name: {metric_name}")
             metric_tensor = self.all_gather_cat(
                 torch.cat(metric_val_list, dim=0)
             )  # (N_eval, pred_steps, d_f)
@@ -540,6 +546,7 @@ class ARModel(pl.LightningModule):
                 )
 
         if self.trainer.is_global_zero and not self.trainer.sanity_checking:
+            print(f"Logged to wandb")
             wandb.log(log_dict)  # Log all
             plt.close("all")  # Close all figs
 

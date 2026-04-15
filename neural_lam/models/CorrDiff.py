@@ -403,33 +403,33 @@ class CorrDiff(ARModel):
             os.makedirs(self.output_path, exist_ok=True)
 
             # Save predictions to the output folder
-            if self.save_output:
-                print(f"Saving sample from {date} to {self.output_path}")
-                print(f"Shape of ens_mean_slice: {ens_mean_slice.shape}")
-                torch.save(ens_mean_slice.detach().cpu().contiguous(),
-                           f"{self.output_path}/ens_mean_{date}.pt")
-                torch.save(ens_std_slice.detach().cpu().contiguous(),
-                           f"{self.output_path}/ens_std_{date}.pt")
+            # if self.save_output:
+            #     print(f"Saving sample from {date} to {self.output_path}")
+            #     print(f"Shape of ens_mean_slice: {ens_mean_slice.shape}")
+            #     torch.save(ens_mean_slice.detach().cpu().contiguous(),
+            #                f"{self.output_path}/ens_mean_{date}.pt")
+            #     torch.save(ens_std_slice.detach().cpu().contiguous(),
+            #                f"{self.output_path}/ens_std_{date}.pt")
 
-                for ensemble_member in range(len(traj_slice)):
-                    tensor_to_save = traj_slice[ensemble_member].detach(
-                    ).cpu().contiguous()
-                    torch.save(
-                        tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
+            #     for ensemble_member in range(len(traj_slice)):
+            #         tensor_to_save = traj_slice[ensemble_member].detach(
+            #         ).cpu().contiguous()
+            #         torch.save(
+            #             tensor_to_save, f"{self.output_path}/member_{ensemble_member}_{date}.pt")
 
-                torch.save(target_slice.detach().cpu().contiguous(),
-                           f"{self.output_path}/target_{date}.pt")
+            #     torch.save(target_slice.detach().cpu().contiguous(),
+            #                f"{self.output_path}/target_{date}.pt")
 
-                # Save files to wandb
-                if self.save_output_wandb:
-                    wandb.save(
-                        f"output/example_ens_mean_{self.plotted_examples}.pt")
-                    wandb.save(
-                        f"output/example_ens_std_{self.plotted_examples}.pt")
-                    wandb.save(
-                        f"output/example_ens_members_{self.plotted_examples}.pt")
-                    wandb.save(
-                        f"output/example_target_{self.plotted_examples}.pt")
+            #     # Save files to wandb
+            #     if self.save_output_wandb:
+            #         wandb.save(
+            #             f"output/example_ens_mean_{self.plotted_examples}.pt")
+            #         wandb.save(
+            #             f"output/example_ens_std_{self.plotted_examples}.pt")
+            #         wandb.save(
+            #             f"output/example_ens_members_{self.plotted_examples}.pt")
+            #         wandb.save(
+            #             f"output/example_target_{self.plotted_examples}.pt")
 
             # Note: min and max values can not be in ensemble mean
             var_vmin = (
@@ -461,19 +461,19 @@ class CorrDiff(ARModel):
             plots_dir = os.path.join("plots", "init_slices")
             os.makedirs(plots_dir, exist_ok=True)
             # init_slice shape: (pred_steps, N_grid, n_cond) or (1, N_grid, n_cond)
-            n_cond = init_slice.shape[-1]
-            for cond_i in range(n_cond):
-                # take the first (and usually only) time step / entry
-                vec = init_slice[0, :, cond_i]
-                fig, ax = plt.subplots(figsize=(6, 6))
-                # plot_on_axis handles flattened grid vectors
-                vis.plot_on_axis(ax, vec)
-                ax.set_title(
-                    f"init_slice_cond{cond_i}_example{self.plotted_examples}", fontsize=12)
-                fname = os.path.join(
-                    plots_dir, f"init_slice_example{self.plotted_examples}_cond{cond_i}.png")
-                fig.savefig(fname, bbox_inches="tight", dpi=150)
-                plt.close(fig)
+            # n_cond = init_slice.shape[-1]
+            # for cond_i in range(n_cond):
+            #     # take the first (and usually only) time step / entry
+            #     vec = init_slice[0, :, cond_i]
+            #     fig, ax = plt.subplots(figsize=(6, 6))
+            #     # plot_on_axis handles flattened grid vectors
+            #     vis.plot_on_axis(ax, vec)
+            #     ax.set_title(
+            #         f"init_slice_cond{cond_i}_example{self.plotted_examples}", fontsize=12)
+            #     fname = os.path.join(
+            #         plots_dir, f"init_slice_example{self.plotted_examples}_cond{cond_i}.png")
+            #     fig.savefig(fname, bbox_inches="tight", dpi=150)
+            #     plt.close(fig)
             init_slice = init_slice[:, :,
                                     self.config_loader.dataset.downscaling_idx]
 
