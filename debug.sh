@@ -14,8 +14,9 @@ python3 neural_lam/train_model.py \
     --sampler euler \
     --sampler_steps 40 \
     --ensemble_size 5 \
-    --conserve_mass_w 0.01 \
-    --correction_steps 0 \
-    --snr 0.3 \
-    --corr_tmin 0.5 \
     --subset_ds \
+    --diffusion_fn g_opt \
+    # --conserve_mass_w 0.01 \
+    # --correction_steps 0 \
+    # --snr 0.3 \
+    # --corr_tmin 0.5 \
