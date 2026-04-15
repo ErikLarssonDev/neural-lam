@@ -464,8 +464,6 @@ def main(input_args=None):
         help="Path to checkpoint of mean model to load in CorrDiff (default: '')",
     )
 
-
-
     # Logger Settings
     parser.add_argument(
         "--wandb_project",
@@ -505,7 +503,6 @@ def main(input_args=None):
     )
 
     args = parser.parse_args(input_args)
-    print(args)
     args.var_leads_metrics_watch = {
         int(k): v for k, v in json.loads(args.var_leads_metrics_watch).items()
     }
@@ -604,6 +601,7 @@ def main(input_args=None):
     )
     
     args.output_path = os.path.join(args.output_path, run_name)
+    os.makedirs(args.output_path, exist_ok=True)
     
     # Load model parameters Use new args for model
     model_class = MODELS[args.model]
