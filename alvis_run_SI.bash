@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH -J SI_corrector
+#SBATCH -J SI_13_var_150e
 #SBATCH -A NAISS2025-22-1196 -p alvis
-#SBATCH -N 1 --gpus-per-node=V100:1
-#SBATCH -t 01:00:00
+#SBATCH -N 1 --gpus-per-node=A100fat:4
+#SBATCH -t 72:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=erila85@liu.se
 #SBATCH --output ./slurm_logs/%A_%x.out
@@ -17,7 +17,7 @@
 
 export HDF5_USE_FILE_LOCKING=FALSE
 
-RUN_NAME="--wandb_run_name SI_corrector"
+RUN_NAME="--wandb_run_name SI_13_var_100e"
     
 # Activate environment
 source ~/.bashrc
@@ -42,8 +42,25 @@ DATA_CONFIG="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/neural_lam/
 
 SI_25e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_13_var-SI-6x128-03_23_14-4660/last.ckpt"
 SI_50e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_13_var-SI-6x128-03_24_10-0270/last.ckpt"
-
+SI_75e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_13_var-SI-6x128-03_25_12-7982/last.ckpt"
+SI_100e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_13_var-SI-6x128-04_17_11-4866/last.ckpt"
 # Training
+python3 neural_lam/train_model.py \
+    --model SI \
+    --diffusion_model song_unet \
+    $RUN_NAME  \
+    --data_config $DATA_CONFIG \
+    --n_workers 16 \
+    --batch_size 4 \
+    --epochs 150 \
+    --lr 0.00001 \
+    --sampler euler \
+    --sampler_steps 50 \
+    --val_interval 5 \
+    --load $SI_100e \
+    --restore_opt \
+
+# Testing SI with static input data
 # python3 neural_lam/train_model.py \
 #     --model SI \
 #     --diffusion_model song_unet \
@@ -54,27 +71,8 @@ SI_50e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/SI_
 #     --epochs 75 \
 #     --lr 0.00001 \
 #     --sampler euler \
-#     --sampler_steps 50 \
+#     --sampler_steps 100 \
 #     --val_interval 5 \
-#     --load $SI_50e \
+#     --load $SI_100e \
 #     --restore_opt \
-
-# Testing SI with static input data
-python3 neural_lam/train_model.py \
-    --model SI \
-    --diffusion_model song_unet \
-    $RUN_NAME  \
-    --n_workers 16 \
-    --batch_size 1 \
-    --epochs 50 \
-    --lr 0.00001 \
-    --load $SI_xsmall_25e \
-    --eval val \
-    --sampler euler \
-    --sampler_steps 40 \
-    --ensemble_size 5 \
-    --correction_steps 1 \
-    --snr 0.3 \
-    --corr_tmin 0.1 \
-    # --subset_ds \
-    # --data_config $DATA_CONFIG \
+#     --eval val \

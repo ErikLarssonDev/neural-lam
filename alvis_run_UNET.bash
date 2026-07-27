@@ -1,15 +1,15 @@
 #!/bin/bash
 #SBATCH -J UNET_13_var
 #SBATCH -A NAISS2025-22-1196 -p alvis
-#SBATCH -N 1 --gpus-per-node=A100:4
-#SBATCH -t 20:00:00
+#SBATCH -N 1 --gpus-per-node=A100:1
+#SBATCH -t 72:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=erila85@liu.se
 #SBATCH --output ./slurm_logs/%A_%x.out
 
 export HDF5_USE_FILE_LOCKING=FALSE
 
-RUN_NAME="--wandb_run_name UNET_13_var"
+RUN_NAME="--wandb_run_name UNET_13_var_50e"
     
 # Activate environment
 source ~/.bashrc
@@ -32,10 +32,11 @@ UNET_xxsmall="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_mode
 DATA_CONFIG="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/neural_lam/clim_config_2.yaml"
 
 UNET_25e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/UNET_13_var-unet-6x128-03_24_02-5844/last.ckpt"
+UNET_50e="/mimer/NOBACKUP/groups/mlhighres/users/erifh/neural-lam/saved_models/UNET_13_var-unet-6x128-03_25_06-5352/last.ckpt"
 
-python3 neural_lam/train_model.py --model unet $RUN_NAME --data_config $DATA_CONFIG --n_workers 16 --batch_size 2 --epochs 50 --lr 0.00001 --val_interval 5 --load $UNET_25e --restore_opt
+# python3 neural_lam/train_model.py --model unet $RUN_NAME --data_config $DATA_CONFIG --n_workers 16 --batch_size 2 --epochs 50 --lr 0.00001 --val_interval 5 --load $UNET_25e --restore_opt --eval val
 
-# python3 neural_lam/train_model.py --model unet $RUN_NAME --data_config $DATA_CONFIG --n_workers 16 --batch_size 10 --epochs 25 --lr 0.00001 --val_interval 10 --eval val --load $UNET_xxsmall
+python3 neural_lam/train_model.py --model unet $RUN_NAME --data_config $DATA_CONFIG --n_workers 16 --batch_size 10 --epochs 25 --lr 0.00001 --val_interval 10 --eval val --load $UNET_50e
 
 # Big model 50 epochs -> 29 hours.
 # Big model 25 epochs -> 15 hours. 20 hours on 3 GPUs.
