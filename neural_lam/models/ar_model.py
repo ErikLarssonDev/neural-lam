@@ -28,8 +28,9 @@ class ARModel(pl.LightningModule):
         self.config_loader = config.Config.from_file(args.data_config)
 
         # The data is already normalized to zero mean and unit std.-dev.
-        self.data_mean = torch.tensor(0.0)
-        self.data_std = torch.tensor(1.0)
+        # TODO: Make sure that the actual data mean and std. are stored in the model, so that we can rescale predictions to original scale for plotting and evaluation
+        self.register_buffer("data_mean", torch.tensor(0.0))
+        self.register_buffer("data_std", torch.tensor(1.0))
 
         # TODO: Check if we need this
         # Load static features for grid/data
@@ -366,8 +367,8 @@ class ARModel(pl.LightningModule):
             0, 2, 3, 1).contiguous().flatten(1, 2).unsqueeze(1)
 
         # Rescale to original data scale
-        prediction_rescaled = prediction  # * self.data_std + self.data_mean
-        target_rescaled = target_states  # * self.data_std + self.data_mean
+        prediction_rescaled = prediction * self.data_std + self.data_mean
+        target_rescaled = target_states * self.data_std + self.data_mean
         initial_states_rescaled = initial_states
 
         # Iterate over the examples
@@ -530,7 +531,7 @@ class ARModel(pl.LightningModule):
                     metric_name = metric_name[: -len("_squared")]
 
                 # Note: we here assume rescaling for all metrics is linear
-                metric_rescaled = metric_tensor_averaged  # * self.data_std
+                metric_rescaled = metric_tensor_averaged * self.data_std
                 # (pred_steps, d_f)
                 log_dict.update(
                     self.create_metric_log_dict(
